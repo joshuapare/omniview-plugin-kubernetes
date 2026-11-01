@@ -127,7 +127,7 @@ func TestNativeParityRepresentationProjection(t *testing.T) {
 			assert.Equal(t, "kept", record.Body.Map["spec"].Map["value"].String)
 			if model {
 				assert.Equal(t, "partial", record.Coverage.Kind)
-				assert.Empty(t, record.Coverage.Paths)
+				assert.Equal(t, []string{"/metadata/managedFields"}, record.Coverage.Paths)
 				assert.Equal(t, "Kubernetes model projection omits metadata.managedFields", record.Coverage.Reason)
 			} else {
 				assert.Equal(t, "complete", record.Coverage.Kind)

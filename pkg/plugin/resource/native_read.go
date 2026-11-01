@@ -303,7 +303,7 @@ func nativeRecord(object *unstructured.Unstructured, address resourcev2.Resource
 
 func nativeRepresentationCoverage(representation resourcev2.Representation) resourcev2.Coverage {
 	if strings.HasPrefix(representation.ID, nativeModelRepresentationVersion+"/") {
-		return resourcev2.Coverage{Kind: "partial", Paths: []string{}, Reason: "Kubernetes model projection omits metadata.managedFields"}
+		return resourcev2.Coverage{Kind: "partial", Paths: []string{"/metadata/managedFields"}, Reason: "Kubernetes model projection omits metadata.managedFields"}
 	}
 	return nativeCompleteCoverage()
 }

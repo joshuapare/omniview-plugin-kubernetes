@@ -579,33 +579,56 @@ func TestNativeActionConversionErrorsPropagate(t *testing.T) {
 
 func TestHelmEditorSchemaCanonicalBinding(t *testing.T) {
 	document := []byte(`{"$schema":"http://json-schema.org/draft-07/schema#","type":"object","properties":{"replicas":{"type":"integer"}}}`)
-	schema, size, err := helmEditorSchema(document, "helm://connection/chart/1/values-schema", "**/helm:releases/release.yaml")
+	schema, size, err := helmEditorSchema(document, "default/release")
 	require.NoError(t, err)
 	assert.Equal(t, ReleaseType, schema.Type)
+	assert.Equal(t, "default/release", schema.Key)
+	assert.Equal(t, "yaml", schema.Language)
 	assert.Equal(t, "available", schema.Binding.State)
-	assert.Equal(t, "http://json-schema.org/draft-07/schema#", schema.Binding.Dialect)
+	assert.Equal(t, resource.DialectJSONSchemaDraft07, schema.Binding.Dialect)
 	assert.Empty(t, schema.Binding.Root)
 	assert.Nil(t, schema.Binding.DocumentRef)
 	assert.Equal(t, document, []byte(schema.Binding.Document))
-	assert.Equal(t, "none", schema.Binding.Validation)
 	assert.Greater(t, size, len(document))
 	require.NotNil(t, schema.Binding.Revision)
-	same, _, err := helmEditorSchema(document, "helm://other/chart", "*.yaml")
+	same, _, err := helmEditorSchema(document, "other/release")
 	require.NoError(t, err)
 	assert.Equal(t, *schema.Binding.Revision, *same.Binding.Revision)
 	_, err = resource.ToProtoEditorSchema(schema)
 	require.NoError(t, err)
 }
 
+func TestHelmEditorSchemaDialectDerivation(t *testing.T) {
+	cases := []struct {
+		name     string
+		document string
+		dialect  string
+	}{
+		{"absent", `{"type":"object"}`, resource.DialectJSONSchemaDraft07},
+		{"boolean schema", `true`, resource.DialectJSONSchemaDraft07},
+		{"draft-07 http with fragment", `{"$schema":"http://json-schema.org/draft-07/schema#"}`, resource.DialectJSONSchemaDraft07},
+		{"draft-07 https without fragment", `{"$schema":"https://json-schema.org/draft-07/schema"}`, resource.DialectJSONSchemaDraft07},
+		{"2020-12 https", `{"$schema":"https://json-schema.org/draft/2020-12/schema"}`, resource.DialectJSONSchema202012},
+		{"2020-12 http with fragment", `{"$schema":"http://json-schema.org/draft/2020-12/schema#"}`, resource.DialectJSONSchema202012},
+		{"unknown latest", `{"$schema":"http://json-schema.org/schema#"}`, "http://json-schema.org/schema#"},
+		{"2019-09 raw", `{"$schema":"https://json-schema.org/draft/2019-09/schema"}`, "https://json-schema.org/draft/2019-09/schema"},
+		{"schemeless raw", `{"$schema":"json-schema.org/draft-07/schema#"}`, "json-schema.org/draft-07/schema#"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			schema, _, err := helmEditorSchema([]byte(tc.document), "ns/release")
+			require.NoError(t, err)
+			assert.Equal(t, tc.dialect, schema.Binding.Dialect)
+		})
+	}
+}
+
 func TestHelmEditorSchemaFiniteAndHonest(t *testing.T) {
-	schema, _, err := helmEditorSchema([]byte(`{"type":"object"}`), "helm://chart", "*.yaml")
-	require.NoError(t, err)
-	assert.Equal(t, "helm-json-schema", schema.Binding.Dialect)
-	_, _, err = helmEditorSchema([]byte(`{`), "helm://chart", "*.yaml")
+	_, _, err := helmEditorSchema([]byte(`{`), "ns/release")
 	assert.Equal(t, "INVALID_REQUEST", resource.ErrorCode(err))
-	_, _, err = helmEditorSchema([]byte(`[]`), "helm://chart", "*.yaml")
+	_, _, err = helmEditorSchema([]byte(`[]`), "ns/release")
 	assert.Equal(t, "INVALID_REQUEST", resource.ErrorCode(err))
-	_, _, err = helmEditorSchema([]byte(`{}`), strings.Repeat("x", resource.MaxDocumentBytes/6), "*.yaml")
+	_, _, err = helmEditorSchema([]byte(`{}`), strings.Repeat("x", resource.MaxDocumentBytes/6))
 	assert.Equal(t, "RESOURCE_LIMIT", resource.ErrorCode(err))
 }
 

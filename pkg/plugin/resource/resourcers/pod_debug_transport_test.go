@@ -48,7 +48,7 @@ func TestPodDebugAmbiguousWritePreservesC02ErrorThroughGRPC(t *testing.T) {
 			pod := NewPodResourcer(zap.NewNop().Sugar())
 			actions, err := pod.GetActions(context.Background(), &clients.ClientSet{KubeClient: native})
 			require.NoError(t, err)
-			representation := resource.Representation{ID: "debug-pod", Revision: "1", Schema: resource.SchemaBinding{State: "absent", Validation: "none", Unvalidated: []string{}}}
+			representation := resource.Representation{ID: "debug-pod", Revision: "1", Schema: resource.SchemaBinding{State: "absent"}}
 			descriptor := resource.ResourceType{
 				Type: "k8s:/pods", IdentityDimensions: []resource.Dimension{{Name: "namespace"}}, QueryDimensions: []resource.Dimension{{Name: "namespace"}},
 				Representations: []resource.Representation{representation}, DefaultRepresentation: representation.ID,

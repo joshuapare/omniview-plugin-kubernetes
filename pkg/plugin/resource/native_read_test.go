@@ -29,7 +29,7 @@ var nativeTestGVR = schema.GroupVersionResource{Group: "sample.example", Version
 func nativeTestRepresentation() resourcev2.Representation {
 	return resourcev2.Representation{
 		ID: "native", Revision: "native/v1",
-		Schema: resourcev2.SchemaBinding{State: "absent", Validation: "none", Unvalidated: []string{}},
+		Schema: resourcev2.SchemaBinding{State: "absent"},
 	}
 }
 
