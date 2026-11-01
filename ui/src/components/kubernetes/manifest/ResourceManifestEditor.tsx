@@ -24,6 +24,7 @@ export interface ResourceManifestEditorProps {
   editing?: boolean;
   disabled?: boolean;
   filename?: string;
+  path?: string;
   baseline?: string;
   diff?: boolean;
   context?: string;
@@ -36,7 +37,7 @@ const labels: Record<string, string> = {
   selector: 'Workload selector', routes: 'Routes', tls: 'TLS', entries: 'Entries', credentials: 'Credentials',
 };
 
-export default function ResourceManifestEditor({ value, onChange, resourceKey, editing = false, disabled = false, filename = 'resource.yaml', baseline, diff = false, context, connectionID, onValidityChange }: ResourceManifestEditorProps) {
+export default function ResourceManifestEditor({ value, onChange, resourceKey, editing = false, disabled = false, filename = 'resource.yaml', path, baseline, diff = false, context, connectionID, onValidityChange }: ResourceManifestEditorProps) {
   const draft = useMemo(() => inspectManifest(value, resourceKey), [value, resourceKey]);
   const container = useContext(ResourcePortalContext);
   const modelID = useId();
@@ -120,7 +121,7 @@ export default function ResourceManifestEditor({ value, onChange, resourceKey, e
                   : <WorkloadForm {...formProps} section={activeSection as WorkloadSection} />}
       </div>
     </div> : <div className={styles.code}>
-      <CodeEditor key={secret ? diff ? 'secret-diff' : raw ? 'secret-raw' : 'secret-preview' : diff ? 'diff' : 'source'} filename={secret ? `${raw ? 'raw-secret' : diff ? 'redacted-secret-diff' : 'redacted-secret'}/${filename}` : filename} path={secret && !diff ? `inmemory://omniview-secret/${encodeURIComponent(modelID)}/${raw ? 'raw' : 'preview'}/${encodeURIComponent(filename)}` : undefined} language="yaml" value={secret && raw ? value : codeValue} onChange={secret && (!raw || diff) ? undefined : (next) => {
+      <CodeEditor key={secret ? diff ? 'secret-diff' : raw ? 'secret-raw' : 'secret-preview' : diff ? 'diff' : 'source'} filename={secret ? `${raw ? 'raw-secret' : diff ? 'redacted-secret-diff' : 'redacted-secret'}/${filename}` : filename} path={secret ? (!diff ? `inmemory://omniview-secret/${encodeURIComponent(modelID)}/${raw ? 'raw' : 'preview'}/${encodeURIComponent(filename)}` : undefined) : path} language="yaml" value={secret && raw ? value : codeValue} onChange={secret && (!raw || diff) ? undefined : (next) => {
         if (secret && raw) setDisclosure({ identity, source: next, mode: 'raw' });
         onChange(next);
       }} readOnly={disabled || (secret && (!raw || diff))} diff={diff} original={original} height="100%" />

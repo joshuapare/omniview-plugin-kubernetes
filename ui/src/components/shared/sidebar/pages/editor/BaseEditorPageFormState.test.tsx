@@ -8,6 +8,7 @@ import BaseEditorPage from './BaseEditorPage';
 const mocks = vi.hoisted(() => ({ mutate: vi.fn() }));
 vi.mock('@omniviewdev/runtime', () => ({
   useResourceMutations: () => ({ mutate: mocks.mutate }),
+  useResourceEditorModelPath: () => undefined,
   useResourceTypes: () => ({ resourceTypes: { data: [{ type: 'k8s:/configmaps', capabilities: [{ operation: 'mutationUpdate', scope: [] }] }] } }),
   jsonToValue: (value: unknown) => value,
   valueToJSON: (value: unknown) => value,

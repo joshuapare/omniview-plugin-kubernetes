@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('@omniviewdev/runtime', () => ({
   useResourceMutations: () => ({ mutate: mocks.mutate }),
+  useResourceEditorModelPath: () => undefined,
   useResourceTypes: () => ({ resourceTypes: { data: [{ type: 'k8s:/pods', capabilities: mocks.capabilities }] } }),
   jsonToValue: mocks.encode,
   valueToJSON: (value: unknown) => value,

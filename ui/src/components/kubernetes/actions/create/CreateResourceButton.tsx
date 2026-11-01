@@ -1,5 +1,5 @@
 import { Button } from '@omniviewdev/base-ui';
-import { jsonToValue, useResourceMutations, useResourceTypes } from '@omniviewdev/runtime';
+import { jsonToValue, useResourceEditorModelPath, useResourceMutations, useResourceTypes } from '@omniviewdev/runtime';
 import { ResourceClient } from '@omniviewdev/runtime/api';
 import React from 'react';
 import { LuPlus } from 'react-icons/lu';
@@ -23,6 +23,7 @@ const CreateResourceButton: React.FC<Props> = ({ connectionID, resourceKey, sele
   const [isPreparing, setIsPreparing] = React.useState(false);
   const [template, setTemplate] = React.useState(getTemplate());
   const route = { connection: connectionID };
+  const editorPath = useResourceEditorModelPath({ pluginID: PLUGIN_ID, route, type: resourceKey, name: 'create' });
   const { resourceTypes } = useResourceTypes({ pluginID: PLUGIN_ID, route });
   const descriptor = resourceTypes.data?.find((entry) => entry.type === resourceKey);
   const label = descriptor?.displayName ?? resourceKey;
@@ -108,7 +109,7 @@ const CreateResourceButton: React.FC<Props> = ({ connectionID, resourceKey, sele
         {isPreparing ? 'Preparing...' : `Create ${label}`}
       </Button>
       <CreateResourceModal key={JSON.stringify([connectionID, resourceKey])} open={open} onClose={() => setOpen(false)} resourceKey={resourceKey}
-        resourceName={label} template={template} onCreate={handleCreate} isCreating={isCreating} context={connectionID} connectionID={connectionID} />
+        resourceName={label} template={template} onCreate={handleCreate} isCreating={isCreating} context={connectionID} connectionID={connectionID} editorPath={editorPath} />
     </>
   );
 };

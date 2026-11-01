@@ -1,5 +1,5 @@
 import { Button, Stack } from '@omniviewdev/base-ui';
-import { jsonToValue, valueToJSON, parseAppError, useResourceMutations, useResourceTypes, type DrawerContext } from '@omniviewdev/runtime';
+import { jsonToValue, valueToJSON, parseAppError, useResourceEditorModelPath, useResourceMutations, useResourceTypes, type DrawerContext } from '@omniviewdev/runtime';
 import React from 'react';
 import { LuFileCode, LuSave, LuX } from 'react-icons/lu';
 import { stringify, parse } from 'yaml';
@@ -24,6 +24,10 @@ export const BaseEditorPage: React.FC<Props> = ({ ctx }) => {
 const ResourceEditor: React.FC<{ data: KubernetesResourceObject; resource: Resource }> = ({ data, resource }) => {
   const { mutate } = useResourceMutations({ pluginID: resource.pluginID });
   const { resourceTypes } = useResourceTypes({ pluginID: resource.pluginID, route: resource.route });
+  const editorPath = useResourceEditorModelPath({
+    pluginID: resource.pluginID, route: resource.route, type: resource.reference.address.type,
+    representation: resource.representation, name: 'draft',
+  });
   const descriptor = resourceTypes.data?.find((type) => type.type === resource.reference.address.type);
   const canUpdate = descriptor?.capabilities.some((capability) => capability.operation === 'mutationUpdate'
     && capability.scope.every((constraint) => constraint.match === 'any'
@@ -127,6 +131,7 @@ const ResourceEditor: React.FC<{ data: KubernetesResourceObject; resource: Resou
         resourceKey={resource.reference.address.type}
         context={resource.reference.address.id}
         filename={`${resource.reference.address.id}/spec.yaml`}
+        path={editorPath}
         onChange={(next) => { if (!busy.current) { setValue(next); setError(undefined); } }}
       />
       {unavailable && <div role="status">{unavailable}</div>}
