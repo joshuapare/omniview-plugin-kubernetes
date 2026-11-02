@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     resources: vi.fn(),
     query: vi.fn(async () => ({})),
     loading: false,
+    sourceError: false,
     firstData: { records: [first, second] },
     targetId: 'host-target',
   };
@@ -66,11 +67,12 @@ function MetricsConsumer({ columnVisibility, children }: PropsWithChildren<{ col
 
 beforeEach(() => {
   mocks.loading = false;
+  mocks.sourceError = false;
   mocks.targetId = 'host-target';
   mocks.resources.mockReset();
   mocks.resources.mockImplementation(({ request }) => {
     const data = mocks.loading ? undefined : mocks.firstData;
-    return { acquired: data ? { request, page: data } : undefined, resources: {
+    return { sourceError: mocks.sourceError, acquired: data ? { request, page: data } : undefined, resources: {
       data,
       isLoading: mocks.loading, isFetching: mocks.loading, isSuccess: !mocks.loading, refetch: vi.fn(),
     } };
@@ -79,6 +81,13 @@ beforeEach(() => {
 afterEach(() => { client.clear(); localStorage.clear(); mocks.query.mockClear(); });
 
 describe('resource collection selections', () => {
+  it('shows retained resources when source updates fail', () => {
+    mocks.sourceError = true;
+    render(<ResourceTable connectionID="connection" resourceKey="helm:charts" columns={columns} />);
+    expect(screen.getByText('Live updates unavailable. Showing the last acquired resources.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'host-first' })).toBeTruthy();
+  });
+
   it('selects host keys across the collection without source-page controls', () => {
     render(<ResourceTable connectionID="connection" resourceKey="helm:charts" columns={columns} />);
     fireEvent.click(screen.getByRole('button', { name: 'host-first' }));

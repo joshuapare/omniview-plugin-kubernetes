@@ -1,5 +1,5 @@
 import { Avatar, Button, IconButton, Stack, Text } from '@omniviewdev/base-ui';
-import { Link, useWatchState, openGlobalSearch,
+import { Link, useSourceStates, openGlobalSearch,
   useConnection,
   useResourceTypes,
   useResourceGroups,
@@ -14,7 +14,7 @@ import { Outlet, useParams } from 'react-router';
 import { PLUGIN_ID } from '@/pluginId';
 import ResourceNavTree from '../components/kubernetes/sidebar/ResourceNavTree';
 import ResourceRequestLauncher from '../components/kubernetes/manifest/ResourceRequestLauncher';
-import { SidebarWatchStateProvider } from '../components/kubernetes/sidebar/SidebarWatchBadge';
+import { SidebarSourceStateProvider } from '../components/kubernetes/sidebar/SidebarWatchBadge';
 import SimpleTooltip from '../components/shared/SimpleTooltip';
 import SyncProgressDialog from '../components/shared/SyncProgressDialog';
 import { useClusterPreferences } from '../hooks/useClusterPreferences';
@@ -155,7 +155,11 @@ function ClusterResourcesSession({ id }: { id: string }): React.ReactElement {
     },
     [setSavedExpandedState],
   );
-  const { isFullySynced, summary } = useWatchState({ pluginID: PLUGIN_ID, route: { connection: id } });
+  const { isFullySynced, summary } = useSourceStates({ pluginID: PLUGIN_ID, route: { connection: id } });
+  const sourceStates = React.useMemo(
+    () => Object.fromEntries(Object.entries(summary?.types ?? {}).map(([key, status]) => [key, status.state])),
+    [summary?.types],
+  );
 
   // Fetch and register OpenAPI schemas with the host's Monaco schema registry
   const { schemas: editorSchemas, documents: editorSchemaDocuments } = useEditorSchemas({ pluginID: PLUGIN_ID, route: { connection: id } });
@@ -185,7 +189,7 @@ function ClusterResourcesSession({ id }: { id: string }): React.ReactElement {
   const [syncModalMode, setSyncModalMode] = React.useState<
     'pending' | 'auto' | 'manual' | 'closed'
   >('pending');
-  if (syncModalMode === 'pending' && summary.data) {
+  if (syncModalMode === 'pending' && summary) {
     setSyncModalMode(isFullySynced ? 'closed' : 'auto');
   }
   const syncModalOpen = syncModalMode === 'auto' || syncModalMode === 'manual';
@@ -334,7 +338,7 @@ function ClusterResourcesSession({ id }: { id: string }): React.ReactElement {
             </Stack>
           </div>
           <ResourceRequestLauncher connectionID={id} />
-          <SidebarWatchStateProvider states={summary.data?.resources}>
+          <SidebarSourceStateProvider states={sourceStates}>
             <ResourceNavTree
               sections={layout}
               selected={selected}
@@ -345,7 +349,7 @@ function ClusterResourcesSession({ id }: { id: string }): React.ReactElement {
               initialExpandedState={savedExpandedState}
               onExpandedChange={handleExpandedChange}
             />
-          </SidebarWatchStateProvider>
+          </SidebarSourceStateProvider>
         </Stack>
       </Layout.SideNav>
       <Layout.Main style={mainStyle}>

@@ -64,7 +64,7 @@ func newKubernetesProvider(logger *zap.SugaredLogger, retireMetrics func(string)
 		logger:          logger,
 	}
 	controller, err := resourcev2.NewController(resourcev2.Config[clients.ClientSet]{
-		DynamicUpdates:      true,
+		DynamicSources:      true,
 		Catalog:             provider.catalog,
 		Registrations:       append(provider.helmAncillary.Registrations(), auditRegistration()),
 		ResolveRegistration: provider.registration,
@@ -272,11 +272,7 @@ func (p *kubernetesProvider) nativeRegistration(route resourcev2.AccessRoute, bi
 	}
 	if verbSliceContains(binding.API.Verbs, "list") && verbSliceContains(binding.API.Verbs, "watch") {
 		watcher := resourcers.NewKubernetesResourcerBase[resourcers.MetaAccessor](p.logger, binding.GVR)
-		registration.Watch = watcher.Watch
-		registration.SyncPolicy = resourcev2.SyncOnConnect
-		if token == "k8s:/events" || token == "k8s:events.k8s.io/events" {
-			registration.SyncPolicy = resourcev2.SyncOnFirstQuery
-		}
+		registration.Source = watcher.Source
 	}
 	return registration
 }

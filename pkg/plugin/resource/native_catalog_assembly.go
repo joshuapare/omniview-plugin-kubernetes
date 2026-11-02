@@ -61,7 +61,8 @@ func (p *kubernetesProvider) assembleNativeCatalog(ctx context.Context, connecti
 			if binding.API.Namespaced {
 				scope = watchScope
 			}
-			binding.Descriptor.Capabilities = append(binding.Descriptor.Capabilities, resourcev2.Capability{Operation: resourcev2.OperationUpdate, Scope: scope, Guarantee: resourcev2.BestEffortGuarantee})
+			binding.Descriptor.Capabilities = append(binding.Descriptor.Capabilities, resourcev2.Capability{Operation: resourcev2.OperationSourceUpdates, Scope: scope, Guarantee: resourcev2.ContinuityBestEffort})
+			binding.Descriptor.AcquireOnConnect = token != "k8s:/events" && token != "k8s:events.k8s.io/events"
 		}
 		if binding.API.Namespaced {
 			for index := range binding.Descriptor.Capabilities {

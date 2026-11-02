@@ -115,7 +115,7 @@ func (h *HelmAncillary) enumerateReleases(ctx context.Context, c *clients.Client
 	if err != nil {
 		return resource.SourcePage{}, err
 	}
-	page := resource.SourcePage{Records: make([]resource.Record, 0, len(metadata.Items)), Count: resource.Count{Kind: "unknown"}, Coverage: resource.Coverage{Kind: "complete"}, Consistency: "bestEffort"}
+	page := resource.SourcePage{Records: make([]resource.Record, 0, len(metadata.Items)), Count: resource.Count{Kind: "unknown"}, Coverage: resource.Coverage{Kind: "complete"}, Consistency: resource.ConsistencyBestEffort}
 	if metadata.Continue != "" {
 		page.NextCursor = &metadata.Continue
 	}

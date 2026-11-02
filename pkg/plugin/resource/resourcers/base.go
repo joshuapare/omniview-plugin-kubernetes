@@ -4,8 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
+	"math/rand/v2"
+	"net/http"
+	"net/url"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/omniview/kubernetes/pkg/plugin/resource/clients"
@@ -15,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -31,30 +36,26 @@ type KubernetesResourcerBase[T MetaAccessor] struct {
 	sync.RWMutex
 	log           *zap.SugaredLogger
 	resourceType  schema.GroupVersionResource
-	syncPolicy    resource.SyncPolicy
 	relationships []resource.RelationshipDescriptor
 }
 type Option func(*baseOptions)
 type baseOptions struct {
-	syncPolicy    resource.SyncPolicy
 	relationships []resource.RelationshipDescriptor
 }
 
-func WithSyncPolicy(p resource.SyncPolicy) Option { return func(o *baseOptions) { o.syncPolicy = p } }
 func WithRelationships(r []resource.RelationshipDescriptor) Option {
 	return func(o *baseOptions) { o.relationships = r }
 }
 func NewKubernetesResourcerBase[T MetaAccessor](logger *zap.SugaredLogger, nativeType schema.GroupVersionResource, opts ...Option) *KubernetesResourcerBase[T] {
-	o := baseOptions{syncPolicy: resource.SyncOnConnect}
+	o := baseOptions{}
 	for _, apply := range opts {
 		apply(&o)
 	}
-	return &KubernetesResourcerBase[T]{log: logger.With("service", nativeType.Resource+"Service"), resourceType: nativeType, syncPolicy: o.syncPolicy, relationships: o.relationships}
+	return &KubernetesResourcerBase[T]{log: logger.With("service", nativeType.Resource+"Service"), resourceType: nativeType, relationships: o.relationships}
 }
 func (s *KubernetesResourcerBase[T]) GroupVersionResource() schema.GroupVersionResource {
 	return s.resourceType
 }
-func (s *KubernetesResourcerBase[T]) SyncPolicy() resource.SyncPolicy { return s.syncPolicy }
 func (s *KubernetesResourcerBase[T]) DeclareRelationships() []resource.RelationshipDescriptor {
 	return s.relationships
 }
@@ -92,13 +93,13 @@ func classifyWatchError(err error) watchErrorClassification {
 	if errors.As(err, &status) {
 		switch status.ErrStatus.Code {
 		case 403:
-			return watchErrorClassification{isForbidden: true, code: "FORBIDDEN", message: "Access denied: " + status.ErrStatus.Message}
+			return watchErrorClassification{isForbidden: true, code: "FORBIDDEN", message: "Access denied"}
 		case 401:
-			return watchErrorClassification{isForbidden: true, code: "UNAUTHORIZED", message: "Authentication failed: " + status.ErrStatus.Message}
+			return watchErrorClassification{isForbidden: true, code: "UNAUTHORIZED", message: "Authentication failed"}
 		case 404:
-			return watchErrorClassification{isNotFound: true, code: "NOT_FOUND", message: "Resource type not found: " + status.ErrStatus.Message}
+			return watchErrorClassification{isNotFound: true, code: "NOT_FOUND", message: "Resource type not found"}
 		case 405:
-			return watchErrorClassification{isMethodNotAllowed: true, code: "METHOD_NOT_ALLOWED", message: "Resource does not support this method: " + status.ErrStatus.Message}
+			return watchErrorClassification{isMethodNotAllowed: true, code: "UNSUPPORTED", message: "Resource does not support this method"}
 		}
 	}
 	return watchErrorClassification{code: "UNKNOWN", message: err.Error()}
@@ -127,11 +128,16 @@ func watchRecord(target resource.ReadTarget, representation resource.Representat
 	return record, nil
 }
 
-// makeEventHandler forwards advisory informer events. It does not claim replay,
-// gap detection, or an atomic finite snapshot/update boundary.
-func makeEventHandler(ctx context.Context, target resource.ReadTarget, representation resource.Representation, sink resource.WatchEventSink) cache.ResourceEventHandlerFuncs {
-	emit := func(obj interface{}, kind string) {
-		if ctx.Err() != nil {
+const sourceQueueCapacity = 4096
+
+type sourceEvent struct {
+	kind   string
+	object *unstructured.Unstructured
+}
+
+func makeSourceHandler(ctx context.Context, events chan<- sourceEvent, overflow *atomic.Bool) cache.ResourceEventHandlerFuncs {
+	enqueue := func(obj interface{}, kind string) {
+		if ctx.Err() != nil || overflow.Load() {
 			return
 		}
 		u, ok := obj.(*unstructured.Unstructured)
@@ -145,22 +151,14 @@ func makeEventHandler(ctx context.Context, target resource.ReadTarget, represent
 				return
 			}
 		}
-		record, err := watchRecord(target, representation, u)
-		if err != nil {
-			sink.OnStateChange(resource.WatchStateEvent{Route: target.Route, Type: target.Type, State: resource.WatchStateError, Count: resource.Count{Kind: "unknown"}, Error: &resource.ResourceOperationError{Code: "INVALID_RESPONSE", Message: "native update cannot be represented"}, Guarantee: resource.BestEffortGuarantee})
-			return
-		}
-		switch kind {
-		case "add":
-			sink.OnAdd(resource.WatchAddPayload{Route: target.Route, Record: record, Metadata: extractMetadata(u), Guarantee: resource.BestEffortGuarantee})
-		case "update":
-			sink.OnUpdate(resource.WatchUpdatePayload{Route: target.Route, Record: record, Metadata: extractMetadata(u), Guarantee: resource.BestEffortGuarantee})
-		case "delete":
-			sink.OnDelete(resource.WatchDeletePayload{Route: target.Route, Reference: record.Reference, LastKnown: &record, Guarantee: resource.BestEffortGuarantee})
+		select {
+		case events <- sourceEvent{kind: kind, object: u}:
+		default:
+			overflow.Store(true)
 		}
 	}
 	return cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) { emit(obj, "add") },
+		AddFunc: func(obj interface{}) { enqueue(obj, "add") },
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			u, ok := newObj.(*unstructured.Unstructured)
 			if !ok || u == nil {
@@ -179,9 +177,9 @@ func makeEventHandler(ctx context.Context, target resource.ReadTarget, represent
 					return
 				}
 			}
-			emit(u, "update")
+			enqueue(u, "update")
 		},
-		DeleteFunc: func(obj interface{}) { emit(obj, "delete") },
+		DeleteFunc: func(obj interface{}) { enqueue(obj, "delete") },
 	}
 }
 
@@ -219,163 +217,301 @@ func watchNamespaces(scope resource.QueryScope) ([]string, error) {
 	}
 }
 
-// Watch leases native sources for this consumer's lifetime. The caller supplies
-// the host-issued target and the actual catalog representation, never an inferred identity.
-func (s *KubernetesResourcerBase[T]) Watch(ctx context.Context, client *clients.ClientSet, target resource.ReadTarget, representation resource.Representation, sink resource.WatchEventSink) error {
-	if client == nil || client.DynamicClient == nil || sink == nil {
-		return fmt.Errorf("client and watch sink are required")
+var sourceLivenessInterval = 10 * time.Second
+
+type sourceHealthMonitor struct {
+	cancel    context.CancelFunc
+	unhealthy chan struct{}
+	done      chan struct{}
+	refs      int
+}
+
+var sourceHealthMonitors = struct {
+	sync.Mutex
+	clients map[*clients.ClientSet]*sourceHealthMonitor
+}{clients: make(map[*clients.ClientSet]*sourceHealthMonitor)}
+
+// acquireSourceHealth shares a cancellable probe across all following sessions.
+func acquireSourceHealth(ctx context.Context, client *clients.ClientSet) (<-chan struct{}, func(), error) {
+	for {
+		sourceHealthMonitors.Lock()
+		monitor := sourceHealthMonitors.clients[client]
+		if monitor != nil && monitor.refs == 0 {
+			done := monitor.done
+			sourceHealthMonitors.Unlock()
+			select {
+			case <-done:
+				continue
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			}
+		}
+		if monitor == nil {
+			monitorCtx, cancel := context.WithCancel(context.Background())
+			monitor = &sourceHealthMonitor{cancel: cancel, unhealthy: make(chan struct{}), done: make(chan struct{})}
+			sourceHealthMonitors.clients[client] = monitor
+			interval := sourceLivenessInterval
+			go runSourceHealth(monitorCtx, client, monitor, interval)
+		}
+		monitor.refs++
+		sourceHealthMonitors.Unlock()
+		return monitor.unhealthy, func() {
+			sourceHealthMonitors.Lock()
+			monitor.refs--
+			if monitor.refs == 0 {
+				monitor.cancel()
+			}
+			sourceHealthMonitors.Unlock()
+		}, nil
+	}
+}
+
+func runSourceHealth(ctx context.Context, client *clients.ClientSet, monitor *sourceHealthMonitor, interval time.Duration) {
+	defer func() {
+		sourceHealthMonitors.Lock()
+		if sourceHealthMonitors.clients[client] == monitor {
+			delete(sourceHealthMonitors.clients, client)
+		}
+		close(monitor.done)
+		sourceHealthMonitors.Unlock()
+	}()
+	probe, setupErr := newSourceHealthProbe(client)
+	failures := 0
+	for {
+		// Spread connection probes over 80–120% of the nominal interval.
+		delay := time.Duration(float64(interval) * (0.8 + rand.Float64()*0.4))
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+		probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		err := setupErr
+		if err == nil {
+			err = probe(probeCtx)
+		}
+		cancel()
+		if ctx.Err() != nil {
+			return
+		}
+		if err == nil {
+			failures = 0
+			continue
+		}
+		failures++
+		if failures == 2 {
+			close(monitor.unhealthy)
+			// Keep the monitor until all subscribers have released it.
+			<-ctx.Done()
+			return
+		}
+	}
+}
+
+func newSourceHealthProbe(client *clients.ClientSet) (func(context.Context) error, error) {
+	if client.RESTConfig == nil {
+		return nil, fmt.Errorf("Kubernetes REST configuration is unavailable")
+	}
+	endpoint, err := url.Parse(client.RESTConfig.Host)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.Path = strings.TrimSuffix(endpoint.Path, "/") + "/version"
+	httpClient := client.HTTPClient
+	if httpClient == nil {
+		httpClient, err = rest.HTTPClientFor(client.RESTConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return func(ctx context.Context) error {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+		if err != nil {
+			return err
+		}
+		response, err := httpClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer response.Body.Close()
+		if response.StatusCode < 200 || response.StatusCode >= 300 {
+			return fmt.Errorf("Kubernetes health probe returned HTTP %d", response.StatusCode)
+		}
+		return nil
+	}, nil
+}
+
+// Source leases informer handlers for one source session.
+func (s *KubernetesResourcerBase[T]) Source(ctx context.Context, client *clients.ClientSet, request resource.SourceRequest, emit resource.SourceEmitter) error {
+	if client == nil || client.DynamicClient == nil || emit == nil {
+		return fmt.Errorf("client and source emitter are required")
 	}
 	lifetime := client.InformerShutdown()
-	ctx, stopWatch := context.WithCancel(ctx)
-	defer stopWatch()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go func() {
 		select {
 		case <-ctx.Done():
 		case <-lifetime:
-			stopWatch()
+			cancel()
 		}
 	}()
-	namespaces, err := watchNamespaces(target.Scope)
+	namespaces, err := watchNamespaces(request.Target.Scope)
 	if err != nil {
 		return err
 	}
-	emitState := func(state resource.WatchState, count int, failure error) {
-		observed := resource.Count{Kind: "unknown"}
-		if state == resource.WatchStateSynced {
-			value := strconv.Itoa(count)
-			observed = resource.Count{Kind: "estimate", Value: &value}
-		}
-		event := resource.WatchStateEvent{Route: target.Route, Type: target.Type, State: state, Count: observed, Guarantee: resource.BestEffortGuarantee}
-		if failure != nil {
-			classified := classifyWatchError(failure)
-			event.Message = classified.message
-			event.Error = &resource.ResourceOperationError{Code: classified.code, Message: classified.message}
-		}
-		sink.OnStateChange(event)
+	if len(namespaces) == 0 {
+		namespaces = []string{""}
 	}
-	probe := func(namespace string) error {
-		native := client.DynamicClient.Resource(s.resourceType)
-		if namespace != "" {
-			_, err := native.Namespace(namespace).List(ctx, metav1.ListOptions{Limit: 1})
-			return err
-		}
-		_, err := native.List(ctx, metav1.ListOptions{Limit: 1})
-		return err
-	}
-	probeNamespace := ""
-	if len(namespaces) != 0 {
-		probeNamespace = namespaces[0]
-	}
-	if err := probe(probeNamespace); err != nil {
-		classified := classifyWatchError(err)
-		if classified.isNotFound || classified.isMethodNotAllowed || (classified.isForbidden && len(namespaces) == 0) {
-			state := resource.WatchStateSkipped
-			if classified.isForbidden {
-				state = resource.WatchStateForbidden
-			}
-			emitState(state, 0, err)
-			<-ctx.Done()
-			return nil
-		}
-	}
-	type activeInformer struct {
-		namespace string
-		lease     *clients.InformerLease
-	}
-	active := make([]activeInformer, 0, len(namespaces)+1)
-	handler := makeEventHandler(ctx, target, representation, sink)
-	// Cleanup covers cancellation, failed sync, and partial setup alike.
+	events := make(chan sourceEvent, sourceQueueCapacity)
+	var overflow atomic.Bool
+	handler := makeSourceHandler(ctx, events, &overflow)
+	leases := make([]*clients.InformerLease, 0, len(namespaces))
 	defer func() {
-		for _, item := range active {
-			if err := item.lease.Close(); err != nil {
+		for _, lease := range leases {
+			if err := lease.Close(); err != nil {
 				s.log.Warnw("failed to retire watch source", "error", err)
 			}
 		}
 	}()
-	add := func(namespace string) error {
+	probe := func(ctx context.Context, namespace string) error {
+		native := client.DynamicClient.Resource(s.resourceType)
+		if namespace == "" {
+			_, err := native.List(ctx, metav1.ListOptions{Limit: 1})
+			return err
+		}
+		_, err := native.Namespace(namespace).List(ctx, metav1.ListOptions{Limit: 1})
+		return err
+	}
+	for _, namespace := range namespaces {
+		err = probe(ctx, namespace)
+		if err != nil {
+			classified := classifyWatchError(err)
+			if classified.isForbidden || classified.isNotFound || classified.isMethodNotAllowed {
+				return resource.NewError(classified.code, classified.message)
+			}
+			return err
+		}
 		lease, err := client.AcquireInformer(ctx, namespace, s.resourceType, handler)
 		if err != nil {
 			return err
 		}
-		active = append(active, activeInformer{namespace: namespace, lease: lease})
-		return nil
+		leases = append(leases, lease)
 	}
-	if len(namespaces) == 0 {
-		if err := add(""); err != nil {
-			return fmt.Errorf("failed to add event handler: %w", err)
-		}
-	} else {
-		for _, namespace := range namespaces {
-			if err := add(namespace); err != nil {
-				s.log.Warnw("failed to add namespace handler", "namespace", namespace, "error", err)
-			}
-		}
-	}
-	if len(active) == 0 {
-		emitState(resource.WatchStateForbidden, 0, fmt.Errorf("no accessible namespaces"))
-		<-ctx.Done()
-		return nil
-	}
-	emitState(resource.WatchStateSyncing, 0, nil)
-	syncCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	synced := 0
-	count := 0
-	var lastErr error
-	transientFailure := false
-	for index := range active {
-		item := &active[index]
-		if !cache.WaitForCacheSync(syncCtx.Done(), item.lease.HasSynced) {
+	syncCtx, stopSync := context.WithTimeout(ctx, 30*time.Second)
+	defer stopSync()
+	for _, lease := range leases {
+		if !cache.WaitForCacheSync(syncCtx.Done(), lease.HasSynced) {
 			if ctx.Err() != nil {
-				return nil
+				return ctx.Err()
 			}
-			lastErr = probe(item.namespace)
-			if lastErr == nil {
-				lastErr = fmt.Errorf("cache sync timed out")
-			}
-			classified := classifyWatchError(lastErr)
-			if len(namespaces) == 0 {
-				state := resource.WatchStateError
-				if classified.isForbidden {
-					state = resource.WatchStateForbidden
-				} else if classified.isNotFound || classified.isMethodNotAllowed {
-					state = resource.WatchStateSkipped
-				}
-				emitState(state, 0, lastErr)
-				if state != resource.WatchStateError {
-					<-ctx.Done()
-					return nil
-				}
-				return lastErr
-			}
-			if err := item.lease.Close(); err != nil {
-				s.log.Warnw("failed to retire unsynced watch source", "error", err)
-			}
-			if !classified.isForbidden && !classified.isNotFound && !classified.isMethodNotAllowed {
-				transientFailure = true
-			}
-			continue
-		}
-		synced++
-		items := item.lease.Informer.GetStore().List()
-		count += len(items)
-		for _, object := range items {
-			handler.OnAdd(object, true)
+			return resource.NewError("UNAVAILABLE", "informer cache sync timed out")
 		}
 	}
-	if synced == 0 {
-		state := resource.WatchStateForbidden
-		if transientFailure {
-			state = resource.WatchStateError
-		}
-		emitState(state, 0, lastErr)
-		if transientFailure {
-			return lastErr
-		}
-		<-ctx.Done()
-		return nil
+	reset := func() error {
+		return emit.Reset(ctx, resource.SourceResetOverflow, "informer event queue exceeded 4096 items")
 	}
-	emitState(resource.WatchStateSynced, count, nil)
-	<-ctx.Done()
-	return nil
+	if overflow.Load() {
+		return reset()
+	}
+	staging := make(map[string]*unstructured.Unstructured)
+	for n := len(events); n > 0; n-- {
+		event := <-events
+		key := event.object.GetNamespace() + "/" + event.object.GetName()
+		if event.kind == "delete" {
+			delete(staging, key)
+		} else {
+			staging[key] = event.object
+		}
+	}
+	observation := func(u *unstructured.Unstructured) (resource.SourceObservation, error) {
+		record, err := watchRecord(request.Target, request.Representation, u)
+		if err != nil {
+			return resource.SourceObservation{}, err
+		}
+		result := resource.SourceObservation{Record: record}
+		metadata := extractMetadata(u)
+		if len(metadata.Labels) != 0 || metadata.CreatedAt != nil {
+			result.Metadata = &metadata
+		}
+		return result, nil
+	}
+	batch := make([]resource.SourceObservation, 0, resource.MaxSourceBatchItems)
+	for _, u := range staging {
+		item, err := observation(u)
+		if err != nil {
+			return err
+		}
+		batch = append(batch, item)
+		if len(batch) == resource.MaxSourceBatchItems {
+			if overflow.Load() {
+				return reset()
+			}
+			if err := emit.Snapshot(ctx, batch); err != nil {
+				return err
+			}
+			batch = make([]resource.SourceObservation, 0, resource.MaxSourceBatchItems)
+		}
+	}
+	if overflow.Load() {
+		return reset()
+	}
+	if len(batch) != 0 {
+		if err := emit.Snapshot(ctx, batch); err != nil {
+			return err
+		}
+	}
+	if overflow.Load() {
+		return reset()
+	}
+	coverage := resource.SourceCoverage{
+		Enumeration: resource.EnumerationExhausted,
+		Consistency: resource.ConsistencyBestEffort,
+		Limitations: []string{"informer cache readiness is not a point-in-time snapshot", "startup events are reconciled by key, not by native revision handoff"},
+	}
+	if err := emit.EndSnapshot(ctx, coverage, resource.ContinuityBestEffort); err != nil {
+		return err
+	}
+	unhealthy, releaseHealth, err := acquireSourceHealth(ctx, client)
+	if err != nil {
+		return err
+	}
+	defer releaseHealth()
+	for {
+		if overflow.Load() {
+			return reset()
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-unhealthy:
+			return emit.Reset(ctx, resource.SourceResetContinuityLost, "Kubernetes API is unreachable; informer events are not being delivered")
+		case first := <-events:
+			changes := make([]resource.SourceChange, 0, request.Limits.MaxBatchItems)
+			event := first
+			for {
+				item, err := observation(event.object)
+				if err != nil {
+					return err
+				}
+				if event.kind == "delete" {
+					changes = append(changes, resource.SourceChange{Kind: resource.SourceChangeRemove, Reference: &item.Record.Reference, SourceRevision: item.Record.SourceRevision})
+				} else {
+					changes = append(changes, resource.SourceChange{Kind: resource.SourceChangeUpsert, Observation: &item})
+				}
+				if len(changes) >= int(request.Limits.MaxBatchItems) || len(events) == 0 {
+					break
+				}
+				event = <-events
+			}
+			if overflow.Load() {
+				return reset()
+			}
+			if err := emit.Changes(ctx, changes, nil); err != nil {
+				return err
+			}
+		}
+	}
 }

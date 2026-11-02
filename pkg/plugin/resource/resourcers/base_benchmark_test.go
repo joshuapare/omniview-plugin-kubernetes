@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -126,19 +127,6 @@ func newRepresentativeBenchmarkPod(b *testing.B, index int) *unstructured.Unstru
 	return pod
 }
 
-// benchmarkUpdateSink counts delivery without retaining every tagged record.
-// This measures native conversion and callback cost, not host SDK ingestion.
-type benchmarkUpdateSink struct {
-	updates int64
-}
-
-func (*benchmarkUpdateSink) OnAdd(resource.WatchAddPayload) {}
-func (s *benchmarkUpdateSink) OnUpdate(p resource.WatchUpdatePayload) {
-	s.updates++
-}
-func (*benchmarkUpdateSink) OnDelete(resource.WatchDeletePayload)   {}
-func (*benchmarkUpdateSink) OnStateChange(resource.WatchStateEvent) {}
-
 func BenchmarkMakeEventHandler_Update300Pods(b *testing.B) {
 	for _, mode := range []string{"Changed", "UnchangedReplay", "EmptyVersion"} {
 		b.Run(mode, func(b *testing.B) {
@@ -159,27 +147,31 @@ func BenchmarkMakeEventHandler_Update300Pods(b *testing.B) {
 					newPods[i].SetResourceVersion("")
 				}
 			}
-			sink := &benchmarkUpdateSink{}
-			// Invoke the exact handler used by both scoped and unscoped watches.
-			// Direct invocation isolates replay filtering from fake-client scheduling.
-			handler := makeEventHandler(context.Background(), testWatchTarget(), testWatchRepresentation(), sink)
+			events := make(chan sourceEvent, count)
+			var overflow atomic.Bool
+			handler := makeSourceHandler(context.Background(), events, &overflow)
+			delivered := 0
 			b.ReportAllocs()
 			b.ResetTimer()
 			for range b.N {
 				for i := range oldPods {
 					handler.UpdateFunc(oldPods[i], newPods[i])
 				}
+				delivered += len(events)
+				for len(events) != 0 {
+					<-events
+				}
 			}
 			b.StopTimer()
-			want := int64(b.N) * count
+			want := b.N * count
 			if mode == "UnchangedReplay" {
 				want = 0
 			}
-			if sink.updates != want {
-				b.Fatalf("delivered %d updates, want %d", sink.updates, want)
+			if delivered != want {
+				b.Fatalf("delivered %d updates, want %d", delivered, want)
 			}
 			b.ReportMetric(count, "pods/op")
-			b.ReportMetric(float64(sink.updates)/float64(b.N), "events/op")
+			b.ReportMetric(float64(delivered)/float64(b.N), "events/op")
 		})
 	}
 }

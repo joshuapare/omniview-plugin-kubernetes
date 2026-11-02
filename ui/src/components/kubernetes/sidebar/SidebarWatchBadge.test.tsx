@@ -1,39 +1,37 @@
-import { WatchState } from '@omniviewdev/runtime';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 
-import { SidebarWatchBadge, SidebarWatchStateProvider } from './SidebarWatchBadge';
+import { SidebarWatchBadge, SidebarSourceStateProvider } from './SidebarWatchBadge';
 
 describe('SidebarWatchBadge', () => {
-  it('tracks idle, syncing, errors, and removed states with error precedence', () => {
+  it('tracks syncing, failures, terminal and removed states with error precedence', () => {
     const keys = ['k8s:/pods', 'k8s:apps/deployments'];
     const badge = <SidebarWatchBadge resourceKeys={keys} />;
-    const view = render(<SidebarWatchStateProvider>{badge}</SidebarWatchStateProvider>);
+    const view = render(<SidebarSourceStateProvider>{badge}</SidebarSourceStateProvider>);
     expect(screen.queryByRole('status')).toBeNull();
-    for (const state of [WatchState.WatchStateIdle, WatchState.WatchStateSyncing]) {
+    for (const state of ['opening', 'snapshotting', 'resetRequired'] as const) {
       view.rerender(
-        <SidebarWatchStateProvider states={{ [keys[0]]: state }}>
+        <SidebarSourceStateProvider states={{ [keys[0]]: state }}>
           {badge}
-        </SidebarWatchStateProvider>,
+        </SidebarSourceStateProvider>,
       );
       expect(screen.getByLabelText('Resources syncing')).toBeTruthy();
     }
-    for (const state of [
-      WatchState.WatchStateError,
-      WatchState.WatchStateFailed,
-      WatchState.WatchStateForbidden,
-    ]) {
+    view.rerender(
+      <SidebarSourceStateProvider states={{ [keys[0]]: 'snapshotting', [keys[1]]: 'failed' }}>
+        {badge}
+      </SidebarSourceStateProvider>,
+    );
+    expect(screen.getByLabelText('Resource watch error')).toBeTruthy();
+    expect(screen.queryByLabelText('Resources syncing')).toBeNull();
+    for (const state of ['following', 'finished', 'closed'] as const) {
       view.rerender(
-        <SidebarWatchStateProvider
-          states={{ [keys[0]]: WatchState.WatchStateSyncing, [keys[1]]: state }}
-        >
-          {badge}
-        </SidebarWatchStateProvider>,
+        <SidebarSourceStateProvider states={{ [keys[0]]: state }}>{badge}</SidebarSourceStateProvider>,
       );
-      expect(screen.getByLabelText('Resource watch error')).toBeTruthy();
-      expect(screen.queryByLabelText('Resources syncing')).toBeNull();
+      expect(screen.queryByRole('status')).toBeNull();
+      expect(screen.queryByLabelText('Resource watch error')).toBeNull();
     }
-    view.rerender(<SidebarWatchStateProvider>{badge}</SidebarWatchStateProvider>);
+    view.rerender(<SidebarSourceStateProvider>{badge}</SidebarSourceStateProvider>);
     expect(screen.queryByLabelText('Resource watch error')).toBeNull();
   });
 
@@ -45,17 +43,17 @@ describe('SidebarWatchBadge', () => {
       </React.Profiler>
     );
     const view = render(
-      <SidebarWatchStateProvider states={{ pods: WatchState.WatchStateIdle }}>
+      <SidebarSourceStateProvider states={{ pods: 'opening' }}>
         {child}
-      </SidebarWatchStateProvider>,
+      </SidebarSourceStateProvider>,
     );
     renders.mockClear();
     view.rerender(
-      <SidebarWatchStateProvider
-        states={{ pods: WatchState.WatchStateSyncing, nodes: WatchState.WatchStateError }}
+      <SidebarSourceStateProvider
+        states={{ pods: 'snapshotting', nodes: 'failed' }}
       >
         {child}
-      </SidebarWatchStateProvider>,
+      </SidebarSourceStateProvider>,
     );
     expect(renders).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Resources syncing')).toBeTruthy();
@@ -68,14 +66,14 @@ describe('SidebarWatchBadge', () => {
         <SidebarWatchBadge resourceKeys={['pods', 'nodes', 'pods']} />
       </React.Profiler>
     );
-    const view = render(<SidebarWatchStateProvider>{child}</SidebarWatchStateProvider>);
+    const view = render(<SidebarSourceStateProvider>{child}</SidebarSourceStateProvider>);
     renders.mockClear();
     view.rerender(
-      <SidebarWatchStateProvider
-        states={{ pods: WatchState.WatchStateIdle, nodes: WatchState.WatchStateFailed }}
+      <SidebarSourceStateProvider
+        states={{ pods: 'opening', nodes: 'failed' }}
       >
         {child}
-      </SidebarWatchStateProvider>,
+      </SidebarSourceStateProvider>,
     );
     expect(renders).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText('Resource watch error')).toBeTruthy();
