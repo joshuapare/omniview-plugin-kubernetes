@@ -238,7 +238,6 @@ func TestSourceCanonicalConversionErrors(t *testing.T) {
 		})
 	}
 }
-
 func TestSourceLivenessProbe(t *testing.T) {
 	oldInterval := sourceLivenessInterval
 	sourceLivenessInterval = 20 * time.Millisecond
