@@ -142,6 +142,15 @@ func (d *DeploymentResourcer) GetActions(
 			Streaming:   true,
 		},
 		{
+			ID:           "rollout-restart",
+			Label:        "Rollout Restart",
+			Description:  "Restart all pods via a rolling update and return immediately; read the object to follow the rollout.",
+			Icon:         "LuRefreshCw",
+			Scope:        resource.ActionScopeInstance,
+			Dangerous:    true,
+			ParamsSchema: &resource.Schema{},
+		},
+		{
 			ID:          "scale",
 			Label:       "Scale",
 			Description: "Change the number of replicas",
@@ -160,6 +169,7 @@ func (d *DeploymentResourcer) GetActions(
 			Description: "Pause the current rollout",
 			Icon:        "LuPause",
 			Scope:       resource.ActionScopeInstance,
+			ParamsSchema: &resource.Schema{},
 		},
 		{
 			ID:          "resume",
@@ -167,6 +177,7 @@ func (d *DeploymentResourcer) GetActions(
 			Description: "Resume a paused rollout",
 			Icon:        "LuPlay",
 			Scope:       resource.ActionScopeInstance,
+			ParamsSchema: &resource.Schema{},
 		},
 	}, nil
 }
@@ -177,7 +188,7 @@ func (d *DeploymentResourcer) ExecuteAction(
 	input resource.ActionRequest,
 ) (resource.Value, error) {
 	switch input.Action {
-	case "restart":
+	case "rollout-restart":
 		return d.executeRestart(ctx, client, input)
 	case "scale":
 		return d.executeScale(ctx, client, input)

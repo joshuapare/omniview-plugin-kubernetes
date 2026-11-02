@@ -52,10 +52,12 @@ func TestStatefulSetResourcer_GetActions(t *testing.T) {
 	r := newTestStatefulSetResourcer()
 	actions, err := r.GetActions(context.Background(), nil)
 	require.NoError(t, err)
-	require.Len(t, actions, 2)
+	require.Len(t, actions, 3)
 
 	assert.Equal(t, "restart", actions[0].ID)
-	assert.Equal(t, "scale", actions[1].ID)
+	assert.Equal(t, "rollout-restart", actions[1].ID)
+	assert.False(t, actions[1].Streaming)
+	assert.Equal(t, "scale", actions[2].ID)
 
 	for _, a := range actions {
 		assert.Equal(t, resource.ActionScopeInstance, a.Scope)
@@ -71,7 +73,7 @@ func TestStatefulSetResourcer_Restart(t *testing.T) {
 	cs := newAppsStatefulSetClientSet(sts)
 	r := newTestStatefulSetResourcer()
 
-	result, err := r.ExecuteAction(context.Background(), cs, workloadActionRequest("restart", "redis", "default", nil))
+	result, err := r.ExecuteAction(context.Background(), cs, workloadActionRequest("rollout-restart", "redis", "default", nil))
 
 	require.NoError(t, err)
 	require.Equal(t, "map", result.Kind)
@@ -87,7 +89,7 @@ func TestStatefulSetResourcer_Restart_NotFound(t *testing.T) {
 	cs := newAppsStatefulSetClientSet()
 	r := newTestStatefulSetResourcer()
 
-	result, err := r.ExecuteAction(context.Background(), cs, workloadActionRequest("restart", "nonexistent", "default", nil))
+	result, err := r.ExecuteAction(context.Background(), cs, workloadActionRequest("rollout-restart", "nonexistent", "default", nil))
 
 	require.Error(t, err)
 	assert.Equal(t, resource.Value{}, result)

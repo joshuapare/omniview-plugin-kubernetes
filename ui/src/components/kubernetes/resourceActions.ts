@@ -41,7 +41,7 @@ export function resolveKubernetesActions(target: KubernetesActionTarget, deps?: 
       icon: descriptor.icon,
       execute: descriptor.action ? () => descriptor.action!(ctx) : undefined,
       // Container names, not row indices, keep choices stable when lists reorder.
-      items: items?.flatMap((item) => typeof item.title !== 'string' ? [] : [{
+      items: items?.flatMap((item) => typeof item.title !== 'string' || item.disabled ? [] : [{
         id: `${id}:${encodeURIComponent(item.title)}`,
         title: item.title,
         icon: item.icon,

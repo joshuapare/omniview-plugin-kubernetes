@@ -14,6 +14,7 @@ import { LuEllipsis, LuTrash } from 'react-icons/lu';
 
 import { PLUGIN_ID } from '@/pluginId';
 
+import { drawerActionDepsStore } from '../../../../shared/drawer/actionDeps';
 import { useTableDrawer } from '../../../../shared/table/TableDrawerContext';
 
 const triggerButtonStyle = { flex: 'none', minHeight: 28, minWidth: 28 } as const;
@@ -99,6 +100,7 @@ function buildDrawerContext(props: Props, record: HostRecord): DrawerContext {
 function actionsToMenuItems(
   actions: DrawerComponentAction[],
   ctx: DrawerContext,
+  snapshot: unknown,
 ): ContextMenuItem[] {
   const items: ContextMenuItem[] = [];
 
@@ -137,12 +139,13 @@ function actionsToMenuItems(
     };
 
     if (!disabled && action.list) {
-      const listItems = typeof action.list === 'function' ? action.list(ctx) : action.list;
+      const listItems = typeof action.list === 'function' ? action.list(ctx, snapshot) : action.list;
 
       item.children = listItems.map((listItem, j) => ({
         key: `${label}-${j}`,
         label: typeof listItem.title === 'string' ? listItem.title : `${label}-item-${j}`,
         icon: listItem.icon,
+        disabled: listItem.disabled,
         onClick: () => listItem.action(ctx),
       }));
     } else if (!disabled && action.action) {
@@ -194,17 +197,23 @@ const ActionsCell: React.FC<Props> = ({ connectionID, resourceKey, resourceID, d
     () => record ? buildDrawerContext(propsObj, record) : undefined,
     [propsObj, record],
   );
+  const subscribeDeps = React.useCallback(
+    (onChange: () => void) => ctx ? drawerActionDepsStore.subscribe(ctx, onChange) : () => {},
+    [ctx],
+  );
+  const getDepsSnapshot = React.useCallback(() => ctx ? drawerActionDepsStore.getSnapshot(ctx) : undefined, [ctx]);
+  const depsSnapshot = React.useSyncExternalStore(subscribeDeps, getDepsSnapshot, getDepsSnapshot);
 
   const items = React.useMemo<ContextMenuItem[]>(() => {
     if (!ctx) return [];
     const drawerActions = drawer?.actions;
     if (drawerActions && drawerActions.length > 0) {
-      return actionsToMenuItems(drawerActions, ctx);
+      return actionsToMenuItems(drawerActions, ctx, depsSnapshot);
     }
 
     // Fallback: no drawer actions — provide a built-in Delete
     return [buildFallbackDelete(propsObj, ctx, show)];
-  }, [drawer?.actions, ctx, show, propsObj]);
+  }, [drawer?.actions, ctx, show, propsObj, depsSnapshot]);
 
   if (items.length === 0) return null;
 

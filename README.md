@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://omniview.dev"><img src="https://img.shields.io/badge/omniview-plugin-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="Omniview Plugin" /></a>
-  <img src="https://img.shields.io/badge/version-0.12.0-blue?style=flat-square" alt="Version" />
+  <img src="https://img.shields.io/badge/version-0.13.0-blue?style=flat-square" alt="Version" />
   <img src="https://img.shields.io/badge/license-Apache--2.0-green?style=flat-square" alt="License" />
   <img src="https://img.shields.io/badge/category-cloud-326CE5?style=flat-square" alt="Category" />
 </p>
@@ -28,6 +28,21 @@ language: quiet decorative chrome, consistent neutral fills, and distinct
 keyboard focus and selection feedback. Avoid plugin-local border or color
 overrides. The [shared design language](https://github.com/omniviewdev/ui/blob/main/docs/THEMING.md#native-control-language)
 documents measured contrast, nested themes, and screenshots.
+
+## MCP resource actions
+
+The resource catalog exposes unary `rollout-restart` actions for Deployments, StatefulSets and
+DaemonSets. The existing streaming `restart` action remains available to the UI. CronJobs expose
+`trigger`, `suspend` and `resume`; triggered Jobs use a controller owner reference to the CronJob.
+
+Pods expose a one-shot, non-TTY `exec` action. Its input contains a command array, an optional
+container and a timeout from 1 to 100 seconds (30 seconds by default). Each output stream keeps
+at most 256 KiB. Invalid UTF-8 bytes become replacement characters. The remote command can
+continue after a timeout. Explicit container selection currently supports regular containers only.
+
+Native resource types, including custom resources without specialized helpers, expose Kubernetes
+events. Catalog types without native event retrieval return `UNSUPPORTED`. Flux actions remain
+separate work in the [SDK connection-sharing design](https://github.com/omniviewdev/plugin-sdk/issues/31).
 
 ## Creating and editing resources
 
@@ -176,7 +191,7 @@ Relationship declaration membership uses the complete route catalog, including H
 
 Native object-reference links use exact catalog bindings by observed API group and kind, never legacy GVK tokens or guessed plurals. Known core Pod endpoint references use `k8s:/pods` independently of OpenAPI availability, including the controller shape with omitted API version and known UID. Namespaces and known incarnations remain guarded; incomplete, ambiguous, or unavailable bindings stay explicitly unresolved.
 
-Resource-scoped terminals, logs, metrics, and port forwarding carry original tagged Values plus actual canonical references and routes, never decoded display objects. Native selectors check supplied observations against the explicit matching route, provider, Type, scope, name, and known UID without acquiring another target Get permission. Neither body data nor a reference grants authorization. Pod and Node terminals retain native container/command behavior; PATCH-only node cordon/uncordon keep their native permissions and atomic UID guards. Native utility stream engines remain unchanged. Per-connection Prometheus overrides use string query parameters (`prometheus_service_name`, `prometheus_service_namespace`, `prometheus_service_port`), not fabricated observation fields. Ordinary cluster metrics omit resource intent.
+Resource-scoped terminals, logs, metrics, and port forwarding carry original tagged Values plus actual canonical references and routes, never decoded display objects. Built-in stream selectors check supplied observations against the explicit matching route, provider, Type, scope, name, and known UID without acquiring another target Get permission. Fresh external Pod shells additionally verify the authoritative Pod with Get, as described under Integrated Terminal. Neither body data nor a reference grants authorization. Pod and Node terminals retain native container/command behavior; PATCH-only node cordon/uncordon keep their native permissions and atomic UID guards. Native utility stream engines remain unchanged. Per-connection Prometheus overrides use string query parameters (`prometheus_service_name`, `prometheus_service_namespace`, `prometheus_service_port`), not fabricated observation fields. Ordinary cluster metrics omit resource intent.
 
 The Kubernetes API, network, and certificate error classifier preserves native causes for local inspection but exposes only fixed, public-safe classification messages. Server messages, endpoints, network diagnostics, and certificate details stay in the wrapped cause, not this classifier's public error fields or serialized error text. The resource gRPC transport independently preserves its existing sanitization; asynchronous logs use a separate event path and are not covered by this classifier guarantee.
 
@@ -283,7 +298,7 @@ The splash shows the saved cluster identity while checking, connecting, or recov
 
 Storybook's **Connections/ConnectionBoundary** stories provide mocked loading, disconnected, connecting, authorization, missing-connection, and error states, including metadata loading/failure. Interactive recovery opens a mocked Pod table instead of a redundant connected splash. The preview makes no backend connection requests.
 
-This tree migration requires Omniview 0.17.0 or later for the shared TreeList contract. Profiling support comes from SDK 0.11.0 and stays off by default. Historical plugin 0.12.0 retains the 0.14.0 UI/runtime cohort and requires Omniview 0.15.0 for profiling controls; 0.11.0 requires Omniview 0.14.0 for transactional settings; 0.10.0 requires Omniview 0.13.0 for connection/server metadata; 0.9.0 requires Omniview 0.12.0 for resource-v2 integration and collection-wide views, and 0.8.2 uses its older compatible producer cohort.
+Kubernetes plugin 0.13.0 requires Omniview 0.19.0 or later for native Pod exec and pins the published `@omniviewdev/runtime` and `@omniviewdev/vite-plugin` 0.19.0 cohort with `@omniviewdev/base-ui` 0.10.0 and `@omniviewdev/editors` 6.1.3. Native-command planning uses SDK 0.12.0. The shared TreeList contract is available in Omniview 0.17.0 or later. Profiling support was introduced in SDK 0.11.0 and stays off by default. Historical plugin 0.12.0 retains the 0.14.0 UI/runtime cohort and requires Omniview 0.15.0 for profiling controls; 0.11.0 requires Omniview 0.14.0 for transactional settings; 0.10.0 requires Omniview 0.13.0 for connection/server metadata; 0.9.0 requires Omniview 0.12.0 for resource-v2 integration and collection-wide views, and 0.8.2 uses its older compatible producer cohort.
 
 ## Plugin-process profiling
 
@@ -549,6 +564,38 @@ Exec into any running container directly from the resource table. The plugin han
 - Node-level shell access via ephemeral debug pods
 - Terminal resize support
 - SPDY and WebSocket protocol fallback
+
+On macOS, supported Pod **Exec** menus in both the row and drawer show an explicit
+**container — Open in Native Terminal** choice beside each ordinary container's
+built-in action. Native choices stay disabled while launching. A successful
+launch closes the drawer; a native error leaves it open and never creates a
+built-in terminal. Init containers, ephemeral attach, and Node debug shells keep
+their existing built-in behavior.
+
+The SDK v0.12.0 native-command capability plans a **fresh external shell** only
+for ordinary Pod exec. The host preserves the selected connection, canonical
+Pod reference, explicit container, and literal remote command arguments. The
+plugin verifies the current Pod UID and ordinary-container membership with a
+Kubernetes Get before returning structured `kubectl` arguments. Deleted,
+replaced, terminating, or mismatched Pods fail instead of redirecting the shell.
+Attach, ephemeral-container sessions, init containers, and Node debug shells do
+not support this capability. No PTY state, shell history, or remote working
+directory transfers; there is no built-in-session fallback.
+
+Native plans reference the existing local kubeconfig with explicit context and
+namespace flags, always enable stdin, and enable TTY only when requested.
+`kubectl` must be available locally. Native exec supports reusable static token,
+certificate, and basic authentication from the existing local kubeconfig only.
+Credentials stay in that file; the plugin never exports tokens, keys, passwords,
+or a generated kubeconfig. Connections without a reusable local file, all exec
+credential helpers (including EKS), legacy `auth-provider` entries, opaque proxy
+callbacks, and custom in-memory transports return typed `UNSUPPORTED` errors.
+Exec-auth is rejected before client acquisition because client-go helper
+execution cannot be bounded by the planning request context. The authoritative
+Pod check requires Get permission in addition to the eventual exec permission.
+Plans must be requested immediately before launch:
+Kubernetes resources and local files can still change between planning and
+`kubectl` execution.
 
 ### Live Pod Debug
 

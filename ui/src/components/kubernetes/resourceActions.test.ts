@@ -44,6 +44,9 @@ const target = (resourceKey = 'k8s:/pods'): KubernetesActionTarget => {
 const deps = () => ({
   createLogSession: vi.fn().mockResolvedValue({ id: 'session' }),
   createExecSession: vi.fn().mockResolvedValue({ id: 'exec-session' }),
+  nativeExecAvailable: false,
+  nativeExecPending: false,
+  openNativeSession: vi.fn().mockResolvedValue(false),
   closeDrawer: vi.fn(), show: vi.fn(),
 } as unknown as DrawerActionDeps);
 
@@ -310,5 +313,82 @@ describe('ephemeral exec routing', () => {
     expect(request.opts.resource_data).toBe(object.resource.record!.record.body);
     expect(request.opts.reference).toBe(object.resource.reference);
     expect(request.opts.route).toBe(object.resource.route);
+  });
+});
+
+describe('ordinary Pod native terminal actions', () => {
+  it('offers explicit native choices only for supported ordinary containers', () => {
+    const object = target();
+    const handlers = { ...deps(), nativeExecAvailable: true };
+    const exec = resolveKubernetesActions(object, handlers).find(action => action.title === 'Exec')!;
+    expect(exec.items?.map(item => item.title)).toEqual(['main', 'main — Open in Native Terminal', 'debug']);
+    handlers.nativeExecAvailable = false;
+    expect(resolveKubernetesActions(object, handlers).find(action => action.title === 'Exec')!.items?.map(item => item.title))
+      .toEqual(['main', 'debug']);
+    expect(handlers.openNativeSession).not.toHaveBeenCalled();
+    expect(handlers.createExecSession).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])('closes only after native launch reports %s without allocating a built-in session', async (opened) => {
+    const object = target();
+    const handlers = { ...deps(), nativeExecAvailable: true, openNativeSession: vi.fn().mockResolvedValue(opened) };
+    const exec = resolveKubernetesActions(object, handlers).find(action => action.title === 'Exec')!;
+    const native = exec.items!.find(item => item.title === 'main — Open in Native Terminal')!;
+    await executeKubernetesAction(object, handlers, exec.id, native.id);
+    expect(handlers.openNativeSession).toHaveBeenCalledExactlyOnceWith({
+      connectionID: 'prod',
+      opts: {
+        resource_plugin: object.resource.reference.address.provider,
+        resource_data: object.resource.record!.record.body,
+        reference: object.resource.reference,
+        route: object.resource.route,
+        resource_key: 'k8s:/pods',
+        params: { container: 'main' },
+      },
+    });
+    expect(handlers.createExecSession).not.toHaveBeenCalled();
+    expect(handlers.closeDrawer).toHaveBeenCalledTimes(opened ? 1 : 0);
+  });
+
+  it('disables pending native rows and prevents a captured row from launching again', async () => {
+    const object = target();
+    const handlers = { ...deps(), nativeExecAvailable: true };
+    const ctx = bindDrawerActionDeps({ data: object.data, resource: object.resource }, handlers);
+    const exec = resourceDrawerActions['k8s:/pods'].actions.find(action => action.title === 'Exec')!;
+    const list = () => typeof exec.list === 'function' ? exec.list(ctx) : exec.list!;
+    const native = list().find(item => item.title === 'main — Open in Native Terminal')!;
+    handlers.nativeExecPending = true;
+    expect(list().find(item => item.title === native.title)?.disabled).toBe(true);
+    expect(list().find(item => item.title === 'main')?.disabled).not.toBe(true);
+    await native.action(ctx);
+    expect(handlers.openNativeSession).not.toHaveBeenCalled();
+    expect(handlers.closeDrawer).not.toHaveBeenCalled();
+    handlers.nativeExecPending = false;
+    handlers.nativeExecAvailable = false;
+    await native.action(ctx);
+    expect(handlers.openNativeSession).not.toHaveBeenCalled();
+  });
+
+  it('keeps missing-shell recovery exclusive to built-in ordinary exec', async () => {
+    const object = livePod();
+    const handlers = { ...deps(), nativeExecAvailable: true, startDebug: vi.fn().mockResolvedValue(undefined) };
+    const exec = resolveKubernetesActions(object, handlers).find(action => action.title === 'Exec')!;
+    const main = exec.items!.find(item => item.title === 'main')!;
+    await executeKubernetesAction(object, handlers, exec.id, main.id);
+    const request = vi.mocked(handlers.createExecSession).mock.calls[0][0];
+    expect(request.recovery?.label).toBe('Debug this container');
+    await request.recovery?.run();
+    expect(handlers.startDebug).toHaveBeenCalledWith(expect.objectContaining({ targetContainerName: 'main' }));
+    expect(handlers.openNativeSession).not.toHaveBeenCalled();
+  });
+
+  it('does not add native launch choices to Node shell', () => {
+    const object = target('k8s:/nodes');
+    object.resource.reference.address.scope = [];
+    object.data.metadata!.namespace = undefined;
+    const handlers = { ...deps(), nativeExecAvailable: true };
+    const shell = resolveKubernetesActions(object, handlers).find(action => action.title === 'Shell')!;
+    expect(shell.items).toBeUndefined();
+    expect(handlers.openNativeSession).not.toHaveBeenCalled();
   });
 });

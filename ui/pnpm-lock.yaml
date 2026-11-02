@@ -188,8 +188,8 @@ importers:
         specifier: 6.1.3
         version: 6.1.3(@omniviewdev/base-ui@0.10.0(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@omniviewdev/runtime':
-        specifier: 0.17.0
-        version: 0.17.0(@omniviewdev/base-ui@0.10.0(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@tanstack/react-query@5.105.0(@types/react@19.3.0)(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react-router@8.5.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
+        specifier: 0.19.0
+        version: 0.19.0(@omniviewdev/base-ui@0.10.0(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@tanstack/react-query@5.105.0(@types/react@19.3.0)(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react-router@8.5.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
       '@tanstack/react-query':
         specifier: 5.105.0
         version: 5.105.0(@types/react@19.3.0)(react@19.3.1)
@@ -249,8 +249,8 @@ importers:
         specifier: 10.0.1
         version: 10.0.1(eslint@10.13.0)
       '@omniviewdev/vite-plugin':
-        specifier: 0.17.0
-        version: 0.17.0(vite@7.3.7(yaml@2.9.1))
+        specifier: 0.19.0
+        version: 0.19.0(vite@7.3.7(yaml@2.9.1))
       '@storybook/addon-docs':
         specifier: 10.6.5
         version: 10.6.5(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(storybook@10.6.5(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1))
@@ -983,8 +983,8 @@ packages:
       react: ^19.3.1
       react-dom: ^19.3.1
 
-  '@omniviewdev/runtime@0.17.0':
-    resolution: {integrity: sha512-gWjO5nd4PAC4sCWPTnBp0aWnFrTFJy7oy42pGeA66KIj313I6zqO+jj/hnbFcjYWlgJipojD/hCvvtrQN18BjA==}
+  '@omniviewdev/runtime@0.19.0':
+    resolution: {integrity: sha512-hnmV2zoZ9vXXBGMSKTc+Oie1gbkGNnbnwU8HTHKSGuBw+V91rA8nrLCoEbKWYv8cQXZ8RPzPk8mlYl0wnQ2jOQ==}
     peerDependencies:
       '@omniviewdev/base-ui': ~0.10.0
       '@tanstack/react-query': ^5.105.0
@@ -992,8 +992,8 @@ packages:
       react-dom: ^19.3.1
       react-router: ^8.5.0
 
-  '@omniviewdev/vite-plugin@0.17.0':
-    resolution: {integrity: sha512-vT+4wiPwrxzKUnO/3lzS9jYCTN9ZSIMLiLiPHcALO7gTj3nYes9IMBIWdQhK+uX3aSVopeLHX0Bb3nATrLn5jg==}
+  '@omniviewdev/vite-plugin@0.19.0':
+    resolution: {integrity: sha512-Etc1/um6C4w9Uq7Bn+iw5kmVZFkUis2YAbNKzciKZXGGgy5cbBOrgctg1SVshGsFxA9JYGzJTo0JA+tvOxRC5g==}
     peerDependencies:
       vite: ^7.3.7
 
@@ -4296,7 +4296,7 @@ snapshots:
       - '@types/react'
       - supports-color
 
-  '@omniviewdev/runtime@0.17.0(@omniviewdev/base-ui@0.10.0(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@tanstack/react-query@5.105.0(@types/react@19.3.0)(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react-router@8.5.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)':
+  '@omniviewdev/runtime@0.19.0(@omniviewdev/base-ui@0.10.0(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@tanstack/react-query@5.105.0(@types/react@19.3.0)(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react-router@8.5.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)':
     dependencies:
       '@omniviewdev/base-ui': 0.10.0(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tanstack/react-query': 5.105.0(@types/react@19.3.0)(react@19.3.1)
@@ -4307,7 +4307,7 @@ snapshots:
       react-router: 8.5.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       ts-invariant: 0.10.3
 
-  '@omniviewdev/vite-plugin@0.17.0(vite@7.3.7(yaml@2.9.1))':
+  '@omniviewdev/vite-plugin@0.19.0(vite@7.3.7(yaml@2.9.1))':
     dependencies:
       vite: 7.3.7(yaml@2.9.1)
 

@@ -66,16 +66,20 @@ func TestDeploymentResourcer_GetActions(t *testing.T) {
 	r := newTestDeploymentResourcer()
 	actions, err := r.GetActions(context.Background(), nil)
 	require.NoError(t, err)
-	require.Len(t, actions, 4)
+	require.Len(t, actions, 5)
 
 	ids := make([]string, len(actions))
 	for i, a := range actions {
 		ids[i] = a.ID
 	}
 	assert.Equal(t, "restart", ids[0])
-	assert.Equal(t, "scale", ids[1])
-	assert.Equal(t, "pause", ids[2])
-	assert.Equal(t, "resume", ids[3])
+	assert.True(t, actions[0].Streaming)
+	assert.Equal(t, "rollout-restart", ids[1])
+	assert.False(t, actions[1].Streaming)
+	assert.NotNil(t, actions[1].ParamsSchema)
+	assert.Equal(t, "scale", ids[2])
+	assert.Equal(t, "pause", ids[3])
+	assert.Equal(t, "resume", ids[4])
 
 	for _, a := range actions {
 		assert.Equal(t, resource.ActionScopeInstance, a.Scope)
@@ -93,7 +97,7 @@ func TestDeploymentResourcer_Restart(t *testing.T) {
 	cs := newAppsDeploymentClientSet(dep)
 	r := newTestDeploymentResourcer()
 
-	result, err := r.ExecuteAction(context.Background(), cs, workloadActionRequest("restart", "nginx", "default", nil))
+	result, err := r.ExecuteAction(context.Background(), cs, workloadActionRequest("rollout-restart", "nginx", "default", nil))
 
 	require.NoError(t, err)
 	require.Equal(t, "map", result.Kind)
@@ -110,7 +114,7 @@ func TestDeploymentResourcer_Restart_NotFound(t *testing.T) {
 	cs := newAppsDeploymentClientSet()
 	r := newTestDeploymentResourcer()
 
-	result, err := r.ExecuteAction(context.Background(), cs, workloadActionRequest("restart", "nonexistent", "default", nil))
+	result, err := r.ExecuteAction(context.Background(), cs, workloadActionRequest("rollout-restart", "nonexistent", "default", nil))
 
 	require.Error(t, err)
 	assert.Equal(t, resource.Value{}, result)

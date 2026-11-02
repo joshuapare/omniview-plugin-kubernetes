@@ -138,7 +138,7 @@ jobs:
           publisher-slug: omniview
           plugin-id: kubernetes
           version: ${{ needs.build.outputs.version }}
-          min-ide-version: "0.14.0"
+          min-ide-version: "0.19.0"
           artifact-path: dist/
           architectures: ${{ needs.build.outputs.platforms }}
 

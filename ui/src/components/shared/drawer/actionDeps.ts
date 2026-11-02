@@ -4,6 +4,7 @@ import type {
   useExec,
   useExecuteAction,
   useLogs,
+  NativeExecInput,
   MutationRequest,
   useStreamAction,
 } from '@omniviewdev/runtime';
@@ -33,6 +34,9 @@ export type DrawerActionDeps = {
   mutate: (request: MutationRequest) => Promise<unknown>;
   createLogSession: ReturnType<typeof useLogs>['createLogSession'];
   createExecSession: ReturnType<typeof useExec>['createSession'];
+  nativeExecAvailable: boolean;
+  nativeExecPending: boolean;
+  openNativeSession: (input: NativeExecInput) => Promise<boolean>;
   executeAction: ReturnType<typeof useExecuteAction>['executeAction'];
   startStreamAction: ReturnType<typeof useStreamAction>['startStreamAction'];
   closeDrawer: () => void;
@@ -44,6 +48,9 @@ export type DrawerActionDeps = {
 };
 
 const registry = new Map<string, DrawerActionDeps[]>();
+const listeners = new Map<string, Set<() => void>>();
+
+const notify = (key: string) => listeners.get(key)?.forEach((listener) => listener());
 
 const contextDeps = new WeakMap<DrawerContext, DrawerActionDeps>();
 
@@ -58,23 +65,43 @@ export function registerDrawerActionDeps(key: string, deps: DrawerActionDeps): (
   const list = registry.get(key) ?? [];
   list.push(deps);
   registry.set(key, list);
+  notify(key);
   return () => {
     const current = registry.get(key);
     if (!current) return;
     const idx = current.lastIndexOf(deps);
     if (idx !== -1) current.splice(idx, 1);
     if (current.length === 0) registry.delete(key);
+    notify(key);
   };
 }
 
-/** The hook-backed handlers for the resource in `ctx`. Call it inside an action handler. */
+/** Snapshot and subscription keep action lists current as hook-backed handlers change. */
+export const drawerActionDepsStore = {
+  getSnapshot(ctx: DrawerContext): DrawerActionDeps | undefined {
+    const bound = contextDeps.get(ctx);
+    if (bound) return bound;
+    const key = registryKey(ctx.resource?.route.connection ?? '', ctx.resource?.reference.address.type ?? '');
+    const list = registry.get(key);
+    return list?.[list.length - 1];
+  },
+  subscribe(ctx: DrawerContext, listener: () => void): () => void {
+    const key = registryKey(ctx.resource?.route.connection ?? '', ctx.resource?.reference.address.type ?? '');
+    const current = listeners.get(key) ?? new Set<() => void>();
+    current.add(listener);
+    listeners.set(key, current);
+    return () => {
+      current.delete(listener);
+      if (current.size === 0) listeners.delete(key);
+    };
+  },
+};
+
+/** The hook-backed handlers for the resource in `ctx`. */
 export function drawerActionDeps(ctx: DrawerContext): DrawerActionDeps {
-  const bound = contextDeps.get(ctx);
-  if (bound) return bound;
+  const deps = drawerActionDepsStore.getSnapshot(ctx);
   const connectionID = ctx.resource?.route.connection ?? '';
   const resourceKey = ctx.resource?.reference.address.type ?? '';
-  const list = registry.get(registryKey(connectionID, resourceKey));
-  const deps = list?.[list.length - 1];
   if (!deps) {
     throw new Error(`No drawer action handlers are mounted for ${resourceKey} on connection ${connectionID}`);
   }

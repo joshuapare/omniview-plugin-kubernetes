@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { resourceDrawerActions } from '../../kubernetes/drawerActions';
 
-import { bindDrawerActionDeps, type DrawerActionDeps, drawerActionDeps, registerDrawerActionDeps, registryKey } from './actionDeps';
+import { bindDrawerActionDeps, type DrawerActionDeps, drawerActionDeps, drawerActionDepsStore, registerDrawerActionDeps, registryKey } from './actionDeps';
 
 function fakeDeps(): DrawerActionDeps {
   return {
@@ -11,6 +11,9 @@ function fakeDeps(): DrawerActionDeps {
     mutate: vi.fn().mockResolvedValue(undefined),
     createLogSession: vi.fn().mockResolvedValue(undefined),
     createExecSession: vi.fn().mockResolvedValue(undefined),
+    nativeExecAvailable: false,
+    nativeExecPending: false,
+    openNativeSession: vi.fn().mockResolvedValue(false),
     executeAction: vi.fn().mockResolvedValue(undefined),
     startStreamAction: vi.fn().mockResolvedValue(undefined),
     closeDrawer: vi.fn(),
@@ -68,6 +71,26 @@ describe('drawerActionDeps', () => {
     const unregister = registerDrawerActionDeps(registryKey('conn-2', 'k8s:apps/replicasets'), fakeDeps());
     expect(() => drawerActionDeps(rsCtx)).toThrow();
     unregister();
+  });
+
+  it('publishes registration, replacement, fallback, and removal without retaining cleaned-up listeners', () => {
+    const key = registryKey('conn-1', 'k8s:apps/replicasets');
+    expect(drawerActionDepsStore.getSnapshot(rsCtx)).toBeUndefined();
+    expect(drawerActionDepsStore.getSnapshot(rsCtx)).toBeUndefined();
+    const snapshots: Array<DrawerActionDeps | undefined> = [];
+    const unsubscribe = drawerActionDepsStore.subscribe(rsCtx, () => snapshots.push(drawerActionDepsStore.getSnapshot(rsCtx)));
+    const table = fakeDeps();
+    const drawer = { ...fakeDeps(), nativeExecAvailable: true };
+    const unregisterTable = registerDrawerActionDeps(key, table);
+    const unregisterDrawer = registerDrawerActionDeps(key, drawer);
+    expect(drawerActionDepsStore.getSnapshot(rsCtx)).toBe(drawer);
+    unregisterDrawer();
+    unregisterTable();
+    expect(snapshots).toEqual([table, drawer, table, undefined]);
+    unsubscribe();
+    const unregisterLater = registerDrawerActionDeps(key, fakeDeps());
+    unregisterLater();
+    expect(snapshots).toHaveLength(4);
   });
 });
 

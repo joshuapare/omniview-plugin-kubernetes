@@ -59,7 +59,7 @@ func (p *PodResourcer) GetActions(context.Context, *clients.ClientSet) ([]resour
 			},
 			Required: []string{"podUID", "name", "targetContainerName", "image"},
 		},
-	}}, nil
+	}, podExecActionDescriptor()}, nil
 }
 
 func (p *PodResourcer) StreamAction(context.Context, *clients.ClientSet, resource.ActionRequest, chan<- resource.ActionEvent) error {
@@ -70,7 +70,11 @@ func (p *PodResourcer) ExecuteAction(ctx context.Context, client *clients.Client
 	if err := resource.ValidateActionRequest(input); err != nil {
 		return resource.Value{}, err
 	}
-	if input.Action != "debug-create" {
+	switch input.Action {
+	case "exec":
+		return p.executeExec(ctx, client, input)
+	case "debug-create":
+	default:
 		return resource.Value{}, resource.NewError("UNSUPPORTED", "Unknown Pod action")
 	}
 	if input.TypeTarget != nil || input.Reference.Address.Provider != "kubernetes" || input.Reference.Address.Type != "k8s:/pods" {

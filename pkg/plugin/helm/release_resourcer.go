@@ -148,6 +148,7 @@ func (r *ReleaseResourcer) GetActions(
 			Description: "Get the release notes",
 			Icon:        "LuStickyNote",
 			Scope:       resource.ActionScopeInstance,
+			ParamsSchema: &resource.Schema{},
 		},
 		{
 			ID:          "get-hooks",
@@ -155,6 +156,7 @@ func (r *ReleaseResourcer) GetActions(
 			Description: "Get the release hooks",
 			Icon:        "LuAnchor",
 			Scope:       resource.ActionScopeInstance,
+			ParamsSchema: &resource.Schema{},
 		},
 		{
 			ID:          "get-history",
@@ -212,6 +214,7 @@ func (r *ReleaseResourcer) GetActions(
 			Description: "Run test hooks for a release",
 			Icon:        "LuFlaskConical",
 			Scope:       resource.ActionScopeInstance,
+			ParamsSchema: &resource.Schema{},
 		},
 	}, nil
 }

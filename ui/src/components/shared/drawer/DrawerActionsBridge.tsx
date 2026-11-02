@@ -3,6 +3,7 @@ import {
   useExec,
   useExecuteAction,
   useLogs,
+  useNativeExec,
   useResourceMutations,
   useRightDrawer,
   useStreamAction,
@@ -30,6 +31,7 @@ export const useDrawerActionExecution = ({ connectionID, resourceKey }: BridgePr
   const { mutate } = useResourceMutations({ pluginID: PLUGIN_ID });
   const { createLogSession } = useLogs({ pluginID: PLUGIN_ID });
   const { createSession } = useExec({ pluginID: PLUGIN_ID });
+  const { openNativeSession, isSupported: nativeExecAvailable, isPending: nativeExecPending } = useNativeExec({ pluginID: PLUGIN_ID, resourceKey });
   const { executeAction, isExecuting } = useExecuteAction({ pluginID: PLUGIN_ID });
   const { startStreamAction } = useStreamAction({ pluginID: PLUGIN_ID });
   const { closeDrawer } = useRightDrawer();
@@ -46,6 +48,9 @@ export const useDrawerActionExecution = ({ connectionID, resourceKey }: BridgePr
       mutate,
       createLogSession,
       createExecSession: createSession,
+      nativeExecAvailable,
+      nativeExecPending,
+      openNativeSession,
       executeAction,
       startStreamAction,
       closeDrawer,
@@ -54,7 +59,7 @@ export const useDrawerActionExecution = ({ connectionID, resourceKey }: BridgePr
       startDebug: debug.startDebug,
       openDebugOptions: debug.openDebugOptions,
     }),
-    [show, mutate, createLogSession, createSession, executeAction, startStreamAction, closeDrawer, nodeShellConfig, debug.startDebug, debug.openDebugOptions],
+    [show, mutate, createLogSession, createSession, nativeExecAvailable, nativeExecPending, openNativeSession, executeAction, startStreamAction, closeDrawer, nodeShellConfig, debug.startDebug, debug.openDebugOptions],
   );
 
 
@@ -79,7 +84,7 @@ export const useDrawerActionExecution = ({ connectionID, resourceKey }: BridgePr
       isExecuting={isExecuting}
     />
   ) : null;
-  return { deps, dialogs: <>{dialogs}{debug.dialogs}</>, isReady: debug.isReady, isBusy: scaleTarget !== null || isExecuting || debug.isBusy };
+  return { deps, dialogs: <>{dialogs}{debug.dialogs}</>, isReady: debug.isReady, isBusy: scaleTarget !== null || isExecuting || debug.isBusy || nativeExecPending };
 };
 
 const DrawerActionsBridge: React.FC<BridgeProps> = (props) => {

@@ -152,6 +152,15 @@ func (s *StatefulSetResourcer) GetActions(
 			Streaming:   true,
 		},
 		{
+			ID:           "rollout-restart",
+			Label:        "Rollout Restart",
+			Description:  "Restart all pods via a rolling update and return immediately; read the object to follow the rollout.",
+			Icon:         "LuRefreshCw",
+			Scope:        resource.ActionScopeInstance,
+			Dangerous:    true,
+			ParamsSchema: &resource.Schema{},
+		},
+		{
 			ID:          "scale",
 			Label:       "Scale",
 			Description: "Change the number of replicas",
@@ -173,7 +182,7 @@ func (s *StatefulSetResourcer) ExecuteAction(
 	input resource.ActionRequest,
 ) (resource.Value, error) {
 	switch input.Action {
-	case "restart":
+	case "rollout-restart":
 		return s.executeRestart(ctx, client, input)
 	case "scale":
 		return s.executeScale(ctx, client, input)

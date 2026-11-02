@@ -39,11 +39,12 @@ func Register(plugin *sdk.Plugin) {
 
 func podExecHandler() exec.Handler {
 	return exec.Handler{
-		Plugin:         pluginid.ResourceProvider,
-		Resource:       "k8s:/pods",
-		TTYHandler:     PodHandler,
-		HandlesResize:  true,
-		DefaultCommand: []string{"/bin/bash"},
+		Plugin:               pluginid.ResourceProvider,
+		Resource:             "k8s:/pods",
+		TTYHandler:           PodHandler,
+		NativeCommandHandler: podNativeCommand,
+		HandlesResize:        true,
+		DefaultCommand:       []string{"/bin/bash"},
 		TargetBuilder: exec.ActionTargetBuilder{
 			Paths: []string{"$.spec.containers[*]"},
 			Selectors: map[string]string{
