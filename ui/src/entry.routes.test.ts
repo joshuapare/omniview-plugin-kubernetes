@@ -1,6 +1,6 @@
 import { matchRoutes } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
-import { routes } from './entry';
+import { plugin, routes } from './entry';
 import PodTable from './components/kubernetes/table/corev1/Pod/Table';
 import NodeTable from './components/kubernetes/table/corev1/Node/Table';
 import DeploymentTable from './components/kubernetes/table/appsv1/Deployment/Table';
@@ -17,6 +17,11 @@ vi.mock('./components/helm/charts/ChartSidebar/ChartReadmeTab', () => ({
 }));
 
 describe('native specialized route registrations', () => {
+  it('registers the provider path migration hook', () => {
+    expect(plugin.migratePagePath('/_plugin/kubernetes/cluster/prod/resources/core::v1::Pod'))
+      .toEqual({ kind: 'migrated', path: '/_plugin/kubernetes/cluster/prod/resources/k8s%3A%2Fpods' });
+  });
+
   it.each([
     ['k8s:/pods', PodTable],
     ['k8s:/nodes', NodeTable],

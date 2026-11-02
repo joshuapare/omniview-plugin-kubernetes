@@ -126,6 +126,7 @@ import ClusterDashboardMetricsPage from './pages/dashboard/metrics';
 import ClusterDashboardOverviewPage from './pages/dashboard/overview';
 import ClusterExtensionPage, { CLUSTER_PAGE_EXTENSION_POINT_ID } from './pages/extension';
 import { kubernetesSearchProvider } from './search/provider';
+import { migratePagePath } from './utils/legacyMigration';
 
 const connectionSearchHandle: SearchRouteHandleV1 = {
   searchScope: ({ params }) => params.id
@@ -444,7 +445,7 @@ export const extensionRegistrations: ExtensionRegistration[] = [
   },
 ];
 
-export const plugin = new PluginWindow()
+export const plugin = Object.assign(new PluginWindow()
   .registerExtensionPoints([{ id: CLUSTER_PAGE_EXTENSION_POINT_ID, mode: 'multiple' }])
   .setRootPage(ClustersPage)
-  .withRoutes(routes);
+  .withRoutes(routes), { migratePagePath });

@@ -1,0 +1,38 @@
+// Native manifest navigation and legacy migration share exact built-in bindings.
+export const manifestResourceTypes: Readonly<Record<string, string>> = {
+  'apps/Deployment': 'k8s:apps/deployments',
+  '/Service': 'k8s:/services', '/ConfigMap': 'k8s:/configmaps', '/Secret': 'k8s:/secrets',
+  '/ServiceAccount': 'k8s:/serviceaccounts', 'networking.k8s.io/Ingress': 'k8s:networking.k8s.io/ingresses',
+  '/PersistentVolumeClaim': 'k8s:/persistentvolumeclaims', 'apps/StatefulSet': 'k8s:apps/statefulsets',
+  'apps/DaemonSet': 'k8s:apps/daemonsets', 'batch/Job': 'k8s:batch/jobs', 'batch/CronJob': 'k8s:batch/cronjobs',
+  'rbac.authorization.k8s.io/Role': 'k8s:rbac.authorization.k8s.io/roles',
+  'rbac.authorization.k8s.io/RoleBinding': 'k8s:rbac.authorization.k8s.io/rolebindings',
+  'rbac.authorization.k8s.io/ClusterRole': 'k8s:rbac.authorization.k8s.io/clusterroles',
+  'rbac.authorization.k8s.io/ClusterRoleBinding': 'k8s:rbac.authorization.k8s.io/clusterrolebindings',
+  'networking.k8s.io/NetworkPolicy': 'k8s:networking.k8s.io/networkpolicies',
+  'autoscaling/HorizontalPodAutoscaler': 'k8s:autoscaling/horizontalpodautoscalers',
+  'policy/PodDisruptionBudget': 'k8s:policy/poddisruptionbudgets', '/Namespace': 'k8s:/namespaces',
+};
+
+export const builtinResourceTypes: Readonly<Record<string, string>> = {
+  ...manifestResourceTypes,
+  '/Pod': 'k8s:/pods', '/Node': 'k8s:/nodes', '/Endpoints': 'k8s:/endpoints', '/Event': 'k8s:/events',
+  '/PersistentVolume': 'k8s:/persistentvolumes', '/ResourceQuota': 'k8s:/resourcequotas',
+  '/LimitRange': 'k8s:/limitranges', '/ReplicationController': 'k8s:/replicationcontrollers',
+  '/ComponentStatus': 'k8s:/componentstatuses', 'apps/ReplicaSet': 'k8s:apps/replicasets',
+  'networking.k8s.io/IngressClass': 'k8s:networking.k8s.io/ingressclasses',
+  'storage.k8s.io/StorageClass': 'k8s:storage.k8s.io/storageclasses',
+  'storage.k8s.io/CSIDriver': 'k8s:storage.k8s.io/csidrivers', 'storage.k8s.io/CSINode': 'k8s:storage.k8s.io/csinodes',
+  'storage.k8s.io/CSIStorageCapacity': 'k8s:storage.k8s.io/csistoragecapacities',
+  'storage.k8s.io/VolumeAttachment': 'k8s:storage.k8s.io/volumeattachments',
+  'coordination.k8s.io/Lease': 'k8s:coordination.k8s.io/leases',
+  'discovery.k8s.io/EndpointSlice': 'k8s:discovery.k8s.io/endpointslices',
+  'node.k8s.io/RuntimeClass': 'k8s:node.k8s.io/runtimeclasses',
+  'scheduling.k8s.io/PriorityClass': 'k8s:scheduling.k8s.io/priorityclasses',
+  'flowcontrol.apiserver.k8s.io/FlowSchema': 'k8s:flowcontrol.apiserver.k8s.io/flowschemas',
+  'flowcontrol.apiserver.k8s.io/PriorityLevelConfiguration': 'k8s:flowcontrol.apiserver.k8s.io/prioritylevelconfigurations',
+  'admissionregistration.k8s.io/MutatingWebhookConfiguration': 'k8s:admissionregistration.k8s.io/mutatingwebhookconfigurations',
+  'admissionregistration.k8s.io/ValidatingWebhookConfiguration': 'k8s:admissionregistration.k8s.io/validatingwebhookconfigurations',
+  'admissionregistration.k8s.io/ValidatingAdmissionPolicy': 'k8s:admissionregistration.k8s.io/validatingadmissionpolicies',
+  'admissionregistration.k8s.io/ValidatingAdmissionPolicyBinding': 'k8s:admissionregistration.k8s.io/validatingadmissionpolicybindings',
+};

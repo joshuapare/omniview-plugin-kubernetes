@@ -6,6 +6,7 @@ import { LuCircleArrowUp, LuUndo2, LuGitCompare } from 'react-icons/lu';
 import { stringify, parse } from 'yaml';
 
 import { PLUGIN_ID } from '@/pluginId';
+import { manifestResourceTypes as kindToType } from '../../../utils/builtinResourceTypes';
 
 import CodeEditor from '../../shared/CodeEditor';
 
@@ -136,28 +137,6 @@ const MetaEntry: React.FC<{ label: string; value: React.ReactNode }> = ({ label,
   </div>
 );
 
-// Native manifest navigation stays inside the Kubernetes adapter.
-const kindToType: Record<string, string> = {
-  'apps/Deployment': 'k8s:apps/deployments',
-  '/Service': 'k8s:/services',
-  '/ConfigMap': 'k8s:/configmaps',
-  '/Secret': 'k8s:/secrets',
-  '/ServiceAccount': 'k8s:/serviceaccounts',
-  'networking.k8s.io/Ingress': 'k8s:networking.k8s.io/ingresses',
-  '/PersistentVolumeClaim': 'k8s:/persistentvolumeclaims',
-  'apps/StatefulSet': 'k8s:apps/statefulsets',
-  'apps/DaemonSet': 'k8s:apps/daemonsets',
-  'batch/Job': 'k8s:batch/jobs',
-  'batch/CronJob': 'k8s:batch/cronjobs',
-  'rbac.authorization.k8s.io/Role': 'k8s:rbac.authorization.k8s.io/roles',
-  'rbac.authorization.k8s.io/RoleBinding': 'k8s:rbac.authorization.k8s.io/rolebindings',
-  'rbac.authorization.k8s.io/ClusterRole': 'k8s:rbac.authorization.k8s.io/clusterroles',
-  'rbac.authorization.k8s.io/ClusterRoleBinding': 'k8s:rbac.authorization.k8s.io/clusterrolebindings',
-  'networking.k8s.io/NetworkPolicy': 'k8s:networking.k8s.io/networkpolicies',
-  'autoscaling/HorizontalPodAutoscaler': 'k8s:autoscaling/horizontalpodautoscalers',
-  'policy/PodDisruptionBudget': 'k8s:policy/poddisruptionbudgets',
-  '/Namespace': 'k8s:/namespaces',
-};
 
 /** Shape of a parsed YAML Kubernetes resource document. */
 interface ParsedK8sResource {

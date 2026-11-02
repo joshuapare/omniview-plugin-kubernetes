@@ -11,6 +11,7 @@ import FilterChips from '../components/connections/FilterChips';
 import FolderDialog, { type FolderDialogValues } from '../components/connections/FolderDialog';
 import { useClusterPreferences } from '../hooks/useClusterPreferences';
 import { useConnectionGrouping } from '../hooks/useConnectionGrouping';
+import { useLegacyColumnMigration } from '../hooks/useLegacyColumnMigration';
 import type {
   ConnectionGroup,
   GroupByMode,
@@ -54,6 +55,7 @@ const loadingSkeletonStyle: React.CSSProperties = {
 export default function ClustersPage(): React.ReactElement {
   const { meta } = usePluginContext();
   const { connections } = useConnections({ plugin: meta.id });
+  useLegacyColumnMigration(connections.data?.map(connection => connection.id));
   // eslint-disable-next-line @typescript-eslint/unbound-method
   const { showSnackbar } = useSnackbar();
 
