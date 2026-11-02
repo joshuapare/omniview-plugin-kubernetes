@@ -11,6 +11,7 @@ import (
 	"github.com/omniview/kubernetes/pkg/plugin/networker"
 	"github.com/omniview/kubernetes/pkg/plugin/resource"
 	"github.com/omniview/kubernetes/pkg/pluginid"
+	resourcev2 "github.com/omniviewdev/plugin-sdk/pkg/resource/v2"
 	"github.com/omniviewdev/plugin-sdk/settings"
 
 	"github.com/omniviewdev/plugin-sdk/pkg/sdk"
@@ -69,6 +70,7 @@ func main() {
 				},
 			},
 			klogconfig.Setting(),
+			resourcev2.ConnectionAcquisitionTimeoutSetting(),
 			{
 				ID:          "shell",
 				Label:       "Shell",

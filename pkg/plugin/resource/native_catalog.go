@@ -18,11 +18,11 @@ import (
 // nativeType is an adapter-owned dispatch binding. The public type token is
 // looked up verbatim; callers never parse it to reconstruct a Kubernetes GVR.
 type nativeType struct {
-	GVR        schema.GroupVersionResource
-	API        metav1.APIResource
-	Descriptor resourcev2.ResourceType
-	Served     map[string]nativeServedType
-	Actions    []resourcev2.ActionDescriptor
+	GVR          schema.GroupVersionResource
+	API          metav1.APIResource
+	Descriptor   resourcev2.ResourceType
+	Served       map[string]nativeServedType
+	Actions      []resourcev2.ActionDescriptor
 	Subresources map[string]metav1.APIResource
 }
 
@@ -34,8 +34,6 @@ type nativeServedType struct {
 // discoverNativeTypes retains snapshot-only and create-only APIs. Discovery
 // verbs describe native operations, not an authorization grant for a principal.
 func discoverNativeTypes(ctx context.Context, client discovery.DiscoveryInterface) (map[string]nativeType, resourcev2.Coverage, error) {
-	ctx, cancel := context.WithTimeout(ctx, nativeCatalogAcquisitionTimeout)
-	defer cancel()
 	if err := ctx.Err(); err != nil {
 		return nil, resourcev2.Coverage{}, err
 	}
@@ -164,10 +162,12 @@ func discoverNativeTypes(ctx context.Context, client discovery.DiscoveryInterfac
 	for token, binding := range result {
 		binding.Subresources = make(map[string]metav1.APIResource)
 		for _, list := range lists {
-			if list == nil || list.GroupVersion != binding.GVR.GroupVersion().String() { continue }
+			if list == nil || list.GroupVersion != binding.GVR.GroupVersion().String() {
+				continue
+			}
 			for _, api := range list.APIResources {
 				if strings.HasPrefix(api.Name, binding.GVR.Resource+"/") {
-					binding.Subresources[strings.TrimPrefix(api.Name,binding.GVR.Resource+"/")] = api
+					binding.Subresources[strings.TrimPrefix(api.Name, binding.GVR.Resource+"/")] = api
 				}
 			}
 		}
