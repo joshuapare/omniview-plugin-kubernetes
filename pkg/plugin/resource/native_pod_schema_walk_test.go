@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/omniview/kubernetes/pkg/plugin/helm"
 	"github.com/omniview/kubernetes/pkg/plugin/resource/clients"
 	resourcev2 "github.com/omniviewdev/plugin-sdk/pkg/resource/v2"
 	"github.com/omniviewdev/plugin-sdk/pkg/types"
@@ -74,7 +73,6 @@ func TestNativePodSchemaTraversalFromClusterOpenAPI(t *testing.T) {
 	f.documents["/openapi/v3/api/v1"] = string(fixture)
 	f.mu.Unlock()
 	p := refreshTestProvider()
-	p.helmAncillary = helm.NewHelmAncillary(zap.NewNop().Sugar())
 	ctx, connection := refreshTestContext("pod-schema-cluster")
 	require.NoError(t, p.startNativeConnection(ctx, connection, client))
 	t.Cleanup(func() { p.retireNativeCatalog(connection.ID) })
@@ -135,17 +133,4 @@ func TestNativePodSchemaTraversalFromClusterOpenAPI(t *testing.T) {
 	require.Equal(t, "object", labels["type"])
 	require.Equal(t, "string", podSchemaObject(t, labels, "additionalProperties")["type"])
 	require.NotContains(t, labels, "properties")
-
-	schemas, err := p.GetEditorSchemas(ctx, route)
-	require.NoError(t, err)
-	found := false
-	for _, schema := range schemas {
-		if schema.Type == "k8s:/pods" {
-			found = true
-			require.NotNil(t, schema.Binding.Revision)
-			require.Equal(t, *binding.Revision, *schema.Binding.Revision)
-			require.Equal(t, binding.DocumentRef, schema.Binding.DocumentRef)
-		}
-	}
-	require.True(t, found, "Pod editor schema missing")
 }

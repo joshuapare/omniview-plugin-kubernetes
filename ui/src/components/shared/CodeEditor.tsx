@@ -108,6 +108,8 @@ const CodeEditor: FC<Props> = ({
         }}
         theme={lang === 'nginx' ? 'nginx-theme-dark' : 'vs-dark'}
         language={lang}
+        originalModelPath={path ? `${path.slice(0, path.lastIndexOf('/') + 1)}original-${encodeURIComponent(diffContainerID)}-${path.slice(path.lastIndexOf('/') + 1)}` : undefined}
+        modifiedModelPath={path ? `${path.slice(0, path.lastIndexOf('/') + 1)}modified-${encodeURIComponent(diffContainerID)}-${path.slice(path.lastIndexOf('/') + 1)}` : undefined}
         original={original}
         modified={onChange ? value : value || controlledValue}
         height={height ?? '100%'}

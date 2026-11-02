@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,7 @@ import (
 	"github.com/omniview/kubernetes/pkg/plugin/resource/clients"
 	resourcev2 "github.com/omniviewdev/plugin-sdk/pkg/resource/v2"
 	sdktypes "github.com/omniviewdev/plugin-sdk/pkg/types"
+	"github.com/omniviewdev/plugin-sdk/settings"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -113,6 +115,82 @@ func expireRefresh(p *kubernetesProvider, id string) {
 	p.mu.Lock()
 	p.catalogs[id].nextRefresh = time.Now().Add(-time.Second)
 	p.mu.Unlock()
+}
+
+type refreshTimeoutSettings struct {
+	settings.Provider
+	read func() (any, error)
+}
+
+func (p refreshTimeoutSettings) GetSettingValue(string) (any, error) { return p.read() }
+
+type refreshWaitContext struct {
+	context.Context
+	entered chan struct{}
+	once    sync.Once
+}
+
+func (c *refreshWaitContext) Done() <-chan struct{} {
+	c.once.Do(func() { close(c.entered) })
+	return c.Context.Done()
+}
+
+func TestNativeRefreshSettingsFailureIsSharedAndCached(t *testing.T) {
+	f, client := newRefreshHTTPFixture(t)
+	p := refreshTestProvider()
+	ctx, connection := refreshTestContext("settings-cluster")
+	require.NoError(t, p.startNativeConnection(ctx, connection, client))
+	t.Cleanup(func() { p.retireNativeCatalog(connection.ID) })
+	before := f.count("")
+	entered, release := make(chan struct{}), make(chan struct{})
+	var releaseOnce sync.Once
+	unblock := func() { releaseOnce.Do(func() { close(release) }) }
+	t.Cleanup(unblock)
+	reads := 0
+	configured := resourcev2.WithSession(ctx, resourcev2.Session{
+		Connection: &connection,
+		PluginConfig: refreshTimeoutSettings{read: func() (any, error) {
+			reads++
+			close(entered)
+			<-release
+			return nil, errors.New("settings unavailable")
+		}},
+	})
+	require.NoError(t, p.refreshNativeCatalog(configured, connection.ID, client), "cached success must not read settings")
+	require.Zero(t, reads)
+	expireRefresh(p, connection.ID)
+	owner := make(chan error, 1)
+	go func() { owner <- p.refreshNativeCatalog(configured, connection.ID, client) }()
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("owned refresh did not read settings")
+	}
+	waitCtx := &refreshWaitContext{Context: configured, entered: make(chan struct{})}
+	waiter := make(chan error, 1)
+	go func() { waiter <- p.refreshNativeCatalog(waitCtx, connection.ID, client) }()
+	select {
+	case <-waitCtx.entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("concurrent caller did not join owned refresh")
+	}
+	unblock()
+	var ownerErr error
+	select {
+	case ownerErr = <-owner:
+		require.Equal(t, "INVALID_REQUEST", resourcev2.ErrorCode(ownerErr))
+	case <-time.After(5 * time.Second):
+		t.Fatal("settings failure did not finish owned refresh")
+	}
+	select {
+	case err := <-waiter:
+		require.Same(t, ownerErr, err, "waiter must receive shared settings failure")
+	case <-time.After(5 * time.Second):
+		t.Fatal("settings failure did not release waiter")
+	}
+	require.Same(t, ownerErr, p.refreshNativeCatalog(ctx, connection.ID, client), "cached failure must remain visible without a new settings lookup")
+	require.Equal(t, 1, reads)
+	require.Equal(t, before, f.count(""), "settings failure must not start discovery")
 }
 
 func TestNativeHTTPRefreshObservesServedVersionsOnlyWhenEligible(t *testing.T) {

@@ -1,5 +1,5 @@
 import { Button, Checkbox, Dialog, Stack, Text } from '@omniviewdev/base-ui';
-import { jsonToValue, useExecuteAction } from '@omniviewdev/runtime';
+import { jsonToValue, useExecuteAction, useResourceEditorModelPath } from '@omniviewdev/runtime';
 import { ResourceClient } from '@omniviewdev/runtime/api';
 import React from 'react';
 import { stringify } from 'yaml';
@@ -50,6 +50,10 @@ const UpgradeDialog: React.FC<Props> = ({
   const [dryRunManifest, setDryRunManifest] = React.useState<string | null>(null);
   const [valuesLoaded, setValuesLoaded] = React.useState(false);
 
+  const editorPath = useResourceEditorModelPath({
+    pluginID: PLUGIN_ID, route: { connection: connectionID }, type: 'helm:releases',
+    key: `${namespace}/${releaseName}`, name: 'values',
+  });
   const { executeAction, isExecuting } = useExecuteAction({ pluginID: PLUGIN_ID });
   const runAction = async (action: string, input = jsonToValue({})) => {
     const resolved = await ResourceClient.ResolveReference(PLUGIN_ID, {
@@ -129,6 +133,7 @@ const UpgradeDialog: React.FC<Props> = ({
             <div style={valuesEditorStyle}>
               <CodeEditor
                 filename="values.yaml"
+                path={editorPath}
                 language="yaml"
                 value={values}
                 onChange={(v) => setValues(v)}

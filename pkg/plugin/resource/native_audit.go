@@ -15,7 +15,7 @@ func auditResourceType() resourcev2.ResourceType {
 		Type: auditType, DisplayName: "ClusterBenchmark",
 		IdentityDimensions: []resourcev2.Dimension{}, QueryDimensions: []resourcev2.Dimension{},
 		DefaultRepresentation: "kubernetes.polaris-audit.v1",
-		Representations:       []resourcev2.Representation{{ID: "kubernetes.polaris-audit.v1", Revision: "kubernetes.polaris-audit.v1", Schema: resourcev2.SchemaBinding{State: "absent", Validation: "none", Unvalidated: []string{}}}},
+		Representations:       []resourcev2.Representation{{ID: "kubernetes.polaris-audit.v1", Revision: "kubernetes.polaris-audit.v1", Schema: resourcev2.SchemaBinding{State: "absent"}}},
 		Capabilities:          []resourcev2.Capability{{Operation: resourcev2.OperationEnumerate, Scope: resourcev2.QueryScope{}}},
 	}
 }

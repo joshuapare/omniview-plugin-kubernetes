@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({ mutate: vi.fn() }));
 vi.mock('@omniviewdev/runtime', async (importOriginal) => ({
   ...await importOriginal<Record<string, unknown>>(),
   useResourceMutations: () => ({ mutate: mocks.mutate }),
+  useResourceEditorModelPath: () => undefined,
   useResourceTypes: () => ({ resourceTypes: { data: [{ type: 'k8s:/configmaps', identityDimensions: [{ name: 'namespace' }], representations: [{ id: 'kubernetes.object.v1/v1', schema: { state: 'absent' } }], capabilities: [{ operation: 'mutationUpdate', scope: [] }] }] } }),
   jsonToValue: (value: unknown) => value,
   valueToJSON: (value: unknown) => value,

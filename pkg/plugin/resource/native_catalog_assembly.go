@@ -23,17 +23,17 @@ func (p *kubernetesProvider) assembleNativeCatalog(ctx context.Context, connecti
 			representation := resourcev2.Representation{
 				ID:       nativeRepresentationVersion + "/" + gv,
 				Revision: nativeRepresentationVersion + "/" + gv,
-				Schema:   resourcev2.SchemaBinding{State: "unavailable", Validation: "none", Unvalidated: []string{}},
+				Schema:   resourcev2.SchemaBinding{State: "unavailable"},
 			}
 			key := nativeSchemaKey(token, binding.GVR, served.GVR)
 			if document, ok := schemas[key]; ok {
 				ref := resourcev2.SchemaDocumentReference{ID: "kubernetes.openapi.v3/" + gv, Revision: document.Revision}
 				revision := document.Revision
 				representation.Schema = resourcev2.SchemaBinding{
-					State: "available", Revision: &revision, Dialect: "openapi-3.0", Root: document.Root,
-					DocumentRef: &ref, Validation: "none", Unvalidated: []string{},
+					State: "available", Revision: &revision, Dialect: resourcev2.DialectOpenAPI30, Root: document.Root,
+					DocumentRef: &ref,
 				}
-				documents[ref] = resourcev2.SchemaDocument{Reference: ref, Dialect: "openapi-3.0", Document: document.Document}
+				documents[ref] = resourcev2.SchemaDocument{Reference: ref, Dialect: resourcev2.DialectOpenAPI30, Document: document.Document}
 			} else if failures[key] != nil {
 				p.logger.Debugw("native schema unavailable", "type", token, "apiVersion", gv)
 			}

@@ -18,6 +18,7 @@ interface Props extends Pick<ResourceManifestEditorProps, 'contribution' | 'refe
   isCreating?: boolean;
   context?: string;
   connectionID?: string;
+  editorPath?: string;
   editorContext?: ResourceEditorContext;
   resolveContext?: (source: string) => ResourceEditorContext;
 }
@@ -27,7 +28,7 @@ const CreateResourceModal: React.FC<Props> = (props) =>
 
 // Each open owns its draft and completion lifetime, including while a request is pending.
 const CreateResourceForm: React.FC<Props> = ({
-  onClose, resourceKey, resourceName, template, onCreate, isCreating, context, connectionID, editorContext, resolveContext, contribution, references, actions,
+  onClose, resourceKey, resourceName, template, onCreate, isCreating, context, connectionID, editorPath, editorContext, resolveContext, contribution, references, actions,
 }) => {
   const [value, setValue] = React.useState(template);
   const [error, setError] = React.useState<string | null>(null);
@@ -101,6 +102,7 @@ const CreateResourceForm: React.FC<Props> = ({
           onChange={(next) => { if (!busyRef.current) { setValue(next); setError(null); } }}
           resourceKey={resourceKey}
           filename="create.yaml"
+          path={editorPath}
           context={context}
           connectionID={connectionID}
           editorContext={admittedContext}

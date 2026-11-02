@@ -279,13 +279,6 @@ func (r *ReleaseResourcer) GetEditorSchemas(
 		return nil, resource.NewError("RESOURCE_LIMIT", "Helm schema discovery exceeds 256 storage entries")
 	}
 
-	session, _ := resource.SessionFromContext(ctx)
-	conn := session.Connection
-	connID := ""
-	if conn != nil {
-		connID = conn.ID
-	}
-
 	var schemas []resource.EditorSchema
 	totalBytes := 0
 	for _, item := range metadata.Items {
@@ -312,11 +305,7 @@ func (r *ReleaseResourcer) GetEditorSchemas(
 		if len(rel.Chart.Schema) == 0 {
 			continue
 		}
-		schema, size, err := helmEditorSchema(
-			rel.Chart.Schema,
-			fmt.Sprintf("helm://%s/%s/%s/values-schema", connID, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version),
-			fmt.Sprintf("**/helm:releases/%s.yaml", rel.Name),
-		)
+		schema, size, err := helmEditorSchema(rel.Chart.Schema, item.Namespace+"/"+rel.Name)
 		if err != nil {
 			return nil, err
 		}

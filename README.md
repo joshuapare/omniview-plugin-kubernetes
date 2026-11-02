@@ -183,6 +183,8 @@ Valid empty `oneOf` selections for Helm release namespaces, repository domains, 
 
 Existing informer updates remain explicitly **bestEffort**. Cache readiness does not prove an atomic snapshot, replay, gap-free delivery, or P05 source continuity. Native `{namespace,GVR}` acquisitions are shared only while consumers remain; the final consumer stops the underlying LIST/WATCH and releases its cache. Connection teardown stops all remaining sources.
 
+Watch failures use SDK error codes: unsupported native methods report `UNSUPPORTED`, cache-sync deadlines report `TIMEOUT`, and other unclassified failures report `PROVIDER_ERROR`. Unrepresentable records retain their classified conversion error. These states do not claim source continuity.
+
 OpenAPI documents are bounded to 16 MiB and shared by document reference plus exact local root. Demand-driven catalog refresh runs at most once every 30 seconds per connected cluster, with a 10-second acquisition deadline. Each eligible refresh reacquires OpenAPI before comparing snapshots, so schema-only changes and recovery from an initial missing document can update the catalog. This is not a CRD watcher or immediate change notification.
 
 One provider-wide 32 MiB retained-schema budget covers every connection, with a separate 16 MiB staging bound. Identical document bytes share retained storage. Exhausted entries are unavailable, not incorrectly absent, and resource Get remains independent. Replacement, failed acquisition, and teardown release the cache budget; queued acquisition is cancellable. Available, absent, and unavailable schemas remain distinct; raw OpenAPI transport does not claim P07 normalization or full validation. Editor metadata also forwards installed Helm chart `values.schema.json` roles with native acquisition errors intact. Creation can use a schema-derived template or a complete pasted native manifest.
@@ -526,7 +528,7 @@ Expansion stays connection-specific. Sidebar order and edit mode remain global p
 
 New API groups and resource kinds appear as the catalog changes. Watch-state badges update independently of the navigation structure; errors take precedence over syncing indicators. Empty categories and unavailable primary resources do not become invalid navigation destinations. Global command search continues to reuse the same destinations.
 
-Omniview 0.17.0 shares base-ui 0.10.0 with `TreeList.onAction` support. This plugin pins the matching published runtime and Vite plugin 0.17.0, base-ui 0.10.0, and editors 6.1.3. Update Omniview before updating the Kubernetes plugin: a plugin dependency alone does not replace the host's shared component singleton.
+For the supported frontend cohort, see [Prerequisites](#prerequisites). The host owns the shared component singleton; plugin dependencies do not replace it.
 
 ### Scoped Command Search
 
@@ -887,10 +889,11 @@ rather than adding unsupported manifest fields.
 
 Registry installs retain pnpm's 24-hour release-age protection. Only coordinated
 `@omniviewdev/*` packages are exempted; linked source worktrees resolve locally.
-The current UI cohort is `@omniviewdev/base-ui` 0.10.0 and
-`@omniviewdev/editors` 6.1.3, paired with host/runtime and Vite plugin 0.17.0.
-The backend pins published Go SDK `v0.11.0` for transactional settings,
-connection metadata, and opt-in profiling.
+The current frontend cohort uses `@omniviewdev/base-ui` 0.11.1,
+`@omniviewdev/editors` 6.1.5, and runtime/Vite plugin 0.24.0.
+P07 source builds use the reviewed host runtime.
+The backend pins Go SDK `v0.14.3` for P07 and the existing settings,
+connection metadata, profiling, and configurable acquisition timeout APIs.
 Debug preferences discard unsaved drafts when reopened or switched to another
 connection, but preserve active drafts when saved defaults refresh.
 
