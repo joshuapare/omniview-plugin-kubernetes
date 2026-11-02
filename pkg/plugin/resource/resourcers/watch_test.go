@@ -515,3 +515,79 @@ func TestWatch_ConsumerRetirementStopsNativeWatch(t *testing.T) {
 		})
 	}
 }
+
+func assertWatchStateWire(t *testing.T, event resource.WatchStateEvent, state resource.WatchState, code string) {
+	t.Helper()
+	wire, err := resource.ToProtoWatchStateEvent(event)
+	require.NoError(t, err)
+	received, err := resource.FromProtoWatchStateEvent(wire)
+	require.NoError(t, err)
+	require.Equal(t, state, received.State)
+	require.NotNil(t, received.Error)
+	require.Equal(t, code, received.Error.Code)
+	require.Equal(t, event.Route, received.Route)
+	require.Equal(t, event.Type, received.Type)
+}
+
+func TestWatchFailureStatesCrossUpdateAdapter(t *testing.T) {
+	target := testWatchTarget()
+	for _, tc := range []struct {
+		name string
+		err  error
+		code string
+	}{
+		{"timeout", fmt.Errorf("cache sync timed out: %w", context.DeadlineExceeded), "TIMEOUT"},
+		{"native failure", fmt.Errorf("native failure"), "PROVIDER_ERROR"},
+		{"forbidden", k8serrors.NewForbidden(testGVR.GroupResource(), "", fmt.Errorf("denied")), "FORBIDDEN"},
+		{"unauthorized", k8serrors.NewUnauthorized("denied"), "UNAUTHORIZED"},
+		{"not found", k8serrors.NewNotFound(testGVR.GroupResource(), ""), "NOT_FOUND"},
+		{"method not allowed", k8serrors.NewMethodNotSupported(testGVR.GroupResource(), "list"), "UNSUPPORTED"},
+		{"classified failure", resource.NewError("RESOURCE_LIMIT", "too large"), "RESOURCE_LIMIT"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			event := watchStateEvent(target, resource.WatchStateError, 0, tc.err)
+			assertWatchStateWire(t, event, resource.WatchStateError, tc.code)
+		})
+	}
+
+	t.Run("method not allowed", func(t *testing.T) {
+		cs := newWatchableClientSet(defaultGVRListKinds())
+		cs.DynamicClient.(*fakedynamic.FakeDynamicClient).PrependReactor("list", "pods", func(k8stesting.Action) (bool, runtime.Object, error) {
+			return true, nil, k8serrors.NewMethodNotSupported(testGVR.GroupResource(), "list")
+		})
+		sink := newRecordingSink()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		done := make(chan error, 1)
+		go func() { done <- newBaseResourcer().Watch(ctx, cs, target, testWatchRepresentation(), sink) }()
+		sink.WaitForState(t, target.Type, resource.WatchStateSkipped, 5*time.Second)
+		cancel()
+		require.NoError(t, <-done)
+		require.Len(t, sink.states, 1)
+		assertWatchStateWire(t, sink.states[0], resource.WatchStateSkipped, "UNSUPPORTED")
+	})
+
+	t.Run("record conversion", func(t *testing.T) {
+		var nested any = "value"
+		for range resource.MaxValueDepth + 1 {
+			nested = []any{nested}
+		}
+		for _, tc := range []struct {
+			name string
+			body any
+			code string
+		}{
+			{"oversized", nested, "RESOURCE_LIMIT"},
+			{"unsupported", make(chan int), "UNSUPPORTED"},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				pod := newTestPod("pod", "default")
+				pod.Object["spec"] = tc.body
+				sink := newRecordingSink()
+				makeEventHandler(context.Background(), target, testWatchRepresentation(), sink).AddFunc(pod)
+				require.Len(t, sink.states, 1)
+				assertWatchStateWire(t, sink.states[0], resource.WatchStateError, tc.code)
+			})
+		}
+	})
+}

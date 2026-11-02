@@ -87,6 +87,17 @@ type watchErrorClassification struct {
 	message            string
 }
 
+func watchErrorCode(err error) string {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "TIMEOUT"
+	}
+	var classified *resource.ResourceOperationError
+	if errors.As(err, &classified) && classified != nil && resource.IsErrorCode(classified.Code) {
+		return classified.Code
+	}
+	return "PROVIDER_ERROR"
+}
+
 func classifyWatchError(err error) watchErrorClassification {
 	var status *k8serrors.StatusError
 	if errors.As(err, &status) {
@@ -98,10 +109,25 @@ func classifyWatchError(err error) watchErrorClassification {
 		case 404:
 			return watchErrorClassification{isNotFound: true, code: "NOT_FOUND", message: "Resource type not found: " + status.ErrStatus.Message}
 		case 405:
-			return watchErrorClassification{isMethodNotAllowed: true, code: "METHOD_NOT_ALLOWED", message: "Resource does not support this method: " + status.ErrStatus.Message}
+			return watchErrorClassification{isMethodNotAllowed: true, code: "UNSUPPORTED", message: "Resource does not support this method: " + status.ErrStatus.Message}
 		}
 	}
-	return watchErrorClassification{code: "UNKNOWN", message: err.Error()}
+	return watchErrorClassification{code: watchErrorCode(err), message: err.Error()}
+}
+
+func watchStateEvent(target resource.ReadTarget, state resource.WatchState, count int, failure error) resource.WatchStateEvent {
+	observed := resource.Count{Kind: "unknown"}
+	if state == resource.WatchStateSynced {
+		value := strconv.Itoa(count)
+		observed = resource.Count{Kind: "estimate", Value: &value}
+	}
+	event := resource.WatchStateEvent{Route: target.Route, Type: target.Type, State: state, Count: observed, Guarantee: resource.BestEffortGuarantee}
+	if failure != nil {
+		classified := classifyWatchError(failure)
+		event.Message = classified.message
+		event.Error = &resource.ResourceOperationError{Code: classified.code, Message: classified.message}
+	}
+	return event
 }
 
 func watchRecord(target resource.ReadTarget, representation resource.Representation, u *unstructured.Unstructured) (resource.Record, error) {
@@ -147,7 +173,7 @@ func makeEventHandler(ctx context.Context, target resource.ReadTarget, represent
 		}
 		record, err := watchRecord(target, representation, u)
 		if err != nil {
-			sink.OnStateChange(resource.WatchStateEvent{Route: target.Route, Type: target.Type, State: resource.WatchStateError, Count: resource.Count{Kind: "unknown"}, Error: &resource.ResourceOperationError{Code: "INVALID_RESPONSE", Message: "native update cannot be represented"}, Guarantee: resource.BestEffortGuarantee})
+			sink.OnStateChange(resource.WatchStateEvent{Route: target.Route, Type: target.Type, State: resource.WatchStateError, Count: resource.Count{Kind: "unknown"}, Error: &resource.ResourceOperationError{Code: watchErrorCode(err), Message: "native update cannot be represented"}, Guarantee: resource.BestEffortGuarantee})
 			return
 		}
 		switch kind {
@@ -240,18 +266,7 @@ func (s *KubernetesResourcerBase[T]) Watch(ctx context.Context, client *clients.
 		return err
 	}
 	emitState := func(state resource.WatchState, count int, failure error) {
-		observed := resource.Count{Kind: "unknown"}
-		if state == resource.WatchStateSynced {
-			value := strconv.Itoa(count)
-			observed = resource.Count{Kind: "estimate", Value: &value}
-		}
-		event := resource.WatchStateEvent{Route: target.Route, Type: target.Type, State: state, Count: observed, Guarantee: resource.BestEffortGuarantee}
-		if failure != nil {
-			classified := classifyWatchError(failure)
-			event.Message = classified.message
-			event.Error = &resource.ResourceOperationError{Code: classified.code, Message: classified.message}
-		}
-		sink.OnStateChange(event)
+		sink.OnStateChange(watchStateEvent(target, state, count, failure))
 	}
 	probe := func(namespace string) error {
 		native := client.DynamicClient.Resource(s.resourceType)
@@ -331,7 +346,7 @@ func (s *KubernetesResourcerBase[T]) Watch(ctx context.Context, client *clients.
 			}
 			lastErr = probe(item.namespace)
 			if lastErr == nil {
-				lastErr = fmt.Errorf("cache sync timed out")
+				lastErr = fmt.Errorf("cache sync timed out: %w", context.DeadlineExceeded)
 			}
 			classified := classifyWatchError(lastErr)
 			if len(namespaces) == 0 {
