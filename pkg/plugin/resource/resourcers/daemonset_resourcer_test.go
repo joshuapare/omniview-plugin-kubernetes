@@ -51,11 +51,14 @@ func TestDaemonSetResourcer_GetActions(t *testing.T) {
 	r := newTestDaemonSetResourcer()
 	actions, err := r.GetActions(context.Background(), nil)
 	require.NoError(t, err)
-	require.Len(t, actions, 1)
+	require.Len(t, actions, 2)
 
 	assert.Equal(t, "restart", actions[0].ID)
 	assert.Equal(t, resource.ActionScopeInstance, actions[0].Scope)
 	assert.True(t, actions[0].Streaming)
+	assert.Equal(t, "rollout-restart", actions[1].ID)
+	assert.False(t, actions[1].Streaming)
+	assert.NotNil(t, actions[1].ParamsSchema)
 }
 
 // ===================== Restart =====================
@@ -65,7 +68,7 @@ func TestDaemonSetResourcer_Restart(t *testing.T) {
 	cs := newAppsDaemonSetClientSet(ds)
 	r := newTestDaemonSetResourcer()
 
-	result, err := r.ExecuteAction(context.Background(), cs, workloadActionRequest("restart", "fluentd", "kube-system", nil))
+	result, err := r.ExecuteAction(context.Background(), cs, workloadActionRequest("rollout-restart", "fluentd", "kube-system", nil))
 
 	require.NoError(t, err)
 	require.Equal(t, "map", result.Kind)
@@ -81,7 +84,7 @@ func TestDaemonSetResourcer_Restart_NotFound(t *testing.T) {
 	cs := newAppsDaemonSetClientSet()
 	r := newTestDaemonSetResourcer()
 
-	result, err := r.ExecuteAction(context.Background(), cs, workloadActionRequest("restart", "nonexistent", "default", nil))
+	result, err := r.ExecuteAction(context.Background(), cs, workloadActionRequest("rollout-restart", "nonexistent", "default", nil))
 
 	require.Error(t, err)
 	assert.Equal(t, resource.Value{}, result)

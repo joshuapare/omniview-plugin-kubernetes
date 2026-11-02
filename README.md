@@ -29,6 +29,21 @@ keyboard focus and selection feedback. Avoid plugin-local border or color
 overrides. The [shared design language](https://github.com/omniviewdev/ui/blob/main/docs/THEMING.md#native-control-language)
 documents measured contrast, nested themes, and screenshots.
 
+## MCP resource actions
+
+The resource catalog exposes unary `rollout-restart` actions for Deployments, StatefulSets and
+DaemonSets. The existing streaming `restart` action remains available to the UI. CronJobs expose
+`trigger`, `suspend` and `resume`; triggered Jobs use a controller owner reference to the CronJob.
+
+Pods expose a one-shot, non-TTY `exec` action. Its input contains a command array, an optional
+container and a timeout from 1 to 100 seconds (30 seconds by default). Each output stream keeps
+at most 256 KiB. Invalid UTF-8 bytes become replacement characters. The remote command can
+continue after a timeout. Explicit container selection currently supports regular containers only.
+
+Native resource types, including custom resources without specialized helpers, expose Kubernetes
+events. Catalog types without native event retrieval return `UNSUPPORTED`. Flux actions remain
+separate work in the [SDK connection-sharing design](https://github.com/omniviewdev/plugin-sdk/issues/31).
+
 ## Creating and editing resources
 
 Pod, Deployment, StatefulSet, Service, Ingress, ConfigMap, Secret, and

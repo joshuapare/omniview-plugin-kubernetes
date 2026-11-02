@@ -125,6 +125,15 @@ func (d *DaemonSetResourcer) GetActions(
 			Dangerous:   true,
 			Streaming:   true,
 		},
+		{
+			ID:           "rollout-restart",
+			Label:        "Rollout Restart",
+			Description:  "Restart all pods via a rolling update and return immediately; read the object to follow the rollout.",
+			Icon:         "LuRefreshCw",
+			Scope:        resource.ActionScopeInstance,
+			Dangerous:    true,
+			ParamsSchema: &resource.Schema{},
+		},
 	}, nil
 }
 
@@ -134,7 +143,7 @@ func (d *DaemonSetResourcer) ExecuteAction(
 	input resource.ActionRequest,
 ) (resource.Value, error) {
 	switch input.Action {
-	case "restart":
+	case "rollout-restart":
 		return d.executeRestart(ctx, client, input)
 	default:
 		return resource.Value{}, fmt.Errorf("unknown action: %s", input.Action)

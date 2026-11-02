@@ -98,6 +98,7 @@ func (n *NodeResourcer) GetActions(
 			Description: "Mark the node as unschedulable",
 			Icon:        "LuShieldBan",
 			Scope:       resource.ActionScopeInstance,
+			ParamsSchema: &resource.Schema{},
 		},
 		{
 			ID:          "uncordon",
@@ -105,6 +106,7 @@ func (n *NodeResourcer) GetActions(
 			Description: "Mark the node as schedulable",
 			Icon:        "LuShieldCheck",
 			Scope:       resource.ActionScopeInstance,
+			ParamsSchema: &resource.Schema{},
 		},
 		{
 			ID:          "drain",
@@ -157,6 +159,7 @@ func (n *NodeResourcer) GetActions(
 			Description: "Get node status conditions",
 			Icon:        "LuHeartPulse",
 			Scope:       resource.ActionScopeInstance,
+			ParamsSchema: &resource.Schema{},
 		},
 	}, nil
 }

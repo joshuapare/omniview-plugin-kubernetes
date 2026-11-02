@@ -102,6 +102,7 @@ func nativeSpecializedHelpers(logger *zap.SugaredLogger, relationships map[strin
 		"k8s:apps/daemonsets":                        resourcers.NewDaemonSetResourcer(logger, opts("k8s:apps/daemonsets")...),
 		"k8s:apps/statefulsets":                      resourcers.NewStatefulSetResourcer(logger, opts("k8s:apps/statefulsets")...),
 		"k8s:autoscaling/horizontalpodautoscalers":   resourcers.NewHPAResourcer(logger, opts("k8s:autoscaling/horizontalpodautoscalers")...),
+		"k8s:batch/cronjobs":                         resourcers.NewCronJobResourcer(logger, opts("k8s:batch/cronjobs")...),
 		"k8s:rbac.authorization.k8s.io/rolebindings": resourcers.NewRoleBindingResourcer(logger, opts("k8s:rbac.authorization.k8s.io/rolebindings")...),
 	}
 }

@@ -95,6 +95,7 @@ func (r *RepoResourcerWithActions) GetActions(
 			Description: "Re-download the repository index",
 			Icon:        "LuRefreshCw",
 			Scope:       resource.ActionScopeInstance,
+			ParamsSchema: &resource.Schema{},
 		},
 		{
 			ID:          "list-charts",
@@ -102,6 +103,7 @@ func (r *RepoResourcerWithActions) GetActions(
 			Description: "List all charts in this repository",
 			Icon:        "LuList",
 			Scope:       resource.ActionScopeInstance,
+			ParamsSchema: &resource.Schema{},
 		},
 		{
 			ID:          "add",
