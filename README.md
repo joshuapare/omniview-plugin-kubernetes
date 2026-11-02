@@ -193,6 +193,8 @@ Before publication, the provider sets `nullable: true` on exactly
 It preserves the fetched source bytes and resource bodies.
 It changes only those component spans in the published document.
 The document revision hashes the published bytes; the host digest also reflects the correction.
+The correction uses exact `components.schemas` spans, not case-different aliases.
+`GetSchemaDocument` serves bytes whose SHA-256 equals the binding revision.
 Generic host null checks remain strict.
 
 One provider-wide 32 MiB retained-schema budget covers every connection, with a separate 16 MiB staging bound. Identical document bytes share retained storage. Exhausted entries are unavailable, not incorrectly absent, and resource Get remains independent. Replacement, failed acquisition, and teardown release the cache budget; queued acquisition is cancellable. Available, absent, and unavailable schemas remain distinct; raw OpenAPI transport does not claim P07 normalization or full validation. Editor metadata also forwards installed Helm chart `values.schema.json` roles with native acquisition errors intact. Creation can use a schema-derived template or a complete pasted native manifest.

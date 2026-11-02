@@ -106,8 +106,6 @@ func TestNativePodSchemaTraversalFromClusterOpenAPI(t *testing.T) {
 	require.Equal(t, *binding.Revision, binding.DocumentRef.Revision)
 	served, err := p.GetSchemaDocument(ctx, route, *binding.DocumentRef)
 	require.NoError(t, err)
-	published := p.catalogs[connection.ID].documents[*binding.DocumentRef]
-	require.Equal(t, published.Document, served.Document)
 	digest := sha256.Sum256(served.Document)
 	require.Equal(t, hex.EncodeToString(digest[:]), *binding.Revision)
 	require.Equal(t, hex.EncodeToString(digest[:]), served.Reference.Revision)
