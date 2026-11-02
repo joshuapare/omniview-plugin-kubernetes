@@ -16,11 +16,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
+	clienttesting "k8s.io/client-go/testing"
 )
 
 var boundaryGVR = schema.GroupVersionResource{Version: "v1", Resource: "pods"}
@@ -67,7 +69,7 @@ func boundaryProvider(t *testing.T, client *dynamicfake.FakeDynamicClient) (*res
 
 func TestIntegrationNativeBoundaryThroughGRPC(t *testing.T) {
 	object := boundaryObject("native-name", "selected")
-	object.Object["spec"] = map[string]any{"exact": int64(9223372036854775807), "document": strings.Repeat("x", 2<<20)}
+	object.Object["spec"] = map[string]any{"exact": int64(9223372036854775807), "document": strings.Repeat("x", 2<<20), "unrelated": "preserved"}
 	backend := boundaryClient(object, boundaryObject("native-name", "other"))
 	controller, destroyed := boundaryProvider(t, backend)
 	server := grpc.NewServer(resourceplugin.ServerOptions()...)
@@ -96,13 +98,24 @@ func TestIntegrationNativeBoundaryThroughGRPC(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, page.Records, 1)
 	require.Equal(t, request.Reference.Address, page.Records[0].Reference.Address)
-	mutation := boundaryMutation(t, "update")
-	mutation.ExpectedRevision = mutationToken("opaque:9")
-	mutation.Reference.Incarnation = mutationToken("uid-1")
-	mutation.Input.Map["spec"] = resourcev2.Value{Kind: "map", Map: map[string]resourcev2.Value{"exact": {Kind: "int64", Int: "9007199254740993"}}}
+	mutation := resourcev2.MutationRequest{
+		Route: request.Route, Reference: record.Reference, Operation: "update",
+		Input: record.Body, ExpectedRevision: record.SourceRevision,
+	}
+	require.NotNil(t, mutation.ExpectedRevision)
+	mutation.Input.Map["spec"].Map["exact"] = resourcev2.Value{Kind: "int64", Int: "9007199254740993"}
 	updated, err := client.Mutate(ctx, mutation)
 	require.NoError(t, err)
 	require.Equal(t, "9007199254740993", updated.Body.Map["spec"].Map["exact"].Int)
+	require.Equal(t, "preserved", updated.Body.Map["spec"].Map["unrelated"].String)
+	require.Len(t, updated.Body.Map["spec"].Map["document"].String, 2<<20)
+	backend.PrependReactor("update", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		object := action.(clienttesting.UpdateAction).GetObject().(*unstructured.Unstructured)
+		require.Equal(t, *record.SourceRevision, object.GetResourceVersion())
+		return true, nil, apierrors.NewConflict(boundaryGVR.GroupResource(), object.GetName(), nil)
+	})
+	_, err = client.Mutate(ctx, mutation)
+	require.Equal(t, "CONFLICT", resourcev2.ErrorCode(err))
 	deleted, err := client.Mutate(ctx, boundaryMutation(t, "delete"))
 	require.NoError(t, err)
 	require.Equal(t, "9007199254740993", deleted.Body.Map["spec"].Map["exact"].Int)

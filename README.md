@@ -41,8 +41,11 @@ at most 256 KiB. Invalid UTF-8 bytes become replacement characters. The remote c
 continue after a timeout. Explicit container selection currently supports regular containers only.
 
 Native resource types, including custom resources without specialized helpers, expose Kubernetes
-events. Catalog types without native event retrieval return `UNSUPPORTED`. Flux actions remain
-separate work in the [SDK connection-sharing design](https://github.com/omniviewdev/plugin-sdk/issues/31).
+events. Catalog types without native event retrieval return `UNSUPPORTED`. Kubernetes exports
+catalog, get, enumerate, and update access for the five Flux toolkit API groups to consumers with
+matching connection requirements. The host enforces the grant and existing connection policy;
+credentials and native clients remain in the Kubernetes plugin. Core resources, including Secrets,
+are not exported through this grant. Flux-specific actions remain in the Flux plugin.
 
 ## Creating and editing resources
 
