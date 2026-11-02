@@ -1,11 +1,17 @@
 import { Button } from '@omniviewdev/base-ui';
 import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
 import { useState } from 'react';
+
 import { EditorField, EditorHelp, EditorSection } from '../../editor-controls';
-import { Availability, booleanOptions, ChoiceValue, omitted, storageBuffer, TextValue, useStorageForm, type StorageState } from './StorageFields';
+
 import { fieldAvailable, installerOwned, integerError } from './rules';
+import { Availability, ChoiceValue, TextValue } from './StorageFields';
+import { booleanOptions, omitted, storageBuffer, useStorageForm, type StorageState } from './storageState';
 
 export default function CSIDriverForm(form: ResourceEditorFormProps) {
+  return <CSIDriverSession key={form.draft.sessionID} form={form} />;
+}
+function CSIDriverSession({ form }: { form: ResourceEditorFormProps }) {
   const state = useStorageForm(form);
   const immutable = form.context.intent !== 'create';
   if (form.section === 'availability') return <Availability form={form} />;
@@ -46,7 +52,7 @@ function Tokens({ form, state }: { form: ResourceEditorFormProps; state: Storage
   const requests = form.draft.get(['spec', 'tokenRequests']);
   const [audience, setAudience] = storageBuffer(state, 'new-token-audience'); const [expiry, setExpiry] = storageBuffer(state, 'new-token-expiry'); const [error, setError] = useState<string | null>(null);
   return <div className="storage-list"><EditorHelp label="Token request policy">Embedded tokenRequests entries configure kubelet behavior. They are not TokenRequest resources. At most one audience can be empty, meaning API-server audiences. Expiration is optional, from 600 through 4294967296 seconds. No tokens are fetched.</EditorHelp>
-    {Array.isArray(requests) && requests.map((_, index) => <div className="storage-row" key={index}>
+    {Array.isArray(requests) && state.rows(['spec', 'tokenRequests']).map(({ id, index }) => <div className="storage-row" key={id}>
       <TextValue form={form} state={state} path={['spec', 'tokenRequests', index, 'audience']} label={`Token audience ${index + 1}`} allowEmpty parse={text => requests.some((__, other) => other !== index && form.draft.get(['spec', 'tokenRequests', other, 'audience']) === text) ? { error: 'Each token audience must be unique.' } : { value: text }} />
       <TextValue form={form} state={state} path={['spec', 'tokenRequests', index, 'expirationSeconds']} label={`Token expiration ${index + 1} (seconds)`} parse={text => { if (!text) return { value: '' }; const failure = integerError(text, 600n, 4294967296n); return failure ? { error: failure } : { value: BigInt(text) }; }} />
       <Button size="sm" variant="ghost" disabled={state.locked} onClick={() => {

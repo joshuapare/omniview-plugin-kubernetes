@@ -23,6 +23,18 @@ export function validate(d:ResourceEditorDraft,c:ResourceEditorContext):readonly
  if((c.kind==='Backup'||c.kind==='ScheduledBackup')&&d.get(path('method'))==='plugin'&&!d.get(path('pluginConfiguration.name')))issues.push({path:path('pluginConfiguration.name'),message:'Select a backup plugin.'});
  if(c.kind==='Database'){const rows=d.get(path('extensions'));if(Array.isArray(rows))rows.forEach((_,i)=>{if(!d.get(['spec','extensions',i,'name']))issues.push({path:['spec','extensions',i,'name'],message:'Extension name is required.'});});}
  if(c.kind==='Publication'&&d.get(path('target.allTables'))!==true){const rows=d.get(path('target.objects'));if(!Array.isArray(rows)||!rows.length)issues.push({path:path('target.objects'),message:'Select tables or all tables.'});else rows.forEach((_,i)=>{if(!d.get(['spec','target','objects',i,'table','name'])&&!d.get(['spec','target','objects',i,'tablesInSchema']))issues.push({path:['spec','target','objects',i],message:'Select a table or schema.'});});}
- if(c.kind.endsWith('ImageCatalog')){const rows=d.get(path('images'));if(!Array.isArray(rows)||rows.length<1||rows.length>8)issues.push({path:path('images'),message:'Provide 1–8 PostgreSQL images.'});else{const majors=new Set();for(const row of rows){if(!row||typeof row!=='object'||!Number.isInteger(row.major)||row.major<10||typeof row.image!=='string'||!row.image||majors.has(row.major))issues.push({path:path('images'),message:'Use unique major versions ≥10 and explicit images.'});if(row&&typeof row==='object')majors.add(row.major);}}}
+ if(c.kind.endsWith('ImageCatalog')){
+  const rows: unknown = d.get(path('images'));
+  if(!Array.isArray(rows)||rows.length<1||rows.length>8)issues.push({path:path('images'),message:'Provide 1–8 PostgreSQL images.'});
+  else{
+   const majors=new Set<number>();
+   const images: readonly unknown[] = rows;
+   for(const row of images){
+    if(!row||typeof row!=='object'||!('major' in row)||typeof row.major!=='number'||!Number.isSafeInteger(row.major)||row.major<10||!('image' in row)||typeof row.image!=='string'||!row.image||majors.has(row.major)){
+     issues.push({path:path('images'),message:'Use unique major versions ≥10 and explicit images.'});
+    }else majors.add(row.major);
+   }
+  }
+ }
  return issues;
 }

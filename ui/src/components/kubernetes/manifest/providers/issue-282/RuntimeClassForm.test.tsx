@@ -1,12 +1,14 @@
-import { useState } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
 import type { ResourceEditorContext, ResourceEditorFormProps } from '@omniviewdev/runtime';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { useState } from 'react';
+import { describe, expect, it, vi } from 'vitest';
+
 import { ResourceEditorController } from '../../resourceEditorController';
-import RuntimeClassForm from './RuntimeClassForm';
-import { resourceEditors } from './index';
+
 import { controllerRuntimeClass, populatedRuntimeClass, runtimeClassContext, unsupportedRuntimeClass } from './fixtures';
+import { resourceEditors } from './index';
 import { duplicateToleration, handlerError, quantityError, readOnly, secondsError, unavailable } from './model';
+import RuntimeClassForm from './RuntimeClassForm';
 
 const contribution = resourceEditors[0];
 function Harness({ controller, context = runtimeClassContext, section = 'runtime', onValidity = vi.fn() }: { controller: ResourceEditorController; context?: ResourceEditorContext; section?: string; onValidity?: (error: string | null) => void }) {
@@ -98,13 +100,21 @@ describe('RuntimeClass behavior', () => {
     expect(controller.draft().get(['scheduling', 'tolerations', 0, 'futureField'])).toBe('retain');
   });
   it('retains another row partial input when an earlier row is removed', () => {
-    const initial = populatedRuntimeClass.replace('futureExtension:', '    - key: second\\n      effect: NoExecute\\n      tolerationSeconds: 3\\nfutureExtension:');
+    const initial = populatedRuntimeClass.replace('futureExtension:', `    - key: second
+      effect: NoExecute
+      tolerationSeconds: 3
+futureExtension:`);
     const controller = new ResourceEditorController(initial, 'stable-rows');
+    expect(controller.draft().get(['scheduling', 'tolerations'])).toHaveLength(2);
+    expect(controller.draft().get(['scheduling', 'tolerations', 1, 'key'])).toBe('second');
     render(<Harness controller={controller} section="scheduling" />);
     fireEvent.change(screen.getByLabelText('Toleration seconds 2'), { target: { value: '-' } });
     fireEvent.click(screen.getByRole('button', { name: 'Remove toleration 1' }));
     expect(screen.getByLabelText('Toleration seconds 1')).toHaveValue('-');
     expect(controller.draft().get(['scheduling', 'tolerations', 0, 'tolerationSeconds'])).toBe(3n);
+    expect(controller.draft().get(['scheduling', 'tolerations', 0, 'key'])).toBe('second');
+    fireEvent.change(screen.getByLabelText('Toleration seconds 1'), { target: { value: '7' } });
+    expect(controller.draft().get(['scheduling', 'tolerations', 0, 'tolerationSeconds'])).toBe(7n);
   });
   it('keeps missing, denied, unavailable, unsafe shape and trusted ownership distinct', () => {
     const controller = new ResourceEditorController(populatedRuntimeClass);
@@ -114,6 +124,10 @@ describe('RuntimeClass behavior', () => {
     const unsupported = new ResourceEditorController(unsupportedRuntimeClass);
     expect(unavailable(unsupported.draft(), runtimeClassContext)).toContain('Unsupported toleration');
     expect(unsupported.getSource()).toBe(unsupportedRuntimeClass);
+    const effectSource = populatedRuntimeClass.replace('effect: NoExecute', 'effect: {unexpected: object}');
+    const effectController = new ResourceEditorController(effectSource);
+    expect(unavailable(effectController.draft(), runtimeClassContext)).toContain('Unsupported toleration');
+    expect(effectController.getSource()).toBe(effectSource);
     expect(readOnly(controller.draft(), { ...runtimeClassContext, ownership: { status: 'controller' } })).toBe(true);
     expect(readOnly(controller.draft(), { ...runtimeClassContext, ownership: { status: 'unknown' } })).toBe(false);
   });

@@ -57,6 +57,8 @@
   "sourceSafety": ["Only canonical host patch API", "Atomic leaf set/remove and sequence insert", "Unknown sibling preservation", "Exact integer parsing before bounded Number conversion", "Partial invalid text remains local and blocks validity", "No localStorage or separate source state", "No status editor", "No implicit companion objects", "No ordinary mutation action"],
   "uiComposition": ["base-ui Checkbox", "base-ui TextArea", "base-ui Button", "EditorField", "EditorChoice", "EditorHelp", "EditorSection", "ReferencePicker"],
   "regressions": "scheduling.test.tsx",
+  "regressionCoverage": ["System identity and trusted controller policy reject canonical mutation", "Controller ownerReferences reject canonical mutation", "Unknown identity scalar stays read-only without object stringification", "Sibling edits and earlier-row deletion retain local invalid buffers", "Canonical field changes reset only the corresponding buffer without effect-driven state resets"],
+  "supportingFiles": ["model.ts", "formState.tsx", "useSchedulingForm.ts"],
   "canonicalFixtures": "fixtures.ts",
   "visualHarness": ".local/resource-editor-implementation/issue-274/FixtureApp.tsx",
   "verification": { "checksRun": false, "capturesTaken": false, "captureOwner": "Parent coherent integration wave; do not treat prior HTML images as production proof" }

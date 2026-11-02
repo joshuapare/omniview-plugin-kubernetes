@@ -34,7 +34,7 @@ function Control({props,field,path,locked,report}:{props:ResourceEditorFormProps
   if(type==='port') return <ExactValueField {...common} identity={`${draft.sessionID}:${key}`} value={stringValue(value)} parse={text=>/^\d+$/.test(text)?{valid:true,value:BigInt(text)}:/^[a-zA-Z0-9][a-zA-Z0-9:_-]*$/.test(text)?{valid:true,value:text}:{valid:false,error:'Enter a port number, range, or name.'}} onCommit={set} onValidityChange={error=>report(key,error)}/>;
   if(type==='bool'||type.startsWith('ref:')) {
     const values=type==='bool'?['true','false']:type.slice(4).split(',');
-    return <EditorChoice {...common} value={value===undefined?'':String(value)} options={[{value:'',label:'Not specified'},...values.map(v=>({value:v,label:v}))]} onChange={v=>v===''?commit([{op:'remove',path}]):set(type==='bool'?v==='true':v)} />;
+    return <EditorChoice {...common} value={stringValue(value)} options={[{value:'',label:'Not specified'},...values.map(v=>({value:v,label:v}))]} onChange={v=>v===''?commit([{op:'remove',path}]):set(type==='bool'?v==='true':v)} />;
   }
   if(type==='number'||type==='cidr') return <ExactValueField {...common} identity={`${draft.sessionID}:${key}`} value={stringValue(value)} parse={v=>type==='number'?parseCalicoNumber(field.path,v):validCIDR(v)?{valid:true,value:v}:{valid:false,error:'Enter a valid network CIDR.'}} onCommit={set} onValidityChange={e=>report(key,e)} />;
   const map=type==='map'||(type==='pairs'&&(field.path==='labelsToApply'||field.path.includes('matchLabels')));
@@ -43,7 +43,7 @@ function Control({props,field,path,locked,report}:{props:ResourceEditorFormProps
     const items=Array.isArray(value)?value:[];
     const itemType=['types','policyTypes'].includes(field.path)?'ref:Ingress,Egress':field.path==='classes'?'ref:Agent,BGP,Routes':field.path==='allowedUses'?'ref:Workload,Tunnel':field.path==='destination.ports'?'port':'text';
     const fields=type==='list'?[{path:'',label:'Value',type:itemType}]:rows[type];
-    return <EditorSection title={field.label}>{items.map((_item,index)=><div key={index} style={{borderLeft:'2px solid var(--ov-border-default)',paddingLeft:12,marginBottom:8}}>{fields.map(f=>{
+    return <EditorSection title={field.label}>{items.map((_item,index)=><div key={index} style={{borderLeft:'2px solid var(--ov-color-border-default)',paddingLeft:12,marginBottom:8}}>{fields.map(f=>{
       const actual=type==='k8srules'&&path[1]==='egress'&&f.path==='from'?{...f,path:'to',label:'Egress peers'}:f;
       return <Control key={actual.path} props={props} field={actual} path={actual.path?[...path,index,...actual.path.split('.')]:[...path,index]} locked={locked} report={report}/>;
     })}<Button size="sm" disabled={locked} onClick={()=>commit([{op:'remove',path:[...path,index]}])}>Remove {field.label} {index+1}</Button></div>)}<Button size="sm" disabled={locked} onClick={()=>commit(value===undefined?[{op:'set',path,value:[]} ,{op:'insert',path,index:0,value:type==='list'?'':{}}]:[{op:'insert',path,index:items.length,value:type==='list'?'':{}}])}>Add {field.label}</Button>{failure&&<span role="alert">{failure}</span>}</EditorSection>;

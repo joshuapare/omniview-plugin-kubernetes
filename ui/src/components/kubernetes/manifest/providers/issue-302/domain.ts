@@ -26,7 +26,8 @@ export const designs: readonly CiliumDesign[] = [
 ];
 export const pathOf = (field: string, inspect = false): (string|number)[] => (inspect ? field : `spec.${field}`).split('.').map(part => /^\d+$/.test(part) ? Number(part) : part);
 export function isReadOnly(design: CiliumDesign, draft: ResourceEditorDraft, context: ResourceEditorContext): boolean {
- return !!design.inspect || context.intent === 'inspect' || (context.intent !== 'create' && context.ownership?.status !== 'application') || (Array.isArray(draft.get(['metadata','ownerReferences'])) && (draft.get(['metadata','ownerReferences']) as unknown[]).length > 0) || (design.kind === 'CiliumLocalRedirectPolicy' && context.intent !== 'create');
+ const owners=draft.get(['metadata','ownerReferences']);
+ return !!design.inspect || context.intent === 'inspect' || context.ownership?.status === 'controller' || context.ownership?.status === 'system' || (context.intent !== 'create' && context.ownership?.status !== 'application') || (Array.isArray(owners) && owners.length > 0) || (design.kind === 'CiliumLocalRedirectPolicy' && context.intent !== 'create');
 }
 export const choices: Record<string, readonly string[]> = { protocol:['TCP','UDP','SCTP','ANY'], advertisementType:['PodCIDR','CiliumPodIPPool','Service'], afi:['ipv4','ipv6'], safi:['unicast'], allowFirstLastIPs:['Yes','No'], type:['LoadBalancer','NodePort','ClusterIP'], externalTrafficPolicy:['Cluster','Local'], ipFamilyPolicy:['SingleStack','PreferDualStack','RequireDualStack'] };
 export const isBoolean = (name: string) => ['ingress','egress','enabled','disabled','exportPodCIDR','skipRedirectFromBackend','allocateLoadBalancerNodePorts','externalIPs','loadBalancerIPs'].includes(name);

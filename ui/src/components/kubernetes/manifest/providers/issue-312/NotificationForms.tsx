@@ -1,6 +1,6 @@
 import { Button } from '@omniviewdev/base-ui';
 import type { ResourceEditorFormProps, ResourceEditorPath, ResourceEditorPatch } from '@omniviewdev/runtime';
-import { EditorChoice, EditorField, EditorSection, ExactValueField, KeyValueFields, ReferencePicker, patchError, useFieldValidity } from '../../editor-controls';
+import { EditorChoice, EditorField, EditorSection, ExactValueField, KeyValueFields, ReferencePicker, patchError, scalarText, useFieldValidity } from '../../editor-controls';
 import { commitTypes, durationPattern, identityTypes, notificationReadOnly, providerTypes, receiverTypes, targetKinds } from './model';
 
 function Fields({ form, fields }: { form: ResourceEditorFormProps; fields: { name: string; label: string; help?: string; duration?: boolean; sensitive?: boolean }[] }) {
@@ -32,7 +32,7 @@ export default function NotificationForms(props: ResourceEditorFormProps) {
   const choice = (field: string, label: string, options: readonly string[], help?: string) => <EditorChoice label={label} help={help} value={typeof form.draft.get(['spec',field]) === 'string' ? String(form.draft.get(['spec',field])) : ''} options={options.map(value => ({value,label:value}))} disabled={form.disabled} onChange={value => validity(field,patchError(form.patch({ sessionID: form.draft.sessionID, expectedRevision: form.draft.revision, operations:[{op:'set',path:['spec',field],value}] })))} />;
   if (form.section === 'observations') {
     const conditions = form.draft.get(['status','conditions']);
-    return <EditorSection title="Receiver observations"><p>Webhook path masked. Token changes can change the endpoint.</p>{Array.isArray(conditions) ? conditions.map((_,i) => <div key={i}>{String(form.draft.get(['status','conditions',i,'type']) ?? 'Condition')}: {String(form.draft.get(['status','conditions',i,'status']) ?? 'Unknown')}</div>) : <p>No readiness observation available.</p>}</EditorSection>;
+    return <EditorSection title="Receiver observations"><p>Webhook path masked. Token changes can change the endpoint.</p>{Array.isArray(conditions) ? conditions.map((_,i) => <div key={i}>{scalarText(form.draft.get(['status','conditions',i,'type'])) || 'Condition'}: {scalarText(form.draft.get(['status','conditions',i,'status'])) || 'Unknown'}</div>) : <p>No readiness observation available.</p>}</EditorSection>;
   }
   return <div style={{display:'grid',gap:12,minWidth:0}}>
     {form.section === 'configuration' ? <>

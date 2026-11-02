@@ -1,59 +1,12 @@
 import { Button } from '@omniviewdev/base-ui';
-import type { ResourceEditorFormProps, ResourceEditorPatch, ResourceEditorPath } from '@omniviewdev/runtime';
-import { useCallback, useEffect, useState } from 'react';
-import { EditorChoice, EditorField, EditorHelp, ReferencePicker, patchError, patchFields, scalarText } from '../../editor-controls';
-import { authoringDisabled, identifierError, parameterError, record, validateStorage } from './rules';
+import type { ResourceEditorFormProps, ResourceEditorPath } from '@omniviewdev/runtime';
+import { useState } from 'react';
+
+import { EditorChoice, EditorField, EditorHelp, ReferencePicker, scalarText } from '../../editor-controls';
+
+import { identifierError, parameterError, record } from './rules';
+import { booleanOptions, storageBuffer, type StorageState } from './storageState';
 import './storage.css';
-
-export function useStorageForm(form: ResourceEditorFormProps) {
-  const [errors, setErrors] = useState<Record<string, string | null>>({});
-  const [buffers, setBuffers] = useState<Record<string, string>>({});
-  const buffer = useCallback((key: string, value: string) => setBuffers(previous => ({ ...previous, [key]: value })), []);
-  const report = useCallback((key: string, error: string | null) => setErrors(previous => previous[key] === error ? previous : { ...previous, [key]: error }), []);
-  useEffect(() => { setErrors({}); setBuffers({}); }, [form.draft.sessionID]);
-  const canonicalError = validateStorage(form.draft, form.context)[0]?.message;
-  const localError = Object.values(errors).find(Boolean);
-  useEffect(() => { form.onValidityChange(localError || canonicalError || null); }, [localError, canonicalError, form.onValidityChange]);
-  const locked = form.disabled || authoringDisabled(form.draft, form.context);
-  const commit = (operations: readonly ResourceEditorPatch[]) => {
-    const failure = patchError(patchFields({ ...form, disabled: locked }, operations));
-    if (!failure) for (const operation of operations) if (operation.op === 'remove') {
-      setBuffers(previous => rebaseRemoved(previous, operation.path));
-      setErrors(previous => rebaseRemoved(previous, operation.path));
-    }
-    return failure;
-  };
-  return { locked, report, commit, buffers, buffer, errors };
-}
-export interface StorageState {
-  locked: boolean;
-  report(key: string, error: string | null): void;
-  commit(operations: readonly ResourceEditorPatch[]): string | null;
-  buffers: Readonly<Record<string, string>>;
-  buffer(key: string, value: string): void;
-  errors: Readonly<Record<string, string | null>>;
-}
-
-/** Keeps partial sibling values attached to the same row after an atomic removal. */
-function rebaseRemoved<T>(values: Record<string, T>, removed: ResourceEditorPath): Record<string, T> {
-  const result: Record<string, T> = {};
-  for (const [key, value] of Object.entries(values)) {
-    if (!key.startsWith('[')) { result[key] = value; continue; }
-    const path: (string | number)[] = JSON.parse(key);
-    const parent = removed.slice(0, -1);
-    const index = removed[removed.length - 1];
-    if (parent.every((part, position) => path[position] === part)) {
-      const position = parent.length;
-      if (path[position] === index) continue;
-      if (typeof index === 'number' && typeof path[position] === 'number' && path[position] > index) path[position]--;
-    }
-    result[JSON.stringify(path)] = value;
-  }
-  return result;
-}
-export function storageBuffer(state: StorageState, key: string, initial = ''): [string, (text: string) => void] {
-  return [state.buffers[key] ?? initial, text => state.buffer(key, text)];
-}
 
 export function TextValue({ form, state, path, label, required, disabled, help, parse, password = false, allowEmpty = false }: {
   form: ResourceEditorFormProps; state: StorageState; path: ResourceEditorPath; label: string;
@@ -62,12 +15,12 @@ export function TextValue({ form, state, path, label, required, disabled, help, 
 }) {
   const canonical = scalarText(form.draft.get(path));
   const key = JSON.stringify(path);
-  const text = state.buffers[key] ?? canonical;
-  useEffect(() => { if (!state.errors[key]) state.buffer(key, canonical); }, [canonical]);
+  const entry = state.buffers[key];
+  const text = entry?.canonical === canonical ? entry.text : canonical;
   return <EditorField label={label} value={text} type={password ? 'password' : 'text'}
     placeholder={password && form.draft.has(path) && !canonical ? 'Stored value hidden' : undefined}
     help={help} disabled={state.locked || disabled} error={state.errors[key]} onChange={next => {
-      state.buffer(key, next);
+      state.buffer(key, next, canonical);
       const parsed = parse?.(next);
       const failure = required && !next.trim() ? 'Enter a value.' : parsed && 'error' in parsed ? parsed.error : state.commit([
         !next && !required && !allowEmpty && !password ? { op: 'remove', path } : { op: 'set', path, value: parsed && 'value' in parsed ? parsed.value : next },
@@ -79,11 +32,11 @@ export function TextValue({ form, state, path, label, required, disabled, help, 
 export function DriverField({ form, state, path, label, disabled }: { form: ResourceEditorFormProps; state: StorageState; path: ResourceEditorPath; label: string; disabled?: boolean }) {
   const key = JSON.stringify(path);
   const canonical = scalarText(form.draft.get(path));
-  const text = state.buffers[key] ?? canonical;
-  useEffect(() => { if (!state.errors[key]) state.buffer(key, canonical); }, [canonical]);
+  const entry = state.buffers[key];
+  const text = entry?.canonical === canonical ? entry.text : canonical;
   return <ReferencePicker form={form} query={{ group: 'storage.k8s.io', version: 'v1', resource: 'csidrivers', projection: 'metadata' }} label={label} value={text} error={state.errors[key]}
     disabled={state.locked || disabled} help="Choose a discovered CSI driver or enter an exact manual or legacy identifier. An unresolved identifier does not require a CSIDriver object. Lookup is not proof of driver readiness."
-    onChange={value => { state.buffer(key, value); const failure = !value ? 'Enter an exact driver identifier.' : identifierError(value, true) || state.commit([{ op: 'set', path, value }]); state.report(key, failure); }} />;
+    onChange={value => { state.buffer(key, value, canonical); const failure = !value ? 'Enter an exact driver identifier.' : identifierError(value, true) || state.commit([{ op: 'set', path, value }]); state.report(key, failure); }} />;
 }
 export function ChoiceValue({ form, state, path, label, options, help, disabled }: {
   form: ResourceEditorFormProps; state: StorageState; path: ResourceEditorPath; label: string;
@@ -97,8 +50,6 @@ export function ChoiceValue({ form, state, path, label, options, help, disabled 
     setError(failure); state.report(JSON.stringify(path), failure);
   }} />;
 }
-export const omitted = { value: '', label: 'Not specified' };
-export const booleanOptions = [omitted, { value: 'true', label: 'Enabled' }, { value: 'false', label: 'Disabled' }];
 export function Parameters({ form, state, required = false, disabled = false }: { form: ResourceEditorFormProps; state: StorageState; required?: boolean; disabled?: boolean }) {
   const parameters = form.draft.get(['parameters']);
   const entries = record(parameters) ? Object.keys(parameters) : [];

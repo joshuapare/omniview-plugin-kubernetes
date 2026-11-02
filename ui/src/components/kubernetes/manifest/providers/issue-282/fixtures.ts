@@ -1,4 +1,5 @@
 import type { ResourceEditorContext } from '@omniviewdev/runtime';
+
 import { target } from './model';
 
 /** Synthetic, non-sensitive fixtures. Never production defaults or cluster claims. */

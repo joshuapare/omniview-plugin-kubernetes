@@ -1,8 +1,14 @@
 import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
+
 import { EditorHelp, EditorSection } from '../../editor-controls';
-import { Availability, DriverField, Parameters, useStorageForm } from './StorageFields';
+
+import { Availability, DriverField, Parameters } from './StorageFields';
+import { useStorageForm } from './storageState';
 
 export default function VolumeAttributesClassForm(form: ResourceEditorFormProps) {
+  return <VolumeAttributesClassSession key={form.draft.sessionID} form={form} />;
+}
+function VolumeAttributesClassSession({ form }: { form: ResourceEditorFormProps }) {
   const state = useStorageForm(form);
   const immutable = form.context.intent !== 'create';
   if (form.section === 'availability') return <Availability form={form} />;

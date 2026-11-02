@@ -181,5 +181,5 @@ export async function loadResourceEditorSource(context: ResourceEditorContext, s
       throw new Error('Object identity changed.');
     }
     return stringify(object);
-  } catch (error) { throw new Error(signal.aborted ? 'Request cancelled.' : failure(error).message); }
+  } catch (error) { throw new Error(signal.aborted ? 'Request cancelled.' : failure(error).message, { cause: error }); }
 }

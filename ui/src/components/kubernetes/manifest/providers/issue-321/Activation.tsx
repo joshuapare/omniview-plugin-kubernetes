@@ -5,12 +5,23 @@ import { EditorSection } from '../../editor-controls';
 const protocol='kubernetes.crossplane-revision-activation.v1';
 interface Change {resource:string;name:string;uid:string;resourceVersion:string;from:'Active'|'Inactive';to:'Active'|'Inactive'}
 interface Plan {owner:{name:string;uid:string;resourceVersion:string;activationPolicy:'Manual'};target:{name:string;uid:string;resourceVersion:string};changes:Change[];atomic:false}
+function record(value: unknown): value is Record<string, unknown> {
+ return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+function isChange(value: unknown): value is Change {
+ return record(value) && typeof value.resource === 'string' && typeof value.name === 'string' && typeof value.uid === 'string' && typeof value.resourceVersion === 'string' && (value.from === 'Active' || value.from === 'Inactive') && (value.to === 'Active' || value.to === 'Inactive');
+}
 function isPlan(value:unknown):value is Plan {
- if(!value||typeof value!=='object')return false;
- const plan=value as Plan;
- return plan.atomic===false&&plan.owner?.activationPolicy==='Manual'&&typeof plan.owner.name==='string'&&typeof plan.target?.uid==='string'&&Array.isArray(plan.changes)&&plan.changes.length>0&&plan.changes.every(change=>typeof change.name==='string'&&typeof change.uid==='string'&&typeof change.resourceVersion==='string'&&['Active','Inactive'].includes(change.from)&&['Active','Inactive'].includes(change.to));
+ if (!record(value) || !record(value.owner) || !record(value.target) || !Array.isArray(value.changes)) return false;
+ const changes: readonly unknown[] = value.changes;
+ return value.atomic === false && value.owner.activationPolicy === 'Manual' && typeof value.owner.name === 'string' && typeof value.owner.uid === 'string' && typeof value.owner.resourceVersion === 'string' && typeof value.target.name === 'string' && typeof value.target.uid === 'string' && typeof value.target.resourceVersion === 'string' && changes.length > 0 && changes.every(isChange);
 }
 export function Activation(form:ResourceEditorFormProps){
+ const [identity,setIdentity]=useState({actions:form.actions,patch:form.patch,generation:0});
+ if(identity.actions!==form.actions||identity.patch!==form.patch)setIdentity({actions:form.actions,patch:form.patch,generation:identity.generation+1});
+ return <ActivationSession key={`${identity.generation}/${form.draft.sessionID}/${form.draft.revision}/${form.context.connectionID}/${form.context.uid}/${form.context.resourceVersion}`} {...form} />;
+}
+function ActivationSession(form: ResourceEditorFormProps) {
  const [plan,setPlan]=useState<Plan|null>(null);
  const [confirmed,setConfirmed]=useState<ReadonlySet<string>>(new Set());
  const [busy,setBusy]=useState(false);
@@ -18,7 +29,7 @@ export function Activation(form:ResourceEditorFormProps){
  const [outcome,setOutcome]=useState<{status:string;applied:Change[];pending:Change[];uncertain?:Change}|null>(null);
  const generation=useRef(0);
  const controller=useRef<AbortController|null>(null);
- useEffect(()=>{generation.current++;controller.current?.abort();setPlan(null);setConfirmed(new Set());setBusy(false);setMessage('');setOutcome(null);return()=>{generation.current++;controller.current?.abort();};},[form.draft.sessionID,form.draft.revision,form.patch,form.actions,form.context.connectionID,form.context.uid,form.context.resourceVersion]);
+ useEffect(()=>{generation.current++;controller.current?.abort();return()=>{generation.current++;controller.current?.abort();};},[form.patch,form.actions]);
  const allowed=form.context.capabilities.actions[protocol]==='available';
  async function run(execute:boolean){
   if (!allowed || execute && (!plan || !plan.changes.every(change=>confirmed.has(change.uid)))) return;
@@ -30,10 +41,12 @@ export function Activation(form:ResourceEditorFormProps){
    if(result.status!=='ready'){setMessage(result.message);if(execute)setPlan(null);return;}
    if(!execute){if(isPlan(result.output)){setPlan(result.output);setConfirmed(new Set());}else setMessage('Activation review returned an unsupported response. No changes were requested.');}
    else {
-    const value=result.output as {status?:unknown;applied?:unknown;pending?:unknown;uncertain?:Change};
+    const value: unknown = result.output;
     setPlan(null);setConfirmed(new Set());
-    if(value&&['completed','partial','failed'].includes(String(value.status))&&Array.isArray(value.applied)&&Array.isArray(value.pending)){
-     setOutcome({status:String(value.status),applied:value.applied,pending:value.pending,uncertain:value.uncertain});
+    const applied: readonly unknown[] = record(value) && Array.isArray(value.applied) ? value.applied : [];
+    const pending: readonly unknown[] = record(value) && Array.isArray(value.pending) ? value.pending : [];
+    if(record(value)&&(value.status==='completed'||value.status==='partial'||value.status==='failed')&&Array.isArray(value.applied)&&Array.isArray(value.pending)&&applied.every(isChange)&&pending.every(isChange)&&(value.uncertain===undefined||isChange(value.uncertain))){
+     setOutcome({status:value.status,applied:[...applied],pending:[...pending],uncertain:value.uncertain});
      setMessage(value.status==='completed'?'Activation writes completed. Controller health is not established.':value.status==='partial'?'Activation partially applied. Inspect each revision before retrying.':'Activation failed. Inspect revision state before retrying.');
     }else setMessage('Activation result is unknown. Inspect revisions before retrying.');
    }

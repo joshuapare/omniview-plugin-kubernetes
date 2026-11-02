@@ -1,4 +1,5 @@
 import type { ResourceEditorContext, ResourceEditorDraft, ResourceEditorFieldIssue } from '@omniviewdev/runtime';
+
 import type { DiscoveryEndpoint, DiscoveryVersion } from './discovery';
 
 /** Client-only canonical query fields; these are never sent as Kubernetes object fields. */

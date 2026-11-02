@@ -1,6 +1,7 @@
+import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
+
 import CiliumForm from './CiliumForm';
 function fixture(kind: string, value: unknown, intent: 'create'|'edit'|'inspect' = 'create'): ResourceEditorFormProps {
  return {
@@ -39,6 +40,21 @@ describe('Cilium domain editing',()=>{
   props.context.ownership={status:'controller'};
   render(<CiliumForm {...props}/>);
   expect(screen.getByLabelText('External CIDRs 1')).toBeDisabled();
+  expect(props.patch).not.toHaveBeenCalled();
+ });
+ it('keeps controller ownership restricted even for explicit create intent',()=>{
+  const props=fixture('CiliumCIDRGroup',{spec:{externalCIDRs:['192.0.2.0/24']}});
+  props.context.ownership={status:'controller'};
+  render(<CiliumForm {...props}/>);
+  expect(screen.getByLabelText('External CIDRs 1')).toBeDisabled();
+  expect(screen.queryByRole('button',{name:/Add/})).toBeNull();
+  expect(props.patch).not.toHaveBeenCalled();
+ });
+ it('does not coerce a malformed boolean into an editable selection',()=>{
+  const props=fixture('CiliumLoadBalancerIPPool',{spec:{disabled:'false'}});
+  render(<CiliumForm {...props}/>);
+  expect(screen.getByText('Disabled has an unsupported scalar type. Preserve source.')).toBeTruthy();
+  expect(screen.queryByRole('combobox',{name:'Disabled'})).toBeNull();
   expect(props.patch).not.toHaveBeenCalled();
  });
 });

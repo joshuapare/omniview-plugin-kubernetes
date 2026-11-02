@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button } from '@omniviewdev/base-ui';
 import type { ResourceEditorFormProps, ResourceEditorPath } from '@omniviewdev/runtime';
 import { EditorField, EditorChoice, EditorSection, ExactValueField, KeyValueFields, ReferencePicker, patchFields, patchError, scalarText, setDraftField, useFieldValidity } from '../../editor-controls';
@@ -15,7 +14,7 @@ function Text({ form, path, label, list = false, reference, required = false }: 
 function Choice({form,path,label,options}: {form:ResourceEditorFormProps;path:ResourceEditorPath;label:string;options?:string[]}) {
  const validity=useFieldValidity(form);
  const value=form.draft.get(path);
- return <EditorChoice label={label} disabled={form.disabled} value={value===undefined?'':String(value)} options={(options??['','true','false']).map(value=>({value,label:value===''?'Controller default':value==='true'?'Yes':value==='false'?'No':value}))} onChange={next=>validity(JSON.stringify(path),patchError(patchFields(form,[next===''?{op:'remove',path}:{op:'set',path,value:options?next:next==='true'}])))} />;
+ return <EditorChoice label={label} disabled={form.disabled} value={typeof value==='string'||typeof value==='boolean'?String(value):''} options={(options??['','true','false']).map(value=>({value,label:value===''?'Controller default':value==='true'?'Yes':value==='false'?'No':value}))} onChange={next=>validity(JSON.stringify(path),patchError(patchFields(form,[next===''?{op:'remove',path}:{op:'set',path,value:options?next:next==='true'}])))} />;
 }
 function BackupScope({form,prefix}: {form:ResourceEditorFormProps;prefix:string[]}) {
  return <><EditorSection title="Backup scope">{[['includedNamespaces','Include namespaces'],['excludedNamespaces','Exclude namespaces'],['includedResources','Include resources'],['excludedResources','Exclude resources']].map(([field,label])=><Text key={field} form={form} path={[...prefix,field]} label={label} list/>)}<Text form={form} path={[...prefix,'storageLocation']} label="Storage location" reference="backupstoragelocations"/><Text form={form} path={[...prefix,'ttl']} label="Retention duration"/></EditorSection><details><summary>Volumes and hooks</summary>{[['snapshotVolumes','Snapshot volumes'],['defaultVolumesToFsBackup','File-system backup'],['snapshotMoveData','Move snapshot data'],['includeClusterResources','Include cluster resources']].map(([field,label])=><Choice key={field} form={form} path={[...prefix,field]} label={label}/>)}<Hooks form={form} path={[...prefix,'hooks','resources']}/></details></>;

@@ -1,5 +1,6 @@
-import { lazy } from 'react';
 import type { ResourceEditorContribution, ResourceEditorTarget } from '@omniviewdev/runtime';
+import { lazy } from 'react';
+
 import { DISCOVERY_PROTOCOL } from './discovery';
 import { discoveryQuery, validateDiscoveryQuery } from './request';
 

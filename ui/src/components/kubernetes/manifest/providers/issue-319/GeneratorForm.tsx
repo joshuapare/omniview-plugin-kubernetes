@@ -47,7 +47,7 @@ function Node({ form, schema, path, title }: { form: ResourceEditorFormProps; sc
   }
   if (schema.enum || schema.type === 'boolean') {
     const options = schema.enum ?? [true, false];
-    return <div className="resource-editor-field"><label>{title}<select aria-label={title} disabled={disabled} value={value === undefined ? '' : String(value)} onChange={event => validity(title, event.target.value === '' ? patchError(removeDraftField(form, path)) : commit(schema.type === 'boolean' ? event.target.value === 'true' : event.target.value))}><option value="">Not set</option>{options.map(option => <option key={String(option)} value={String(option)}>{String(option)}</option>)}</select></label>{schema.description && <EditorHelp label={title}>{schema.description}</EditorHelp>}</div>;
+    return <div className="resource-editor-field"><label>{title}<select aria-label={title} disabled={disabled} value={value === undefined ? '' : scalarText(value)} onChange={event => validity(title, event.target.value === '' ? patchError(removeDraftField(form, path)) : commit(schema.type === 'boolean' ? event.target.value === 'true' : event.target.value))}><option value="">Not set</option>{options.map(option => <option key={String(option)} value={String(option)}>{String(option)}</option>)}</select></label>{schema.description && <EditorHelp label={title}>{schema.description}</EditorHelp>}</div>;
   }
   const parse = (text: string) => {
     if (schema.type === 'integer') {
@@ -65,7 +65,7 @@ function Node({ form, schema, path, title }: { form: ResourceEditorFormProps; sc
   };
   const parent = String(path[path.length - 2] ?? '');
   if (path[path.length - 1] === 'name' && /secret|serviceAccount/i.test(parent)) return <ReferencePicker {...field} form={form} query={{ group: '', version: 'v1', resource: /secret/i.test(parent) ? 'secrets' : 'serviceaccounts', namespace: scalarText(form.draft.get([...path.slice(0, -1), 'namespace'])) || form.context.namespace, projection: 'metadata' }} value={scalarText(value)} onChange={text => validity(title, commit(text))} />;
-  return <div><ExactValueField {...field} type={sensitive(path) ? 'password' : 'text'} value={sensitive(path) ? '' : scalarText(value)} placeholder={sensitive(path) && form.draft.has(path) ? 'Protected value retained; type to replace' : schema.default === undefined ? undefined : `Default: ${String(schema.default)}`} identity={`${form.draft.sessionID}:${JSON.stringify(path)}`} parse={parse} onCommit={commit} onValidityChange={error => validity(title, error)} />{form.draft.has(path) && <Button size="sm" variant="ghost" disabled={disabled} onClick={() => validity(title, patchError(removeDraftField(form, path)))}>Unset {title}</Button>}</div>;
+  return <div><ExactValueField {...field} type={sensitive(path) ? 'password' : 'text'} value={sensitive(path) ? '' : scalarText(value)} placeholder={sensitive(path) && form.draft.has(path) ? 'Protected value retained; type to replace' : schema.default === undefined ? undefined : `Default: ${scalarText(schema.default)}`} identity={`${form.draft.sessionID}:${JSON.stringify(path)}`} parse={parse} onCommit={commit} onValidityChange={error => validity(title, error)} />{form.draft.has(path) && <Button size="sm" variant="ghost" disabled={disabled} onClick={() => validity(title, patchError(removeDraftField(form, path)))}>Unset {title}</Button>}</div>;
 }
 
 export default function GeneratorForm(form: ResourceEditorFormProps) {

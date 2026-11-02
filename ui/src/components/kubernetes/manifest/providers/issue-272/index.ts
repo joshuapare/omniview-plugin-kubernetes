@@ -1,5 +1,6 @@
-import { lazy } from 'react';
 import type { ResourceEditorContribution, ResourceEditorTarget } from '@omniviewdev/runtime';
+import { lazy } from 'react';
+
 import { authoringDisabled, unsupportedShape, validateStorage } from './rules';
 
 const StorageClass = lazy(() => import('./StorageClassForm'));

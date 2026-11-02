@@ -11,9 +11,9 @@ export interface NetworkingForm {
   form: ResourceEditorFormProps;
   locals: Record<string, LocalInput>;
   setLocals: Dispatch<SetStateAction<Record<string, LocalInput>>>;
-  commit(operations: readonly ResourceEditorPatch[]): string | null;
-  stage(path: ResourceEditorPath, slot: string, error: string | null, value?: string): void;
-  local(path: ResourceEditorPath, slot: string): LocalInput | undefined;
+  commit: (operations: readonly ResourceEditorPatch[]) => string | null;
+  stage: (path: ResourceEditorPath, slot: string, error: string | null, value?: string) => void;
+  local: (path: ResourceEditorPath, slot: string) => LocalInput | undefined;
   failure: string | null;
 }
 export function useNetworkingForm(form: ResourceEditorFormProps): NetworkingForm {

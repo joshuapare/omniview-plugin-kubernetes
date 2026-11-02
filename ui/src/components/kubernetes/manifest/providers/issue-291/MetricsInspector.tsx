@@ -52,7 +52,7 @@ function MetricsSession({ context, draft, section, requestResult, metricsKind }:
     <EditorSection title={metricsKind === 'NodeMetrics' ? 'Node usage' : 'Container usage'}>
       <div className={styles.heading}>
         <span className={styles.muted}>Read-only measurement</span>
-        <EditorHelp label="Usage quantities">CPU and memory retain exact API quantities. Memory is the working set. No limits, capacity, percentages, or zero values are inferred. All containers in one pod share the same collection interval. Unknown fields stay in the canonical source; the host's read-only source preview masks sensitive metadata.</EditorHelp>
+        <EditorHelp label="Usage quantities">CPU and memory retain exact API quantities. Memory is the working set. No limits, capacity, percentages, or zero values are inferred. All containers in one pod share the same collection interval. Unknown fields stay in the canonical source; the host&apos;s read-only source preview masks sensitive metadata.</EditorHelp>
       </div>
       {availability && <p role="status">{availability}</p>}
       {!availability && queryAccess && <p role="status">{queryAccess}</p>}

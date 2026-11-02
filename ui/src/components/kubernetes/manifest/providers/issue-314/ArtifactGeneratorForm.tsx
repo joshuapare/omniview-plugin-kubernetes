@@ -67,17 +67,20 @@ export default function ArtifactGeneratorForm(form: ResourceEditorFormProps) {
   </div>;
 }
 
-function BufferedField({ path, value, report, onCommit, form, query, ...props }: {
+interface BufferedFieldProps {
   label: string; path: ResourceEditorPath; value: string; disabled: boolean; help?: string;
-  report(message: string): void; onCommit(value: string): void;
+  report(this: void, message: string): void; onCommit(this: void, value: string): void;
   form?: ResourceEditorFormProps; query?: ReferenceQuery;
-}) {
+}
+function BufferedField(props: BufferedFieldProps) {
+  return <BufferedFieldSession key={`${JSON.stringify(props.path)}/${props.value}`} {...props} />;
+}
+function BufferedFieldSession({ path, value, report, onCommit, form, query, ...props }: BufferedFieldProps) {
   const [local, setLocal] = useState(value);
   const [error, setError] = useState<string | null>(null);
   const reportRef = useRef(report);
-  reportRef.current = report;
+  useEffect(() => { reportRef.current = report; }, [report]);
   useEffect(() => () => reportRef.current(''), []);
-  useEffect(() => { setLocal(value); setError(null); }, [value]);
   const key = String(path[path.length - 1]);
   const onChange = (next: string) => {
     setLocal(next);

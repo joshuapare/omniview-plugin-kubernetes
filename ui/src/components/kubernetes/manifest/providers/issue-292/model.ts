@@ -14,9 +14,10 @@ export function record(value: unknown): Record<string, unknown> | undefined {
 export function text(value: unknown): string { return typeof value === 'string' ? value : ''; }
 export function supportedVersion(value: string): value is MetricVersion { return value === 'v1beta1' || value === 'v1beta2'; }
 const segment = /^[a-zA-Z0-9_][a-zA-Z0-9_.:-]*$/;
+const hasControl = (value: string): boolean => Array.from(value).some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127);
 
 export function parseQueryText(field: string, value: string, required = false): { valid: true; value: string } | { valid: false; error: string } {
-  if (/[\u0000-\u001f\u007f]/.test(value)) return { valid: false, error: 'Control characters are not allowed.' };
+  if (hasControl(value)) return { valid: false, error: 'Control characters are not allowed.' };
   if (required && !value) return { valid: false, error: 'Enter a value.' };
   if (field === 'namespace' && !/^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/.test(value)) return { valid: false, error: 'Enter a namespace.' };
   if (field === 'name' && !segment.test(value)) return { valid: false, error: 'Enter an object name.' };
@@ -79,7 +80,7 @@ export function queryIssues(draft: ResourceEditorDraft, context: ResourceEditorC
   if (labels !== undefined && (!record(labels) || Object.values(record(labels)!).some(value => typeof value !== 'string'))) add('metricLabels', 'Metric label filters must contain text values.');
   if (query.name !== '*' && query.labelSelector) add('labelSelector', 'Object filters apply only to matching objects.');
   for (const field of ['labelSelector', 'metricLabelSelector'] as const) {
-    if (/[\u0000-\u001f\u007f]/.test(query[field] ?? '')) add(field, 'Selectors cannot contain control characters.');
+    if (hasControl(query[field] ?? '')) add(field, 'Selectors cannot contain control characters.');
   }
   return issues;
 }
@@ -117,7 +118,11 @@ function selectorText(value: unknown): string | null {
   if (!selector) return null;
   const labels = selector.matchLabels === undefined ? {} : record(selector.matchLabels);
   if (!labels || Object.values(labels).some(value => typeof value !== 'string')) return null;
-  const result = Object.entries(labels).map(([key, value]) => `${key}=${value}`);
+  const result: string[] = [];
+  for (const [key, value] of Object.entries(labels)) {
+    if (typeof value !== 'string') return null;
+    result.push(`${key}=${value}`);
+  }
   if (selector.matchExpressions !== undefined) {
     if (!Array.isArray(selector.matchExpressions)) return null;
     for (const raw of selector.matchExpressions) {

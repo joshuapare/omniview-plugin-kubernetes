@@ -74,7 +74,7 @@ function SnapshotSession({ form }: { form: ResourceEditorFormProps }) {
     </dl><EditorHelp label="Binding safety">Verify both objects and UID before use. Driver errors and storage handles are not exposed in this inspection. Delete requires a separate authorized resource action and explicit risk confirmation.</EditorHelp></details>}
   </EditorSection>;
 }
-function LocalReference({ form, label, value, disabled, resource, namespace, apiGroup, optional, commit, report }: { form: ResourceEditorFormProps; label: string; value: string; disabled: boolean; resource: string; namespace?: string; apiGroup: string; optional: boolean; commit(value: string): string | null; report(error: string | null): void }) {
+function LocalReference({ form, label, value, disabled, resource, namespace, apiGroup, optional, commit, report }: { form: ResourceEditorFormProps; label: string; value: string; disabled: boolean; resource: string; namespace?: string; apiGroup: string; optional: boolean; commit(this: void, value: string): string | null; report(this: void, error: string | null): void }) {
   const [local, setLocal] = useState(value);
   const [error, setError] = useState<string | null>(null);
   return <ReferencePicker form={form} label={label} value={local} disabled={disabled} error={error} query={{ group: apiGroup, version: 'v1', resource, namespace }} onChange={next => {

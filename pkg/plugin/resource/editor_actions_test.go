@@ -15,9 +15,11 @@ import (
  certificatesv1 "k8s.io/api/certificates/v1"
  corev1 "k8s.io/api/core/v1"
  metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+ "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
  "k8s.io/apimachinery/pkg/runtime"
  "k8s.io/apimachinery/pkg/runtime/schema"
  "k8s.io/apimachinery/pkg/types"
+ dynamicfake "k8s.io/client-go/dynamic/fake"
  kubeclient "k8s.io/client-go/kubernetes"
  "k8s.io/client-go/kubernetes/fake"
  "k8s.io/client-go/rest"
@@ -144,7 +146,9 @@ func TestEditorTokenRequestBindsUIDAcrossAccountReplacement(t *testing.T){
   }
  }))
  defer server.Close()
- client,err:=kubeclient.NewForConfig(&rest.Config{Host:server.URL})
+ // This isolated HTTP fixture speaks JSON; production clients may negotiate
+ // Kubernetes protobuf. Keep the fixture encoding explicit, not production-only.
+ client,err:=kubeclient.NewForConfig(&rest.Config{Host:server.URL,ContentConfig:rest.ContentConfig{ContentType:"application/json",AcceptContentTypes:"application/json"}})
  if err!=nil {t.Fatal(err)}
  binding,request:=editorTokenRequestFixture(t)
  _,err=editorAction(context.Background(),&clients.ClientSet{KubeClient:client},binding,request)
@@ -160,4 +164,26 @@ func TestEditorTokenRequestRejectsConflictingBodyUIDBeforeCreate(t *testing.T){
  _,err:=editorAction(context.Background(),&clients.ClientSet{KubeClient:client},binding,request)
  if resourcev2.ErrorCode(err)!="INVALID_REQUEST" {t.Fatal("conflicting token body UID accepted")}
  for _,action:=range client.Actions(){if action.GetVerb()=="create"{t.Fatal("conflicting body UID reached token endpoint")}}
+}
+
+func TestEditorScaleReadAcceptsTypelessDTOUsingOnlyDynamicClient(t *testing.T){
+ dynamic:=dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+ reads:=0
+ dynamic.PrependReactor("get","deployments",func(action clienttesting.Action)(bool,runtime.Object,error){
+  if action.GetSubresource()!="scale" {t.Error("scale read targeted parent instead of scale subresource");return false,nil,nil}
+  reads++
+  return true,&unstructured.Unstructured{Object:map[string]any{"apiVersion":"autoscaling/v1","kind":"Scale","metadata":map[string]any{"name":"deployment","namespace":"team","resourceVersion":"1"},"spec":map[string]any{"replicas":int64(3)}}},nil
+ })
+ binding:=editorTestBinding("apps","v1","deployments","Deployment",true)
+ binding.Subresources["scale"]=metav1.APIResource{Verbs:metav1.Verbs{"get"}}
+ request:=resourcev2.ActionRequest{Reference:resourcev2.ResourceReference{Address:resourcev2.ResourceAddress{ID:"deployment",Scope:[]resourcev2.ScopeEntry{{Dimension:"namespace",Value:"team"}}}},Action:"kubernetes.scale.v1",Input:editorTestValue(t,map[string]any{})}
+ result,err:=editorAction(context.Background(),&clients.ClientSet{DynamicClient:dynamic},binding,request)
+ if err!=nil || reads!=1 || result.Map["spec"].Map["replicas"].Int!="3" {t.Fatal("typeless scale read DTO was rejected or misrouted")}
+}
+
+func TestEditorActionDTORejectsNonObjectWithoutAPICall(t *testing.T){
+ client:=fake.NewSimpleClientset()
+ binding:=editorTestBinding("authentication.k8s.io","v1","tokenreviews","TokenReview",false)
+ _,err:=editorAction(context.Background(),&clients.ClientSet{KubeClient:client},binding,resourcev2.ActionRequest{TypeTarget:&resourcev2.TypeActionTarget{},Action:editorReview,Input:editorTestValue(t,[]any{})})
+ if resourcev2.ErrorCode(err)!="INVALID_REQUEST" || len(client.Actions())!=0 {t.Fatal("non-object request reached Kubernetes")}
 }

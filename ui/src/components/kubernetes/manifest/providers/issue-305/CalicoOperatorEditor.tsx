@@ -10,22 +10,24 @@ export default function CalicoOperatorEditor(form: ResourceEditorFormProps) {
  const {draft, context} = form;
  const validity = useFieldValidity(form);
  const [failure,setFailure] = useState<string|null>(null);
- const [evidence,setEvidence] = useState<string|null>('Checking installed operator prerequisites…');
+ const evidenceKey = `${draft.sessionID}/${draft.revision}/${context.kind}/${context.intent}`;
+ const [evidenceResult,setEvidenceResult] = useState<{key:string;actions:ResourceEditorFormProps['actions'];error:string|null}|null>(null);
+ const needsEvidence = context.intent !== 'inspect' && context.kind !== 'TigeraStatus';
+ const evidence = !needsEvidence ? null : evidenceResult?.key === evidenceKey && evidenceResult.actions === form.actions ? evidenceResult.error : 'Checking installed operator prerequisites…';
+ useEffect(()=>{validity('evidence',evidence);return()=>validity('evidence',null);},[validity,evidence]);
  useEffect(()=>{
-  if (context.intent === 'inspect' || context.kind === 'TigeraStatus') { setEvidence(null); validity('evidence',null); return; }
+  if (!needsEvidence) return;
   const controller = new AbortController();
-  const pending = 'Checking installed operator prerequisites…';
-  setEvidence(pending); validity('evidence',pending);
   void form.actions.execute({protocol:TIGERA_EVIDENCE_PROTOCOL,input:{},sessionID:draft.sessionID,generation:draft.revision,signal:controller.signal}).then(result=>{
    if (controller.signal.aborted) return;
    const error = result.status === 'ready' ? evidenceFailure(result.output,context.kind) : `Installed operator evidence ${result.status}.`;
-   setEvidence(error); validity('evidence',error);
+   setEvidenceResult({key:evidenceKey,actions:form.actions,error});
   },()=>{
    if (controller.signal.aborted) return;
-   setEvidence('Installed operator evidence unavailable.'); validity('evidence','Installed operator evidence unavailable.');
+   setEvidenceResult({key:evidenceKey,actions:form.actions,error:'Installed operator evidence unavailable.'});
   });
   return ()=>controller.abort();
- },[form.actions,draft.sessionID,draft.revision,context.kind,context.intent,validity]);
+ },[form.actions,draft.sessionID,draft.revision,context.kind,needsEvidence,evidenceKey]);
  const locked = form.disabled || context.intent === 'inspect' || context.kind === 'TigeraStatus';
  const commit = (operations: readonly ResourceEditorPatch[]) => {
   const result = form.patch({sessionID:draft.sessionID,expectedRevision:draft.revision,operations});

@@ -33,7 +33,7 @@ export default function BackingInspector(form: ResourceEditorFormProps) {
       {resource.publicKind && <Destination key={form.draft.sessionID + resource.kind} form={form} resource={resource} />}
     </> : <EditorSection title={form.section === 'advanced' ? `${resource.kind} · additional observed fields` : `${resource.kind} · observed configuration`}>
       {counts && <div role="status">Allocated slots: {counts.allocated} · Unallocated slots: {counts.free}</div>}
-      {Object.entries(resource.fields).filter(([name]) => form.section === 'advanced' ? !resource.primary.includes(name) : resource.primary.includes(name)).map(([name, schema]) => <div key={name} style={{ borderBottom: '1px solid var(--ov-border-default, #444)', padding: '8px 0' }}><div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><strong>{name.replace(/([a-z])([A-Z])/g, '$1 $2')}</strong><EditorHelp label={name}>{schema.description ?? `Observed spec.${name}. Read-only backing value.`}<code> spec.{name}</code></EditorHelp></div><Value value={observedValue(form.draft.get(['spec', name]), schema, name)} /></div>)}
+      {Object.entries(resource.fields).filter(([name]) => form.section === 'advanced' ? !resource.primary.includes(name) : resource.primary.includes(name)).map(([name, schema]) => <div key={name} style={{ borderBottom: '1px solid var(--ov-color-border-default, #444)', padding: '8px 0' }}><div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><strong>{name.replace(/([a-z])([A-Z])/g, '$1 $2')}</strong><EditorHelp label={name}>{schema.description ?? `Observed spec.${name}. Read-only backing value.`}<code> spec.{name}</code></EditorHelp></div><Value value={observedValue(form.draft.get(['spec', name]), schema, name)} /></div>)}
     </EditorSection>}
   </div>;
 }

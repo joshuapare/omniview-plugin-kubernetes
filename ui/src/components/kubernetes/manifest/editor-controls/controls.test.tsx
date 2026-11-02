@@ -1,6 +1,8 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ResourceEditorFormProps, ResourceEditorReferenceResult } from '@omniviewdev/runtime';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { EditorField, EditorHelp, ExactValueField, KeyValueFields, ReferencePicker, parseExactInteger, renameDraftKey, setDraftField, useFieldValidity } from './index';
 
 afterEach(cleanup);
@@ -121,21 +123,29 @@ it('does not let valid sibling fields clear another field error', () => {
   expect(props.onValidityChange).toHaveBeenLastCalledWith('First invalid');
 });
 
-it('provides click and keyboard focusable help without changing form data', () => {
+it('composes hover/focus help and pinned click help with Escape focus return', async () => {
+  const user = userEvent.setup();
   render(<EditorHelp label="Budget">Budget semantics</EditorHelp>);
-  const trigger = screen.getByText('?');
-  expect(trigger.getAttribute('aria-label')).toBe('Help: Budget');
-  const details = trigger.closest('details')!;
-  fireEvent.pointerEnter(details);
-  expect(details.open).toBe(true);
-  fireEvent.pointerLeave(details);
-  expect(details.open).toBe(false);
-  fireEvent.click(trigger);
-  expect(details.open).toBe(true);
-  act(() => trigger.focus());
-  fireEvent.keyDown(trigger, { key: 'Escape' });
-  expect(details.open).toBe(false);
-  expect(document.activeElement).toBe(trigger);
+  const trigger = screen.getByRole('button', { name: 'Help: Budget' });
+  await user.hover(trigger);
+  expect(await screen.findByRole('tooltip')).toHaveTextContent('Budget semantics');
+  await user.unhover(trigger);
+  await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+  await user.tab();
+  expect(await screen.findByRole('tooltip')).toHaveTextContent('Budget semantics');
+  await user.click(trigger);
+  expect(await screen.findByRole('dialog', { name: 'Help: Budget' })).toHaveTextContent('Budget semantics');
+  const outerEscape = vi.fn();
+  window.addEventListener('keydown', outerEscape);
+  try {
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(trigger);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    expect(outerEscape).not.toHaveBeenCalled();
+  } finally {
+    window.removeEventListener('keydown', outerEscape);
+  }
 });
 
 it('aggregates independent child hooks and removes only the unmounted child bucket', () => {
@@ -166,4 +176,48 @@ it('does not share validity between distinct host callbacks', () => {
   fireEvent.change(screen.getByLabelText('First editor'), { target: { value: 'bad' } });
   expect(first.onValidityChange).toHaveBeenLastCalledWith('First editor invalid');
   expect(second.onValidityChange).toHaveBeenLastCalledWith(null);
+});
+
+it('keeps pending new entries and key renames blocking across sibling edits and row deletion', () => {
+  const props = form({ labels: { app: 'api', side: 'keep' } });
+  const validateValue = (value: string) => value.includes(' ') ? 'No spaces.' : null;
+  const view = render(<KeyValueFields form={props} path={['labels']} label="Label" validateValue={validateValue} />);
+  fireEvent.change(screen.getByLabelText('Value app'), { target: { value: 'invalid value' } });
+  fireEvent.change(screen.getByLabelText('Key side'), { target: { value: 'renamed' } });
+  expect(props.patch).not.toHaveBeenCalled();
+  const next = { ...form({ labels: { side: 'keep' } }), onValidityChange: props.onValidityChange };
+  view.rerender(<KeyValueFields form={next} path={['labels']} label="Label" validateValue={validateValue} />);
+  expect(props.onValidityChange).toHaveBeenLastCalledWith('Rename or restore the pending key.');
+  fireEvent.change(screen.getByLabelText('Key side'), { target: { value: 'side' } });
+  expect(props.onValidityChange).toHaveBeenLastCalledWith(null);
+  fireEvent.change(screen.getByLabelText('New Label key'), { target: { value: 'pending' } });
+  fireEvent.change(screen.getByLabelText('Value side'), { target: { value: 'valid' } });
+  expect(props.onValidityChange).toHaveBeenLastCalledWith('Add or clear the pending entry.');
+  fireEvent.change(screen.getByLabelText('New Label key'), { target: { value: '' } });
+  expect(props.onValidityChange).toHaveBeenLastCalledWith(null);
+});
+
+it('discards a partial exact draft when that field canonical value changes', () => {
+  const validity = vi.fn();
+  const props = { label: 'Count', value: '2', identity: 'same-session:count', parse: parseExactInteger, onCommit: () => null, onValidityChange: validity };
+  const view = render(<ExactValueField {...props} />);
+  fireEvent.change(screen.getByLabelText('Count'), { target: { value: '-' } });
+  view.rerender(<ExactValueField {...props} value="7" />);
+  expect((screen.getByLabelText('Count') as HTMLInputElement).value).toBe('7');
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(validity).toHaveBeenLastCalledWith(null);
+});
+
+it('does not show previous reference results while a new revision is loading', async () => {
+  const props = form();
+  const { promise, resolve } = Promise.withResolvers<ResourceEditorReferenceResult>();
+  props.references.list = vi.fn().mockResolvedValueOnce({ status: 'ready', items: [{ name: 'old' }] }).mockReturnValueOnce(promise);
+  const field = { label: 'Service', value: 'manual', onChange: vi.fn(), query: { group: '', version: 'v1', resource: 'services' } };
+  const view = render(<ReferencePicker {...field} form={props} />);
+  await screen.findByText(/Name is unresolved/);
+  view.rerender(<ReferencePicker {...field} form={{ ...props, draft: { ...props.draft, revision: 5 } }} />);
+  expect(screen.getByRole('status')).toHaveTextContent('Loading');
+  expect(screen.queryByDisplayValue('old')).toBeNull();
+  await act(async () => { resolve({ status: 'ready', items: [] }); await promise; });
+  expect(screen.getByRole('status').getAttribute('data-state')).toBe('empty');
 });

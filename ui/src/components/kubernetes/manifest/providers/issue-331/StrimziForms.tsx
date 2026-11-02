@@ -30,7 +30,7 @@ function Value({ form, label, path, type, locked = false }: {form: ResourceEdito
  const validity = useFieldValidity(form);
  const value=form.draft.get(path);
  const text=typeof value==='string'||typeof value==='number'||typeof value==='bigint'||typeof value==='boolean'?String(value):Array.isArray(value)&&type==='roles'?value.filter(x=>typeof x==='string').join(','):'';
- const commit=(next:unknown)=>patchError(setDraftField(form,path,next));
+ const commit=(next:string|number|bigint|boolean|string[])=>patchError(form.patch({sessionID:form.draft.sessionID,expectedRevision:form.draft.revision,operations:[{op:'set',path,value:next}]}));
  const disabled=form.disabled||locked;
  if(type==='integer') return <ExactValueField label={label} value={text} identity={`${form.draft.sessionID}:${path.join('/')}`} disabled={disabled} parse={input=>{const result=parseExactInteger(input);if(!result.valid)return result; const n=BigInt(result.value); const error=n<0n?'Enter a nonnegative integer.':form.context.kind==='KafkaTopic'&&path.at(-1)==='partitions'?topicPartitionError(n,form.baseline?.get(path)):null;return error?{valid:false,error}:result;}} onCommit={commit} onValidityChange={e=>validity(path.join('/'),e)}/>;
  if(type) { const options=type==='roles'?['broker','controller','broker,controller']:type==='boolean'?['false','true']:type.split('|'); return <EditorChoice label={label} value={text} disabled={disabled} options={options.map(value=>({value,label:value}))} onChange={v=>validity(path.join('/'),commit(type==='roles'?v.split(','):type==='boolean'?v==='true':v))}/>; }
@@ -51,7 +51,8 @@ function ControllerRequest({form}:{form:ResourceEditorFormProps}) {
  const validity=useFieldValidity(form);
  const rebalance=form.context.kind==='KafkaRebalance';
  const current=form.draft.get(['status','conditions']);
- const proposal=Array.isArray(current)&&current.some(condition=>condition&&typeof condition==='object'&&'type' in condition&&condition.type==='ProposalReady');
+ const conditions: readonly unknown[] = Array.isArray(current) ? current : [];
+ const proposal=conditions.some(condition=>condition!==null&&typeof condition==='object'&&'type' in condition&&condition.type==='ProposalReady');
  const options=rebalance?['refresh','approve','stop']:['restart'];
  return <EditorSection title="Controller request"><EditorChoice label="Request" value={request} options={options.map(value=>({value,label:value}))} disabled={form.disabled} onChange={setRequest} help="Stages an annotation in the canonical draft. Host submission review sends the resource update; reconciliation is not guaranteed."/><Button size="sm" disabled={form.disabled||!request||request==='approve'&&!proposal} onClick={()=>{
   const result=patchError(setDraftField(form,['metadata','annotations',rebalance?'strimzi.io/rebalance':'strimzi.io/restart'],rebalance?request:'true'));

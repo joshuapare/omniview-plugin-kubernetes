@@ -35,11 +35,11 @@ async function choose(label: string, option: string) {
 
 describe('DRA canonical behavior', () => {
   it('edits DeviceClass CEL leaves without exposing or replacing opaque driver configuration', () => {
-    const source = 'apiVersion: resource.k8s.io/v1\nkind: DeviceClass\nmetadata: {name: accelerators}\nspec:\n  selectors:\n    - cel: {expression: \"true\"} # preserve selector comment\n  config:\n    - opaque:\n        driver: driver.example\n        parameters: {vendorOption: private-fixture}\n';
+    const source = 'apiVersion: resource.k8s.io/v1\nkind: DeviceClass\nmetadata: {name: accelerators}\nspec:\n  selectors:\n    - cel: {expression: "true"} # preserve selector comment\n  config:\n    - opaque:\n        driver: driver.example\n        parameters: {vendorOption: private-fixture}\n';
     const controller = new ResourceEditorController(source);
     const ctx = context('DeviceClass', 'edit');
     const view = render(<Harness controller={controller} ctx={ctx} section="selection" />);
-    fireEvent.change(screen.getByLabelText('CEL expression 1'), { target: { value: 'device.driver == \"driver.example\"' } });
+    fireEvent.change(screen.getByLabelText('CEL expression 1'), { target: { value: 'device.driver == "driver.example"' } });
     expect(controller.draft().get(['spec', 'config', 0, 'opaque', 'parameters', 'vendorOption'])).toBe('private-fixture');
     expect(controller.getSource()).toContain('# preserve selector comment');
     expect(screen.queryByText('private-fixture')).toBeNull();
@@ -105,7 +105,7 @@ describe('DRA canonical behavior', () => {
     expect(generated.patch({ sessionID: generated.sessionID, expectedRevision: 0, operations: [{ op: 'set', path: ['spec', 'devices', 'requests', 0, 'name'], value: 'changed' }] }, contribution('ResourceClaim'), context()).status).toBe('forbidden');
   });
   it('detects generated extended-resource claims without reading their masked annotation value', () => {
-    const source = claim.replace('metadata: {name: claim, namespace: fixture}', 'metadata: {name: claim, namespace: fixture, annotations: {resource.kubernetes.io/extended-resource-claim: \"true\"}}');
+    const source = claim.replace('metadata: {name: claim, namespace: fixture}', 'metadata: {name: claim, namespace: fixture, annotations: {resource.kubernetes.io/extended-resource-claim: "true"}}');
     const controller = new ResourceEditorController(source);
     const descriptor = contribution('ResourceClaim');
     const publicDraft = controller.draft(descriptor.sensitivePaths);

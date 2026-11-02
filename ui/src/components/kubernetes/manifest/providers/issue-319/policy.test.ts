@@ -16,6 +16,11 @@ describe('External Secrets generator constraints', () => {
     expect(passwordIssues(draft({ length: 9007199254740993n, digits: 9007199254740992n, symbols: 1n }))).toEqual([]);
     expect(passwordIssues(draft({ length: 9007199254740993n, digits: 9007199254740992n, symbols: 2n }))).toHaveLength(1);
   });
+  it('rejects rounded numeric and structured constraints without coercion', () => {
+    expect(passwordIssues(draft({ length: Number.MAX_SAFE_INTEGER + 1 }))).toHaveLength(1);
+    expect(passwordIssues(draft({ length: { toString() { throw new Error('Must not coerce protected projections'); } } }))).toHaveLength(1);
+    expect(passwordIssues(draft({ length: '9007199254740993', digits: '9007199254740992', symbols: '1' }))).toEqual([]);
+  });
   it('applies omitted digit and symbol defaults without writing defaults', () => {
     expect(passwordIssues(draft({ length: 24 }))).toEqual([]);
     expect(passwordIssues(draft({ length: 0 }))).toHaveLength(1);

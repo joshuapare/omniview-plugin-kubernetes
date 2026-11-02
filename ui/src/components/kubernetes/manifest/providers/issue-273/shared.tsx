@@ -8,14 +8,14 @@ import './rbac.css';
 
 export interface RbacForm {
   form: ResourceEditorFormProps;
-  commit(operations: readonly ResourceEditorPatch[]): string | null;
-  report(field: string, error: string | null): void;
+  commit: (operations: readonly ResourceEditorPatch[]) => string | null;
+  report: (field: string, error: string | null) => void;
   errors: Record<string, string>;
 }
 export function useRbacForm(props: ResourceEditorFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const session = useRef(props.draft.sessionID);
-  if (session.current !== props.draft.sessionID) { session.current = props.draft.sessionID; setErrors({}); }
+  const [session, setSession] = useState(props.draft.sessionID);
+  if (session !== props.draft.sessionID) { setSession(props.draft.sessionID); setErrors({}); }
   const report = useCallback((field: string, error: string | null) => setErrors(previous => {
     if ((previous[field] ?? null) === error) return previous;
     const next = { ...previous };
@@ -36,25 +36,25 @@ export function useRbacForm(props: ResourceEditorFormProps) {
 }
 
 export function DraftText({ editor, path, label, help, allowEmpty = false, placeholder, validateText }: {
-  editor: RbacForm; path: ResourceEditorPath; label: string; help?: string; allowEmpty?: boolean; placeholder?: string; validateText?(value: string): string | null;
+  editor: RbacForm; path: ResourceEditorPath; label: string; help?: string; allowEmpty?: boolean; placeholder?: string; validateText?: (value: string) => string | null;
 }) {
   const canonical = text(editor.form.draft.get(path));
-  const [value, setValue] = useState(canonical);
-  const [error, setError] = useState<string | null>(null);
   const field = JSON.stringify(path);
+  const identity = JSON.stringify([editor.form.draft.sessionID, path, canonical]);
+  const [edit, setEdit] = useState<{ identity: string; value: string; error: string | null }>({ identity, value: canonical, error: null });
+  if (edit.identity !== identity) setEdit({ identity, value: canonical, error: null });
+  const { value, error } = edit.identity === identity ? edit : { value: canonical, error: null };
   const reporter = useRef(editor.report);
-  reporter.current = editor.report;
-  useEffect(() => { setValue(canonical); setError(null); reporter.current(field, null); }, [canonical, editor.form.draft.sessionID, field]);
-  useEffect(() => () => reporter.current(field, null), [field]);
+  useEffect(() => { reporter.current = editor.report; }, [editor.report]);
+  useEffect(() => { reporter.current(field, error); return () => reporter.current(field, null); }, [field, error]);
   return <EditorField label={label} value={value} help={help} placeholder={placeholder} disabled={editor.form.disabled} error={error} onChange={next => {
-    setValue(next);
     const failure = (!allowEmpty && !next.trim() ? 'Enter a value.' : validateText?.(next) ?? null) || editor.commit([{ op: 'set', path, value: next }]);
-    setError(failure); editor.report(field, failure);
+    setEdit({ identity, value: next, error: failure }); editor.report(field, failure);
   }} />;
 }
 
 export function StringRows({ editor, path, label, help, allowEmpty = false, validateText }: {
-  editor: RbacForm; path: ResourceEditorPath; label: string; help?: string; allowEmpty?: boolean; validateText?(value: string): string | null;
+  editor: RbacForm; path: ResourceEditorPath; label: string; help?: string; allowEmpty?: boolean; validateText?: (value: string) => string | null;
 }) {
   const values = list(editor.form.draft.get(path));
   return <div className="rbac-list"><div className="rbac-heading"><span>{label}</span>{help && <EditorHelp label={label}>{help}</EditorHelp>}</div>

@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest';
 import type { ResourceEditorContext } from '@omniviewdev/runtime';
+
+import { describe, expect, it } from 'vitest';
+
 import { ResourceEditorController } from '../../resourceEditorController';
+
+import { budgetOperations, matchesSelector, parseBudget, policyFormUnavailable, policyReadOnly, selectionOperations, selectorMode, statusIsCurrent, validatePolicy, validLabelKey, validLabelValue } from './policy';
+
 import { resourceEditors } from './index';
-import { budgetOperations, matchesSelector, parseBudget, policyFormUnavailable, policyReadOnly, selectorMode, statusIsCurrent, validatePolicy, validLabelKey, validLabelValue } from './policy';
 
 const contribution = resourceEditors[0];
 const context: ResourceEditorContext = {
@@ -53,6 +57,18 @@ describe('PodDisruptionBudget policy behavior', () => {
     expect(matchesSelector({}, { matchExpressions: [{ key: 'tier', operator: 'NotIn', values: ['batch'] }] })).toBe(true);
     expect(matchesSelector({ tier: 'batch' }, { matchExpressions: [{ key: 'tier', operator: 'NotIn', values: ['batch'] }] })).toBe(false);
     expect(matchesSelector({}, { matchExpressions: [{ key: 'tier', operator: 'Exists' }] })).toBe(false);
+  });
+  it('applies explicit selector scope transitions without treating omitted map keys as deletions', () => {
+    const controller = new ResourceEditorController(initial.replace('matchLabels: {app: worker}', 'matchLabels: {app: worker}\n    matchExpressions: [{key: zone, operator: In, values: [west]}]'));
+    for (const mode of ['all', 'none', 'all', 'omitted'] as const) {
+      const result = controller.patch({ sessionID: controller.sessionID, expectedRevision: controller.revision, operations: selectionOperations(controller.draft(), mode) }, contribution, context);
+      expect(result.status).toBe('accepted');
+      expect(selectorMode(controller.draft())).toBe(mode);
+      expect(controller.draft().get(['spec', 'futureOption'])).toBe(9007199254740995n);
+      expect(controller.draft().get(['spec', 'minAvailable'])).toBe(2n);
+      expect(controller.getSource()).toContain('# preserve budget comment');
+      expect(controller.getSource()).toContain('# preserve unknown exact integer');
+    }
   });
   it('preserves row siblings and comments through a leaf edit and expression insertion', () => {
     const controller = new ResourceEditorController(initial.replace('matchLabels: {app: worker}', 'matchLabels: {app: worker, track: stable}\n    matchExpressions:\n      - key: zone # retain row comment\n        operator: In\n        values: [west]'));

@@ -60,7 +60,7 @@ export function hpaUnavailable(draft: ResourceEditorDraft, context: ResourceEdit
       if (Object.values(metricBranches).some(other => other !== branch && metric[other] !== undefined)) return 'Multiple metric source branches require source editing.';
       const target = source.target;
       if (target !== undefined && !isRecord(target)) return 'Unsupported metric target shape requires source editing.';
-      if (isRecord(target) && target.type !== undefined && !['Utilization', 'AverageValue', 'Value'].includes(String(target.type))) return 'Unsupported metric target requires source editing.';
+      if (isRecord(target) && target.type !== undefined && (typeof target.type !== 'string' || !['Utilization', 'AverageValue', 'Value'].includes(target.type))) return 'Unsupported metric target requires source editing.';
       const root = ['spec', 'metrics', index, branch];
       for (const suffix of [['metric'], ['metric', 'selector'], ['metric', 'selector', 'matchLabels'], ['describedObject']]) {
         const value = draft.get([...root, ...suffix]);
@@ -105,7 +105,7 @@ export function validateHPA(draft: ResourceEditorDraft, context: ResourceEditorC
     return issues;
   }
   const metrics = draft.get(['spec', 'metrics']);
-  if (text(min) === '0' && (context.discovery.features.HPAScaleToZero !== 'available' || !Array.isArray(metrics) || !metrics.some(metric => isRecord(metric) && ['Object', 'External'].includes(String(metric.type))))) fail(['spec', 'minReplicas'], 'Zero requires verified HPAScaleToZero and an Object or External metric.');
+  if (text(min) === '0' && (context.discovery.features.HPAScaleToZero !== 'available' || !Array.isArray(metrics) || !metrics.some(metric => isRecord(metric) && typeof metric.type === 'string' && ['Object', 'External'].includes(metric.type)))) fail(['spec', 'minReplicas'], 'Zero requires verified HPAScaleToZero and an Object or External metric.');
   if (Array.isArray(metrics)) metrics.forEach((metric, index) => {
     if (!isRecord(metric) || !metricTypes.includes(metric.type as MetricType)) { fail(['spec', 'metrics', index], 'Choose a supported metric source.'); return; }
     const type = metric.type as MetricType;
@@ -118,29 +118,29 @@ export function validateHPA(draft: ResourceEditorDraft, context: ResourceEditorC
     const targetPath = [...root, 'target'];
     const target = draft.get(targetPath);
     const allowed = type === 'Resource' || type === 'ContainerResource' ? ['Utilization', 'AverageValue'] : type === 'Pods' ? ['AverageValue'] : ['Value', 'AverageValue'];
-    if (!isRecord(target) || !allowed.includes(String(target.type))) { fail(targetPath, 'Choose a compatible target.'); return; }
+    if (!isRecord(target) || typeof target.type !== 'string' || !allowed.includes(target.type)) { fail(targetPath, 'Choose a compatible target.'); return; }
     const key = target.type === 'Utilization' ? 'averageUtilization' : target.type === 'AverageValue' ? 'averageValue' : 'value';
     if (target.type === 'Utilization') integer([...targetPath, key], 1, 2147483647);
     else if (!validQuantity(target[key])) fail([...targetPath, key], 'Enter a positive Kubernetes quantity.');
-    if (['value', 'averageValue', 'averageUtilization'].some(other => other !== key && target[other] !== undefined)) fail(targetPath, 'Remove incompatible target fields in source.');
+    if ((['value', 'averageValue', 'averageUtilization'] as const).some(other => other !== key && target[other] !== undefined)) fail(targetPath, 'Remove incompatible target fields in source.');
     const selector = draft.get([...root, 'metric', 'selector']);
     if (isRecord(selector) && Array.isArray(selector.matchExpressions)) selector.matchExpressions.forEach((expression, row) => {
       const path = [...root, 'metric', 'selector', 'matchExpressions', row];
-      if (!isRecord(expression) || !text(expression.key).trim() || !['In', 'NotIn', 'Exists', 'DoesNotExist'].includes(String(expression.operator))) { fail(path, 'Complete selector key and operator.'); return; }
+      if (!isRecord(expression) || !text(expression.key).trim() || typeof expression.operator !== 'string' || !['In', 'NotIn', 'Exists', 'DoesNotExist'].includes(expression.operator)) { fail(path, 'Complete selector key and operator.'); return; }
       const values = expression.values;
-      if (['In', 'NotIn'].includes(String(expression.operator)) ? !Array.isArray(values) || values.length === 0 || values.some(value => typeof value !== 'string' || !value) : values !== undefined && (!Array.isArray(values) || values.length !== 0)) fail(path, 'Selector values must match the operator.');
+      if (['In', 'NotIn'].includes(expression.operator) ? !Array.isArray(values) || values.length === 0 || values.some(value => typeof value !== 'string' || !value) : values !== undefined && (!Array.isArray(values) || values.length !== 0)) fail(path, 'Selector values must match the operator.');
     });
   });
   for (const direction of ['scaleUp', 'scaleDown']) {
     const root = ['spec', 'behavior', direction];
     integer([...root, 'stabilizationWindowSeconds'], 0, 3600, true);
     const choice = draft.get([...root, 'selectPolicy']);
-    if (choice !== undefined && !['Max', 'Min', 'Disabled'].includes(String(choice))) fail([...root, 'selectPolicy'], 'Choose a supported policy.');
+    if (choice !== undefined && (typeof choice !== 'string' || !['Max', 'Min', 'Disabled'].includes(choice))) fail([...root, 'selectPolicy'], 'Choose a supported policy.');
     const tolerance = draft.get([...root, 'tolerance']);
     if (tolerance !== undefined && !validQuantity(tolerance, true)) fail([...root, 'tolerance'], 'Enter a nonnegative quantity.');
     const policies = draft.get([...root, 'policies']);
     if (Array.isArray(policies)) policies.forEach((policy, index) => {
-      if (!isRecord(policy) || !['Pods', 'Percent'].includes(String(policy.type))) fail([...root, 'policies', index, 'type'], 'Choose Pods or Percent.');
+      if (!isRecord(policy) || typeof policy.type !== 'string' || !['Pods', 'Percent'].includes(policy.type)) fail([...root, 'policies', index, 'type'], 'Choose Pods or Percent.');
       integer([...root, 'policies', index, 'value'], 1, 2147483647);
       integer([...root, 'policies', index, 'periodSeconds'], 1, 1800);
     });

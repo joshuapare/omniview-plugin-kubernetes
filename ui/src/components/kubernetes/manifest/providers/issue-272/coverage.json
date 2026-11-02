@@ -19,6 +19,7 @@
     "composition": "Actual base-ui Input, Select and Button through shared EditorField, EditorChoice, EditorHelp, EditorSection and ReferencePicker. No new shared primitive or per-group persistence.",
     "fixtureSource": "fixtures.ts",
     "regressions": "storage.test.tsx",
+    "integrationFixes": "Exact fixture schema declares wildcard map leaves and collection items, without broad-parent admission. Session-keyed form state has no derived-state reset effects. Stable row IDs and path rebasing retain invalid sibling drafts during removal. Integer shape guards never stringify objects. Added guard, row-removal and session-reset regressions; checks remain parent-owned.",
     "checksRunByWorker": false,
     "screenshotsCapturedByWorker": false,
     "captureReason": "EditorHost instructed groups to defer capture until Main completes coherent integration. Isolated actual production harness supplied under .local/resource-editor-implementation/issue-272/."

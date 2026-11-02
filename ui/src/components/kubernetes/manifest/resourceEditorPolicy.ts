@@ -57,9 +57,16 @@ export function editorOwnership(source: string, context: ResourceEditorContext, 
   const draft = inspectManifest(source);
   if (!draft.document || draft.error) return { status: 'unknown' };
   const owners = readManifestValue(draft, ['metadata', 'ownerReferences']);
-  if (owners !== undefined && !Array.isArray(owners)) return { status: 'unknown' };
-  if (Array.isArray(owners) && owners.some((owner) => !owner || typeof owner !== 'object' || typeof owner.kind !== 'string' || typeof owner.name !== 'string' || owner.controller !== undefined && typeof owner.controller !== 'boolean')) return { status: 'unknown' };
-  if (Array.isArray(owners) && owners.some((owner) => owner.controller === true)) return { status: 'controller' };
+  const ownerReferences: readonly unknown[] | undefined = Array.isArray(owners) ? owners : undefined;
+  if (owners !== undefined && !ownerReferences) return { status: 'unknown' };
+  let controlled = false;
+  for (const owner of ownerReferences ?? []) {
+    if (!owner || typeof owner !== 'object' || Array.isArray(owner)) return { status: 'unknown' };
+    const reference = owner as Record<string, unknown>;
+    if (typeof reference.kind !== 'string' || typeof reference.name !== 'string' || reference.controller !== undefined && typeof reference.controller !== 'boolean') return { status: 'unknown' };
+    controlled ||= reference.controller === true;
+  }
+  if (controlled) return { status: 'controller' };
   const namespace = readManifestValue(draft, ['metadata', 'namespace']) ?? context.namespace;
   const installer = readManifestValue(draft, ['metadata', 'labels', 'app.kubernetes.io/managed-by']);
   if (namespace === 'kube-system' || namespace === 'kube-node-lease' || typeof installer === 'string' && /^(helm|argocd|flux|fluxcd)$/i.test(installer)) return { status: 'system' };

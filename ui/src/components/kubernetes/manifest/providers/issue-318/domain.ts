@@ -17,7 +17,9 @@ export function specPath(kind: string): ResourceEditorPath {
 export function generated(draft: ResourceEditorDraft, context: ResourceEditorContext): boolean {
   if (context.ownership?.status === 'controller' || context.ownership?.status === 'system') return true;
   const owners = draft.get(['metadata', 'ownerReferences']);
-  return Array.isArray(owners) && owners.some(owner => owner && typeof owner === 'object' && owner.controller === true);
+  if (!Array.isArray(owners)) return false;
+  const references: readonly unknown[] = owners;
+  return references.some(owner => owner !== null && typeof owner === 'object' && 'controller' in owner && owner.controller === true);
 }
 export function unavailable(draft: ResourceEditorDraft, context: ResourceEditorContext): string | null {
   if (!isStore(context.kind)) return null;

@@ -12,8 +12,9 @@ function Readout({ label, children, help }: { label: string; children: ReactNode
 export default function AdmissionReviewInspector({ draft, context, section, onValidityChange }: ResourceEditorFormProps) {
   const summary = summarizeAdmissionReview(draft);
   const [original, setOriginal] = useState(false);
-  const [checked, setChecked] = useState(false);
-  useEffect(() => { setChecked(false); }, [draft.sessionID, draft.revision]);
+  const identity = JSON.stringify([draft.sessionID, draft.revision]);
+  const [checkedIdentity, setCheckedIdentity] = useState<string | null>(null);
+  const checked = checkedIdentity === identity;
   const error = summary.issues.length ? 'Exchange cannot be correlated safely. Inspect the reported issues.' : null;
   useEffect(() => { onValidityChange(error); }, [error, onValidityChange]);
   const correlation = !summary.request || !summary.response ? 'Both request and response are required for correlation' : summary.correlated ? 'Request and response UIDs match' : 'UID mismatch';
@@ -74,7 +75,7 @@ export default function AdmissionReviewInspector({ draft, context, section, onVa
         <Readout label="Persistence">Not a resource · no Create, Edit, or Save</Readout>
         <Readout label="Capture transport">Not provided by this installation</Readout>
       </dl>
-      <Button size="sm" variant="outline" onClick={() => setChecked(true)}>Check exchange locally</Button>
+      <Button size="sm" variant="outline" onClick={() => setCheckedIdentity(identity)}>Check exchange locally</Button>
       {checked && <p role="status">{summary.issues.length ? 'Exchange has reported issues. No replay or mutation was attempted.' : !summary.request || !summary.response ? 'Incomplete exchange. No admission outcome can be inferred.' : 'UIDs correlate. This does not prove final admission, webhook negotiation, or patch validity.'}</p>}
     </EditorSection>}
   </div>;

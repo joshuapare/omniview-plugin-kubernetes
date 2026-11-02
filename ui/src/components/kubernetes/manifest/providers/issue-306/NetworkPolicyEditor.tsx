@@ -36,7 +36,8 @@ function Field({ form, path, label, numeric = false, min = 1, max = 65535 }: { f
 }
 function Choice({ form, path, label, values, change }: { form: ResourceEditorFormProps; path: ResourceEditorPath; label: string; values: string[]; change?: (value: string) => ResourceEditorPatch[] }) {
   const validity = useFieldValidity(form);
-  return <EditorChoice label={label} value={String(form.draft.get(path) ?? '')} options={options(values)} disabled={form.disabled} onChange={value => validity(JSON.stringify(path), change ? mutate(form, change(value)) : set(form, path, value))} />;
+  const value = form.draft.get(path);
+  return <EditorChoice label={label} value={typeof value === 'string' ? value : ''} options={options(values)} disabled={form.disabled} onChange={value => validity(JSON.stringify(path), change ? mutate(form, change(value)) : set(form, path, value))} />;
 }
 function Add({ form, path, value, label, limit = 100 }: { form: ResourceEditorFormProps; path: ResourceEditorPath; value: unknown; label: string; limit?: number }) {
   const validity = useFieldValidity(form); const entries = list(form.draft.get(path));
@@ -74,7 +75,7 @@ function Rules({ form, direction, baseline }: { form: ResourceEditorFormProps; d
   const path = ['spec', direction]; const rules = list(form.draft.get(path)); const peer = direction === 'ingress' ? 'from' : 'to';
   return <EditorSection title={`Ordered ${direction} rules`}>
     {rules.length === 0 && <div>No rules: no effect on {direction}.</div>}
-    {rules.map((_, i) => { const p = [...path, i]; return <fieldset key={i} disabled={form.disabled} style={{ minWidth: 0, border: '1px solid var(--ov-border-default)', padding: 12 }}><legend>Rule {i + 1}</legend>
+    {rules.map((_, i) => { const p = [...path, i]; return <fieldset key={i} disabled={form.disabled} style={{ minWidth: 0, border: '1px solid var(--ov-color-border-default)', padding: 12 }}><legend>Rule {i + 1}</legend>
       <Field form={form} path={[...p, 'name']} label="Rule name · optional" /><Choice form={form} path={[...p, 'action']} label="Action" values={baseline ? ['Allow', 'Deny'] : ['Allow', 'Deny', 'Pass']} />
       {list(form.draft.get([...p, peer])).map((_, j) => <details key={j} open><summary>Peer {j + 1}</summary><Peer form={form} path={[...p, peer, j]} egress={direction === 'egress'} /><Remove form={form} path={[...p, peer, j]} /></details>)}
       <Add form={form} path={[...p, peer]} value={{ namespaces: {} }} label="Add peer" />

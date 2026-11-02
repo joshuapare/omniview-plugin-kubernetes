@@ -26,9 +26,13 @@ export function validate(draft: ResourceEditorDraft, context: ResourceEditorCont
  const get = (path: string) => value(draft, `spec.${path}`);
  const error = (path: string, message: string) => issues.push({ path: path.split('.'), message });
  for (const key of context.kind === 'Bucket' ? ['bucketName', 'endpoint', 'interval'] : context.kind === 'HelmChart' ? ['chart', 'sourceRef.kind', 'sourceRef.name', 'interval'] : context.kind === 'HelmRepository' ? ['url'] : ['url', 'interval']) if (!get(key)) error(`spec.${key}`, 'Required.');
- for (const key of ['interval', 'timeout']) if (get(key) && !(key === 'timeout' ? /^([0-9]+(\.[0-9]+)?(ms|s|m))+$/ : /^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$/).test(String(get(key)))) error(`spec.${key}`, 'Enter a duration such as 5m.');
- if (get('url')) {
-  const url = String(get('url'));
+ for (const key of ['interval', 'timeout']) {
+  const duration = get(key);
+  if (duration && (typeof duration !== 'string' || !(key === 'timeout' ? /^([0-9]+(\.[0-9]+)?(ms|s|m))+$/ : /^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$/).test(duration))) error(`spec.${key}`, 'Enter a duration such as 5m.');
+ }
+ const urlValue = get('url');
+ if (urlValue) {
+  const url = typeof urlValue === 'string' ? urlValue : '';
   const pattern = context.kind === 'GitRepository' ? /^(https?|ssh):\/\/.+/ : context.kind === 'OCIRepository' || get('type') === 'oci' ? /^oci:\/\/.+/ : /^https?:\/\/.+/;
   if (!pattern.test(url)) error('spec.url', 'Use a URL with the supported source scheme.');
   if (/^[a-z]+:\/\/[^/]*@/i.test(url)) error('spec.url', 'Use a credential Secret instead of URL user information.');
@@ -36,9 +40,12 @@ export function validate(draft: ResourceEditorDraft, context: ResourceEditorCont
  if (context.kind === 'GitRepository' && draft.has(['spec', 'verify']) && !get('verify.secretRef.name')) error('spec.verify.secretRef.name', 'Choose the trusted public key Secret.');
  if (get('verify.provider') === 'notation' && !get('verify.secretRef.name')) error('spec.verify.secretRef.name', 'Notation requires a verification Secret.');
  const identities = get('verify.matchOIDCIdentity');
- if (Array.isArray(identities)) identities.forEach((identity, index) => {
-  if (!identity || typeof identity !== 'object' || !identity.issuer || !identity.subject) issues.push({ path: ['spec', 'verify', 'matchOIDCIdentity', index], message: 'Issuer and subject are required.' });
- });
+ if (Array.isArray(identities)) {
+  const rows: readonly unknown[] = identities;
+  rows.forEach((identity, index) => {
+   if (!identity || typeof identity !== 'object' || !('issuer' in identity) || typeof identity.issuer !== 'string' || !identity.issuer || !('subject' in identity) || typeof identity.subject !== 'string' || !identity.subject) issues.push({ path: ['spec', 'verify', 'matchOIDCIdentity', index], message: 'Issuer and subject are required.' });
+  });
+ }
  if (context.kind === 'GitRepository' && get('serviceAccountName') && get('provider') !== 'azure') error('spec.serviceAccountName', 'Git service account requires Azure provider.');
  if (context.kind === 'Bucket') {
   if (get('serviceAccountName') && (!get('provider') || get('provider') === 'generic')) error('spec.serviceAccountName', 'Generic Bucket provider does not support service accounts.');

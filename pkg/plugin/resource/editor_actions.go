@@ -14,6 +14,7 @@ import (
  metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
  "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
  apierrors "k8s.io/apimachinery/pkg/api/errors"
+ kubejson "k8s.io/apimachinery/pkg/util/json"
 )
 
 const editorReview = "kubernetes.review.v1"
@@ -88,10 +89,15 @@ func editorAction(ctx context.Context, client *clients.ClientSet, binding native
  if request.Action == crossplaneActivationProtocol {return editorCrossplaneActivation(ctx,client,binding,request)}
  native,err := resourcev2.NativeFromValue(request.Input)
  if err!=nil { return result,err }
+ native,err=nativeMutationJSON(native)
+ if err!=nil {return result,err}
+ objectMap,ok:=native.(map[string]any)
+ if !ok {return result,resourcev2.NewError("INVALID_REQUEST","Expected a Kubernetes request object")}
  data,err := json.Marshal(native)
  if err!=nil { return result,err }
- object := &unstructured.Unstructured{}
- if err=object.UnmarshalJSON(data); err!=nil { return result,resourcev2.NewError("INVALID_REQUEST","Expected a Kubernetes request object") }
+ // Action DTOs (approval, scale-read, metric query) need not carry TypeMeta.
+ // Only explicit review requests require kind/apiVersion below.
+ object := &unstructured.Unstructured{Object:objectMap}
  name:=request.Reference.Address.ID
  if object.GetNamespace()!="" && object.GetNamespace()!=namespace { return result,resourcev2.NewError("INVALID_REQUEST","Request namespace differs from target") }
  object.SetNamespace(namespace)
@@ -175,8 +181,9 @@ func editorAction(ctx context.Context, client *clients.ClientSet, binding native
  bytes,err:=json.Marshal(output)
  if err!=nil { return result,err }
  // Kubernetes JSON decoder preserves int64, unlike encoding/json's any decoder.
- decoded:=&unstructured.Unstructured{}
- if err=decoded.UnmarshalJSON(bytes);err!=nil { return result,err }
+ var decodedMap map[string]any
+ if err=kubejson.Unmarshal(bytes,&decodedMap);err!=nil || decodedMap==nil { return result,resourcev2.NewError("UNAVAILABLE","Invalid Kubernetes action response") }
+ decoded:=&unstructured.Unstructured{Object:decodedMap}
  if request.Action==editorReview {
   // Return review status only; never echo the bearer token or identity spec.
   status,_,_:=unstructured.NestedMap(decoded.Object,"status")

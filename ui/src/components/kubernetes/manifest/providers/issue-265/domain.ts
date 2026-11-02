@@ -83,7 +83,7 @@ export function validateCore(draft: ResourceEditorDraft, context: ResourceEditor
       if (type !== 'Container' && ['default','defaultRequest'].some(key => Object.keys(draft.get([...root,key]) ?? {}).length > 0)) check(root, 'Default limits and requests apply only to Containers.');
       for (const resource of ['cpu', 'memory', 'storage', 'ephemeral-storage']) {
         const ordered = ['min', 'defaultRequest', 'default', 'max'].map(key => quantity(draft.get([...root, key, resource]))).filter(item => item !== null);
-        for (let n = 1; n < ordered.length; n++) if (compareQuantity(ordered[n - 1]!, ordered[n]!) > 0) check(root, `${resource}: minimum ≤ default request ≤ default limit ≤ maximum.`);
+        for (let n = 1; n < ordered.length; n++) if (compareQuantity(ordered[n - 1], ordered[n]) > 0) check(root, `${resource}: minimum ≤ default request ≤ default limit ≤ maximum.`);
         const ratio = quantity(draft.get([...root,'maxLimitRequestRatio',resource]));
         if (ratio && compareQuantity(ratio, {coefficient:1n,exponent:0n}) < 0) check([...root,'maxLimitRequestRatio',resource], 'Limit/request ratio must be at least 1.');
       }

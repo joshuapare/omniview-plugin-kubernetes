@@ -21,7 +21,8 @@ export function controllerOwned(draft: ResourceEditorDraft) {
 }
 export function schedulingReadOnly(draft: ResourceEditorDraft, context: ResourceEditorContext) {
   if (context.intent === 'inspect' || controllerOwned(draft) || context.ownership?.status === 'controller' || context.ownership?.status === 'system') return true;
-  if (context.kind === 'PriorityClass' && String(draft.get(['metadata', 'name']) ?? context.name ?? '').startsWith('system-')) return true;
+  const name = draft.get(['metadata', 'name']);
+  if (context.kind === 'PriorityClass' && (typeof name === 'string' && name.startsWith('system-') || context.name?.startsWith('system-') || draft.has(['metadata', 'name']) && typeof name !== 'string')) return true;
   return context.intent !== 'create' && context.ownership?.status !== 'application';
 }
 export function priorityUnavailable(draft: ResourceEditorDraft): string | null {
@@ -52,7 +53,8 @@ export function workloadUnavailable(draft: ResourceEditorDraft, context: Resourc
 }
 export function validatePriority(draft: ResourceEditorDraft, context: ResourceEditorContext): ResourceEditorFieldIssue[] {
   const issues: ResourceEditorFieldIssue[] = [];
-  const system = String(draft.get(['metadata', 'name']) ?? context.name ?? '').startsWith('system-');
+  const name = draft.get(['metadata', 'name']);
+  const system = typeof name === 'string' && name.startsWith('system-') || context.name?.startsWith('system-') === true;
   if (!nativeInteger(draft.get(['value']), -2147483648, system ? 2147483647 : 1000000000)) issues.push({ path: ['value'], message: 'Enter an integer from −2147483648 to 1000000000.' });
   if (system && context.intent === 'create') issues.push({ path: ['metadata', 'name'], message: 'The system- prefix is reserved. Inspect bootstrap classes instead.' });
   return issues;
@@ -65,7 +67,7 @@ export function validateWorkload(draft: ResourceEditorDraft, context: ResourceEd
   groups.forEach((group, index) => {
     if (!record(group)) return;
     if (typeof group.name !== 'string' || !dnsLabel(group.name) || names.has(group.name)) issues.push({ path: [...podGroupsPath, index, 'name'], message: 'Use a unique DNS label for each pod group.' });
-    names.add(String(group.name));
+    if (typeof group.name === 'string') names.add(group.name);
     if (record(group.policy) && group.policy.gang !== undefined && context.discovery.features.GangScheduling === 'absent') issues.push({ path: [...podGroupsPath, index, 'policy', 'gang'], message: 'GangScheduling is confirmed disabled. Choose Basic or retain the source without submitting.' });
   });
   const ref = draft.get(controllerPath);

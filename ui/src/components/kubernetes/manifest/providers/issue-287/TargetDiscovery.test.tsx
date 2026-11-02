@@ -43,8 +43,27 @@ describe('storage migration discovery interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Discover targets' }));
     view.rerender(<TargetDiscovery form={{ ...props, draft: { ...props.draft, revision: 1 } }} disabled={false} group="batch" resource="jobs" onSelect={onSelect} />);
     expect(execute.mock.calls[0][0].signal.aborted).toBe(true);
+    expect(screen.getByRole('button', { name: 'Discover targets' })).toBeEnabled();
     await act(async () => { resolve(result); await pending; });
     expect(screen.queryByText('Discovered target')).not.toBeInTheDocument();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+  it('allows a fresh lookup when admission replaces the action service', async () => {
+    const { promise: pending, resolve } = Promise.withResolvers<ResourceEditorActionResult>();
+    const originalExecute = vi.fn<ResourceEditorActionService['execute']>(() => pending);
+    const props = form({ execute: originalExecute });
+    const onSelect = vi.fn();
+    const view = render(<TargetDiscovery form={props} disabled={false} group="apps" resource="deployments" onSelect={onSelect} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Discover targets' }));
+    const currentActions = { execute: vi.fn<ResourceEditorActionService['execute']>(async () => result) };
+    view.rerender(<TargetDiscovery form={{ ...props, actions: currentActions }} disabled={false} group="apps" resource="deployments" onSelect={onSelect} />);
+    expect(originalExecute.mock.calls[0][0].signal.aborted).toBe(true);
+    expect(screen.getByRole('button', { name: 'Discover targets' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Discover targets' }));
+    await screen.findByText('Discovered target');
+    await act(async () => { resolve({ status: 'denied' }); await pending; });
+    expect(screen.getByText('Discovered target')).toBeInTheDocument();
+    expect(screen.queryByText('Target discovery denied. Exact manual targets remain available.')).not.toBeInTheDocument();
     expect(onSelect).not.toHaveBeenCalled();
   });
   it('does not reuse discovered choices from another connection', async () => {

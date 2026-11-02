@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { jsonToValue, type ResourceEditorContext, type ResourceEditorContribution } from '@omniviewdev/runtime';
 import { parse } from 'yaml';
 import { ResourceEditorController, assertResourceEditorInput } from './resourceEditorController';
@@ -22,6 +22,27 @@ describe('canonical resource editor controller', () => {
     controller.syncSource(`${controller.getSource()}advanced: true\n`);
     const payload = jsonToValue(parse(controller.getSource(), { intAsBigInt: true }));
     expect(payload).toMatchObject({ kind: 'map', value: { spec: { kind: 'map', value: { unknown: { kind: 'int64', value: '9007199254740993' } } }, advanced: { kind: 'bool', value: true } } });
+  });
+
+  it('publishes coherent external snapshots and retains protected paths across provider fallback', () => {
+    const controller = new ResourceEditorController('apiVersion: demo.example/v1\nkind: Demo\nspec: {token: fixture-only-secret}\n');
+    const listener = vi.fn();
+    const unsubscribe = controller.subscribe(listener);
+    controller.commitSafety(true, false, [['spec', 'token']], true);
+    const protectedSnapshot = controller.getSnapshot();
+    expect(protectedSnapshot).toMatchObject({ sensitive: true, readOnly: false, fallback: true, protectedPaths: [['spec', 'token']] });
+    controller.commitSafety(false, undefined, []);
+    expect(controller.getSnapshot()).toBe(protectedSnapshot);
+    expect(listener).toHaveBeenCalledTimes(1);
+    controller.syncSource(`${controller.getSource()}other: retained\n`);
+    expect(controller.getSnapshot()).toMatchObject({ revision: 1, sensitive: true, fallback: true, protectedPaths: [['spec', 'token']] });
+    const projected = controller.draft(controller.getSnapshot().protectedPaths);
+    expect(() => JSON.stringify(projected.get(['spec', 'token']))).toThrow();
+    expect(projected.get(['other'])).toBe('retained');
+    expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe();
+    controller.invalidate();
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 
   it('rejects an unsafe batch atomically and invalidates stale sessions and revisions', () => {

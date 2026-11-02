@@ -1,6 +1,6 @@
 import type { ResourceEditorDraft, ResourceEditorFieldIssue, ResourceEditorPath } from '@omniviewdev/runtime';
 
-type Schema = { type?: string; properties?: Readonly<Record<string, Schema>>; required?: readonly string[]; default?: unknown; items?: Schema };
+type Schema = { readonly [keyword: string]: unknown; type?: string; properties?: Readonly<Record<string, Schema>>; required?: readonly string[]; default?: unknown; items?: Schema };
 /** Validate presence without serializing values or exposing protected content. */
 export function requiredIssues(draft: ResourceEditorDraft, schema: Schema, path: ResourceEditorPath = ['spec']): ResourceEditorFieldIssue[] {
   const issues: ResourceEditorFieldIssue[] = [];

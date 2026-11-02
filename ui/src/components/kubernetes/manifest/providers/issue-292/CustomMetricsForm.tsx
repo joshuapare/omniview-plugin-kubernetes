@@ -16,8 +16,10 @@ export default function CustomMetricsForm(form: ResourceEditorFormProps) {
 function CustomMetricsSession(form: ResourceEditorFormProps) {
   const { context, draft, requestResult } = form;
   const report = useFieldValidity(form);
-  const [discovery, setDiscovery] = useState<Discovery>({ status: 'loading' });
   const [refresh, setRefresh] = useState(0);
+  const discoveryIdentity = JSON.stringify([context.connectionID, context.version, draft.sessionID, refresh]);
+  const [discoveryResult, setDiscoveryResult] = useState<{ identity: string; value: Discovery } | null>(null);
+  const discovery: Discovery = discoveryResult?.identity === discoveryIdentity ? discoveryResult.value : { status: 'loading' };
   const [patchFailure, setPatchFailure] = useState<string | null>(null);
   const generation = useRef(0);
   const inspection = context.intent === 'inspect';
@@ -31,21 +33,20 @@ function CustomMetricsSession(form: ResourceEditorFormProps) {
     if (inspection || !supportedVersion(context.version)) return;
     const controller = new AbortController();
     const current = ++generation.current;
-    setDiscovery({ status: 'loading' });
     void form.actions.execute({ protocol: PROTOCOL, input: { group: GROUP, version: context.version, operation: 'discover' }, sessionID: draft.sessionID, generation: draft.revision, signal: controller.signal }).then(result => {
       if (controller.signal.aborted || current !== generation.current) return;
       if (result.status !== 'ready') {
         if (result.status === 'cancelled') return;
         const status = result.status === 'invalid' ? 'unsupported' : result.status;
-        setDiscovery({ status, message: statusLabels[status] });
+        setDiscoveryResult({ identity: discoveryIdentity, value: { status, message: statusLabels[status] } });
         return;
       }
-      if (result.sensitive) { setDiscovery({ status: 'unsupported', message: 'Sensitive discovery output is not displayed.' }); return; }
+      if (result.sensitive) { setDiscoveryResult({ identity: discoveryIdentity, value: { status: 'unsupported', message: 'Sensitive discovery output is not displayed.' } }); return; }
       const items = discoveredMetrics(result.output, context.version as 'v1beta1' | 'v1beta2');
-      setDiscovery(items ? { status: 'ready', items } : { status: 'unsupported', message: statusLabels.unsupported });
-    }).catch(() => { if (!controller.signal.aborted && current === generation.current) setDiscovery({ status: 'unavailable', message: statusLabels.unavailable }); });
+      setDiscoveryResult({ identity: discoveryIdentity, value: items ? { status: 'ready', items } : { status: 'unsupported', message: statusLabels.unsupported } });
+    }).catch(() => { if (!controller.signal.aborted && current === generation.current) setDiscoveryResult({ identity: discoveryIdentity, value: { status: 'unavailable', message: statusLabels.unavailable } }); });
     return () => { controller.abort(); ++generation.current; };
-  }, [inspection, context.version, context.connectionID, draft.sessionID, form.actions, refresh]);
+  }, [discoveryIdentity, inspection, context.version, context.connectionID, draft.sessionID, form.actions, refresh]);
 
   const commit = (operations: readonly ResourceEditorPatch[]) => {
     const error = patchError(patchFields(form, operations));

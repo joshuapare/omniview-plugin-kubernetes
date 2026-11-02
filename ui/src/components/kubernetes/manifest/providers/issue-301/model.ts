@@ -1,5 +1,7 @@
 import type { ResourceEditorContext, ResourceEditorDraft, ResourceEditorFieldIssue } from '@omniviewdev/runtime';
 
+const stringValue = (value: unknown): string => typeof value === 'string' ? value : '';
+
 export function moduleError(url: string, sha: string): string | null {
   if (!url.trim() || /\s/.test(url)) return 'Enter a module reference without whitespace.';
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(url) && !/^(oci|https?|file):\/\//.test(url)) return 'Use OCI, HTTP(S), or a proxy-local file.';
@@ -10,7 +12,7 @@ export function moduleError(url: string, sha: string): string | null {
 }
 export function validate(draft: ResourceEditorDraft): ResourceEditorFieldIssue[] {
   const issues: ResourceEditorFieldIssue[] = [];
-  const error = moduleError(String(draft.get(['spec', 'url']) ?? ''), String(draft.get(['spec', 'sha256']) ?? ''));
+  const error = moduleError(stringValue(draft.get(['spec', 'url'])), stringValue(draft.get(['spec', 'sha256'])));
   if (error) issues.push({ path: ['spec', 'url'], message: error });
   const refs = draft.get(['spec', 'targetRefs']);
   if (Array.isArray(refs) && refs.length > 16) issues.push({ path: ['spec', 'targetRefs'], message: 'Use at most 16 targets.' });
@@ -19,13 +21,13 @@ export function validate(draft: ResourceEditorDraft): ResourceEditorFieldIssue[]
     const kind = draft.get(['spec', 'targetRefs', i, 'kind']);
     const group = draft.get(['spec', 'targetRefs', i, 'group']);
     const expected = kind === 'Service' ? ['', 'core'] : kind === 'ServiceEntry' ? ['networking.istio.io'] : ['gateway.networking.k8s.io'];
-    if (!['Gateway', 'GatewayClass', 'Service', 'ServiceEntry'].includes(String(kind)) || !expected.includes(String(group ?? '')) || !draft.get(['spec', 'targetRefs', i, 'name'])) issues.push({ path: ['spec', 'targetRefs', i], message: 'Choose a supported target and enter its name.' });
+    if (typeof kind !== 'string' || !['Gateway', 'GatewayClass', 'Service', 'ServiceEntry'].includes(kind) || (group != null && typeof group !== 'string') || !expected.includes(stringValue(group)) || typeof draft.get(['spec', 'targetRefs', i, 'name']) !== 'string' || !draft.get(['spec', 'targetRefs', i, 'name'])) issues.push({ path: ['spec', 'targetRefs', i], message: 'Choose a supported target and enter its name.' });
   });
   const env = draft.get(['spec', 'vmConfig', 'env']);
   if (Array.isArray(env)) {
     const names = new Set<string>();
     env.forEach((_, i) => {
-      const name = String(draft.get(['spec', 'vmConfig', 'env', i, 'name']) ?? '');
+      const name = stringValue(draft.get(['spec', 'vmConfig', 'env', i, 'name']));
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) || name.length > 256 || names.has(name)) issues.push({ path: ['spec', 'vmConfig', 'env', i, 'name'], message: 'Use a unique environment identifier, at most 256 characters.' });
       names.add(name);
     });

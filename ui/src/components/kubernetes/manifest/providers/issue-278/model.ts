@@ -70,7 +70,7 @@ export function validateAdmission(draft: ResourceEditorDraft, context: ResourceE
       for (const key of ['operations', 'apiGroups', 'apiVersions', 'resources']) {
         const value = rows(draft.get([...path, i, key]));
         if (!value.length) issue([...path, i, key], `${key} requires at least one entry.`);
-        if (key === 'operations' && value.some(op => !['*', 'CREATE', 'UPDATE', 'CONNECT', ...(mutation ? [] : ['DELETE'])].includes(String(op)))) issue([...path, i, key], 'Choose supported admission operations.');
+        if (key === 'operations' && value.some(op => typeof op !== 'string' || !['*', 'CREATE', 'UPDATE', 'CONNECT', ...(mutation ? [] : ['DELETE'])].includes(op))) issue([...path, i, key], 'Choose supported admission operations.');
         if (key !== 'resources' && value.includes('*') && value.length > 1) issue([...path, i, key], 'Wildcard must be the only entry.');
       }
     });
@@ -102,7 +102,7 @@ export function validateAdmission(draft: ResourceEditorDraft, context: ResourceE
       if (service) {
         required([...p, 'clientConfig', 'service', 'name'], 'Service name'); required([...p, 'clientConfig', 'service', 'namespace'], 'Service namespace');
         const port = draft.get([...p, 'clientConfig', 'service', 'port']);
-        if (port !== undefined && (!/^\d+$/.test(String(port)) || BigInt(String(port)) < 1n || BigInt(String(port)) > 65535n)) issue([...p, 'clientConfig', 'service', 'port'], 'Port must be 1–65535.');
+        if (port !== undefined && ((typeof port !== 'string' && typeof port !== 'number' && typeof port !== 'bigint') || !/^\d+$/.test(String(port)) || BigInt(String(port)) < 1n || BigInt(String(port)) > 65535n)) issue([...p, 'clientConfig', 'service', 'port'], 'Port must be 1–65535.');
         const path = text(draft.get([...p, 'clientConfig', 'service', 'path']));
         if (path && !path.startsWith('/')) issue([...p, 'clientConfig', 'service', 'path'], 'Service path must start with /.');
       }
@@ -110,14 +110,14 @@ export function validateAdmission(draft: ResourceEditorDraft, context: ResourceE
       if (!['None', 'NoneOnDryRun'].includes(text(draft.get([...p, 'sideEffects'])))) issue([...p, 'sideEffects'], 'Declare None or NoneOnDryRun.');
       if (!rows(draft.get([...p, 'admissionReviewVersions'])).length) issue([...p, 'admissionReviewVersions'], 'Add supported AdmissionReview versions in preference order.');
       const timeout = draft.get([...p, 'timeoutSeconds']);
-      if (timeout !== undefined && (!/^\d+$/.test(String(timeout)) || BigInt(String(timeout)) < 1n || BigInt(String(timeout)) > 30n)) issue([...p, 'timeoutSeconds'], 'Timeout must be 1–30 seconds.');
+      if (timeout !== undefined && ((typeof timeout !== 'string' && typeof timeout !== 'number' && typeof timeout !== 'bigint') || !/^\d+$/.test(String(timeout)) || BigInt(String(timeout)) < 1n || BigInt(String(timeout)) > 30n)) issue([...p, 'timeoutSeconds'], 'Timeout must be 1–30 seconds.');
       checkRules([...p, 'rules'], false, false); namedExpressions([...p, 'matchConditions']);
     });
   } else if (isBinding(kind)) {
     required(['spec', 'policyName'], 'Policy');
     if (!isMutating(kind)) {
       const actions = rows(draft.get(['spec', 'validationActions']));
-      if (!actions.length || actions.some(action => !['Deny', 'Warn', 'Audit'].includes(String(action)))) issue(['spec', 'validationActions'], 'Choose Deny, Warn or Audit.');
+      if (!actions.length || actions.some(action => typeof action !== 'string' || !['Deny', 'Warn', 'Audit'].includes(action))) issue(['spec', 'validationActions'], 'Choose Deny, Warn or Audit.');
       if (actions.includes('Deny') && actions.includes('Warn')) issue(['spec', 'validationActions'], 'Deny and Warn cannot be combined.');
     }
     if (draft.has(['spec', 'paramRef'])) {

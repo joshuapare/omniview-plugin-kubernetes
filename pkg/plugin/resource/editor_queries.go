@@ -57,13 +57,15 @@ func editorQueryAction(ctx context.Context,client *clients.ClientSet,request res
     if api.Name==expected && verbSliceContains(api.Verbs,"get") || group!="custom.metrics.k8s.io" && api.Name==expected && verbSliceContains(api.Verbs,"list") {found=true;if api.Namespaced && namespace=="" {return resourcev2.Value{},resourcev2.NewError("INVALID_REQUEST","Metrics query requires a namespace")}}
    }
    if !found {return resourcev2.Value{},resourcev2.NewError("NOT_FOUND","Metric is not advertised by this API version")}
-   if namespace!="" {path+="/namespaces/"+url.PathEscape(namespace)}
-   path+="/"+url.PathEscape(resource)
+   // Segments were validated above. URL.Path performs the only escaping;
+   // pre-escaping here would turn the custom-metric wildcard into literal %2A.
+   if namespace!="" {path+="/namespaces/"+namespace}
+   path+="/"+resource
    if group=="custom.metrics.k8s.io" {
     if !segment(metric) || name!="*" && !segment(name) {return resourcev2.Value{},resourcev2.NewError("INVALID_REQUEST","Invalid custom metric query")}
-    path+="/"+url.PathEscape(name)
+    path+="/"+name
     if resource=="namespaces" {path+="/metrics"}
-    path+="/"+url.PathEscape(metric)
+    path+="/"+metric
    }
    query:=url.Values{}
    if selector:=get("labelSelector");selector!="" {query.Set("labelSelector",selector)}

@@ -5,7 +5,7 @@ import { clusterBranches, clusterProblem, passwordIssues } from './policy';
 import { requiredIssues } from './validation';
 
 const GeneratorForm = lazy(() => import('./GeneratorForm'));
-type Schema = { properties?: Readonly<Record<string, Schema>>; items?: Schema };
+type Schema = { readonly [keyword: string]: unknown; properties?: Readonly<Record<string, Schema>>; items?: Schema };
 function protectedPaths(schema: Schema, path: ResourceEditorPath): ResourceEditorPath[] {
   const result: ResourceEditorPath[] = [];
   for (const [key, child] of Object.entries(schema.properties ?? {})) {

@@ -13,7 +13,7 @@ export const paths: Record<Kind, readonly ResourceEditorPath[]> = {
 export function qualify(draft: ResourceEditorDraft, context: ResourceEditorContext): string | null {
  if (context.kind === 'TigeraStatus') return null;
  const name = draft.get(['metadata','name']);
- if (name && (context.kind === 'ImageSet' ? name !== 'calico-v3.30.0' : !['default', ...(context.kind === 'APIServer' || context.kind === 'GatewayAPI' ? ['tigera-secure'] : [])].includes(String(name)))) return 'This operator does not reconcile this resource name.';
+ if (name && (typeof name !== 'string' || (context.kind === 'ImageSet' ? name !== 'calico-v3.30.0' : !['default', ...(context.kind === 'APIServer' || context.kind === 'GatewayAPI' ? ['tigera-secure'] : [])].includes(name)))) return 'This operator does not reconcile this resource name.';
  if (context.kind === 'Installation' && draft.has(['spec','variant']) && draft.get(['spec','variant']) !== 'Calico') return 'Enterprise installations require an Enterprise editor.';
  return null;
 }

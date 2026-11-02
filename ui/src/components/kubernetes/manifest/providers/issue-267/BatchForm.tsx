@@ -28,14 +28,12 @@ function BatchSession(form: ResourceEditorFormProps) {
   const [localValues, setLocalValues] = useState<Record<string, string>>({});
   const [patchFailure, setPatchFailure] = useState<string | null>(null);
   const [elastic, setElastic] = useState('');
-  const [launchStatus, setLaunchStatus] = useState<string | null>(null);
-  const [launchPending, setLaunchPending] = useState(false);
+  const launchIdentity = JSON.stringify([draft.sessionID, draft.revision]);
+  const [launchState, setLaunchState] = useState<{ identity: string; pending: boolean; status: string | null }>({ identity: launchIdentity, pending: false, status: null });
+  const launchPending = launchState.identity === launchIdentity && launchState.pending;
+  const launchStatus = launchState.identity === launchIdentity ? launchState.status : null;
   const launchRequest = useRef<AbortController | null>(null);
-  useEffect(() => {
-    setLaunchPending(false);
-    setLaunchStatus(null);
-    return () => launchRequest.current?.abort();
-  }, [draft.sessionID, draft.revision]);
+  useEffect(() => () => launchRequest.current?.abort(), [launchIdentity]);
   const launchProtocol = 'kubernetes.cronjob-run-now.v1';
   const launchAvailable = context.intent !== 'create' && !!context.name && context.capabilities.get === 'available' && context.capabilities.actions[launchProtocol] === 'available';
   const launch = async () => {
@@ -43,16 +41,13 @@ function BatchSession(form: ResourceEditorFormProps) {
     launchRequest.current?.abort();
     const controller = new AbortController();
     launchRequest.current = controller;
-    setLaunchPending(true);
-    setLaunchStatus(null);
+    setLaunchState({ identity: launchIdentity, pending: true, status: null });
     try {
       const result = await form.actions.execute({ protocol: launchProtocol, input: {}, sessionID: draft.sessionID, generation: draft.revision, signal: controller.signal });
       if (controller.signal.aborted) return;
-      setLaunchStatus(result.status === 'ready' && record(result.output).opened === true ? 'Job creation review opened. No Job has been submitted.' : result.status === 'ready' ? 'The host did not open a Job creation review.' : `Manual workflow ${result.status}. No Job was submitted.`);
+      setLaunchState({ identity: launchIdentity, pending: false, status: result.status === 'ready' && record(result.output).opened === true ? 'Job creation review opened. No Job has been submitted.' : result.status === 'ready' ? 'The host did not open a Job creation review.' : `Manual workflow ${result.status}. No Job was submitted.` });
     } catch {
-      if (!controller.signal.aborted) setLaunchStatus('Manual workflow unavailable. No Job was submitted.');
-    } finally {
-      if (!controller.signal.aborted) setLaunchPending(false);
+      if (!controller.signal.aborted) setLaunchState({ identity: launchIdentity, pending: false, status: 'Manual workflow unavailable. No Job was submitted.' });
     }
   };
   const locked = form.disabled || batchReadOnly(draft, context);

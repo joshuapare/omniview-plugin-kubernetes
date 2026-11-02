@@ -1,5 +1,6 @@
-import { lazy } from 'react';
 import type { ResourceEditorContribution } from '@omniviewdev/runtime';
+import { lazy } from 'react';
+
 import { availability, unsupportedCSR, unsupportedTrust, validateCSR, validateTrust } from './domain';
 
 const CertificateSigningRequestForm = lazy(() => import('./CertificateSigningRequestForm'));

@@ -399,7 +399,7 @@ const resourceEditorRegistrations: ExtensionRegistration<ResourceEditorContribut
   return {
     extensionPointId: resourceEditorExtensionPoint.id,
     registration: {
-      id: `resource-editor/${target?.group || 'core'}/${target?.version}/${target?.kind}`,
+      id: `resource-editor/${encodeURIComponent(target?.group ?? '')}/${target?.version}/${target?.kind}/${encodeURIComponent(target?.resource ?? '')}/${target?.scope}/${[...editor.intents].sort().join('+')}`,
       label: editor.label,
       value: editor,
     },

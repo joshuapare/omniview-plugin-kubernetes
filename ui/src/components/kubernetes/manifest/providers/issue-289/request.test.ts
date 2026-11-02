@@ -1,8 +1,11 @@
-import { describe, expect, it } from 'vitest';
 import type { ResourceEditorContext } from '@omniviewdev/runtime';
+import { describe, expect, it } from 'vitest';
+
 import { ResourceEditorController } from '../../resourceEditorController';
-import { resourceEditors } from './index';
+
 import { discoveryQuery, validateDiscoveryQuery } from './request';
+
+import { resourceEditors } from './index';
 
 const source = `apiVersion: apidiscovery.k8s.io/v2
 kind: APIGroupDiscovery

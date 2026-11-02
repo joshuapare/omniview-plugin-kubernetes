@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
 import { Button } from '@omniviewdev/base-ui';
 import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
+import { useEffect, useState } from 'react';
+
 import { EditorField, EditorHelp, EditorSection, scalarText, useEditorReferences } from '../../editor-controls';
-import { readAvailability } from './coordination';
+
+import { coordinationShapeError, readAvailability } from './coordination';
 import './coordination.css';
 
 const candidateFields = [
@@ -15,11 +17,17 @@ const candidateFields = [
 ] as const;
 
 export default function LeaseCandidateEditor(props: ResourceEditorFormProps) {
+  const unavailable = readAvailability(props.context);
+  if (unavailable) return <div role="status">{unavailable}</div>;
+  const unsupported = coordinationShapeError(props.draft, true);
+  if (unsupported) return <div role="status">{unsupported}</div>;
+  return <CandidateSession key={props.draft.sessionID} {...props} />;
+}
+
+function CandidateSession(props: ResourceEditorFormProps) {
   const { context, draft, onValidityChange, section } = props;
   const [retry, setRetry] = useState(0);
   useEffect(() => { onValidityChange(null); }, [onValidityChange]);
-  const unavailable = readAvailability(context);
-  if (unavailable) return <div role="status">{unavailable}</div>;
   const namespace = context.namespace ?? scalarText(draft.get(['metadata', 'namespace']));
   return <div className="coordination-editor">
     <div role="status" className="coordination-boundary">Participant and coordinator-owned. Inspection only; no create, ping, renewal or forced election.</div>
@@ -56,7 +64,8 @@ function LeaseReference({ form, namespace }: { form: ResourceEditorFormProps; na
     : result.status === 'denied' ? 'Lease reference access denied.'
       : result.status === 'absent' ? 'Lease API not served.'
         : result.status === 'unavailable' ? 'Lease reference lookup unavailable.'
-          : result.items.length === 0 ? 'No Leases returned in this namespace.'
-            : found ? 'Lease name found. Election operation is not verified.' : 'Lease name unresolved. Recorded reference retained.';
+          : result.status !== 'ready' ? 'Lease reference lookup unavailable.'
+            : result.items.length === 0 ? 'No Leases returned in this namespace.'
+              : found ? 'Lease name found. Election operation is not verified.' : 'Lease name unresolved. Recorded reference retained.';
   return <div role="status" aria-label="Lease reference" data-state={result.status} className="coordination-reference">{message}</div>;
 }

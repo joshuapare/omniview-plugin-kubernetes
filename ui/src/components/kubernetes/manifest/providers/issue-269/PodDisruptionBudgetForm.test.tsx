@@ -1,9 +1,13 @@
-import { useState } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
 import type { ResourceEditorContext, ResourceEditorReferenceService } from '@omniviewdev/runtime';
+
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
+import { describe, expect, it, vi } from 'vitest';
+
 import { ResourceEditorController } from '../../resourceEditorController';
+
 import PodDisruptionBudgetForm from './PodDisruptionBudgetForm';
+
 import { resourceEditors } from './index';
 
 const context: ResourceEditorContext = {
@@ -95,6 +99,12 @@ describe('PodDisruptionBudget production component', () => {
     await choose('Selection scope', 'No pods (null selector)');
     expect(controller.draft().get(['spec', 'selector'])).toBeNull();
     expect(controller.draft().get(['spec', 'futureOption'])).toBe(9007199254740995n);
+    await choose('Selection scope', 'All namespace pods ({})');
+    expect(controller.draft().get(['spec', 'selector'])).toEqual({});
+    await choose('Selection scope', 'No pods (selector omitted)');
+    expect(controller.draft().has(['spec', 'selector'])).toBe(false);
+    expect(controller.draft().get(['spec', 'minAvailable'])).toBe(2n);
+    expect(controller.getSource()).toContain('# unchanged until valid input');
   });
   it('keeps denied lookup distinct from an empty list and does not query without a namespace', async () => {
     const list = vi.fn(async () => ({ status: 'denied' as const, message: 'Not allowed.' }));
@@ -120,6 +130,16 @@ describe('PodDisruptionBudget production component', () => {
     expect(screen.getByText('bad/value')).toBeInTheDocument();
     expect(screen.getByLabelText('Form validity')).toHaveTextContent('valid label values');
     expect(controller.draft().get(['spec', 'selector', 'matchExpressions', 0, 'values'])).toEqual(['west']);
+  });
+  it('keeps a pending token attached to its row when an earlier expression is removed', () => {
+    const controller = new ResourceEditorController(initial.replace('  futureOption:', '      - {key: track, operator: In, values: [stable]}\n  futureOption:'), 'policy-row-removal');
+    render(<Harness controller={controller} initialSection="selector" />);
+    fireEvent.input(screen.getByLabelText('Expression values 2'), { target: { value: 'canary' } });
+    fireEvent.click(screen.getByLabelText('Remove expression 1'));
+    expect(screen.getByLabelText('Expression values 1')).toHaveValue('canary');
+    expect(screen.getByLabelText('Form validity')).toHaveTextContent('pending expression value');
+    expect(controller.draft().get(['spec', 'selector', 'matchExpressions', 0, 'key'])).toBe('track');
+    expect(controller.draft().get(['spec', 'selector', 'matchExpressions', 0, 'values'])).toEqual(['stable']);
   });
   it('locks a trusted controller-owned budget and never calls an eviction action', () => {
     const controller = new ResourceEditorController(initial);

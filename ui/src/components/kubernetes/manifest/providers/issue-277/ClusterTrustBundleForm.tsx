@@ -1,5 +1,7 @@
 import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
+
 import { EditorHelp, EditorSection, useFieldValidity } from '../../editor-controls';
+
 import { signerError, stringValue, trustNameError } from './domain';
 import { BufferedField, MaterialUpload } from './fields';
 

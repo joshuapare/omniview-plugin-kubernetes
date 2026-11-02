@@ -5,7 +5,7 @@
 .auth275-row > button { flex-shrink: 0; margin-bottom: 1px; }
 .auth275-result { display: grid; grid-template-columns: minmax(100px, 140px) minmax(0, 1fr); gap: 6px 12px; margin: 0; }
 .auth275-result dd { margin: 0; overflow-wrap: anywhere; }
-.auth275-result dt, .auth275-consequence { color: var(--ov-fg-muted, inherit); }
+.auth275-result dt, .auth275-consequence { color: var(--ov-color-fg-muted, inherit); }
 .auth275-consequence { margin: 0; }
 .auth275-advanced { min-width: 0; }
 .auth275-advanced > summary { cursor: pointer; padding: 8px 0; }

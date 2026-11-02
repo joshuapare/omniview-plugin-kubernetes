@@ -4,7 +4,10 @@ export function passwordIssues(draft: ResourceEditorDraft, prefix: readonly (str
   const read = (key: string, fallback: bigint) => {
     const value = draft.get([...prefix, key]);
     if (value === undefined) return fallback;
-    try { return BigInt(String(value)); } catch { return null; }
+    if (typeof value === 'bigint') return value;
+    if (typeof value === 'number') return Number.isSafeInteger(value) ? BigInt(value) : null;
+    if (typeof value !== 'string' || !/^-?\d+$/.test(value)) return null;
+    return BigInt(value);
   };
   const length = read('length', 24n);
   const digits = read('digits', length === null ? 0n : length / 4n);

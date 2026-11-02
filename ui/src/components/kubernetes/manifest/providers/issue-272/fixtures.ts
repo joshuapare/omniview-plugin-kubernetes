@@ -101,6 +101,16 @@ export function storageFixtureContext(kind: StorageFixtureKind, intent: Resource
     ownership: { status: kind === 'CSINode' || kind === 'CSIStorageCapacity' || kind === 'VolumeAttachment' ? 'controller' : 'application' },
     capabilities: { create: 'available', update: 'available', delete: 'available', get: 'available', list: 'available', actions: {} },
     discovery: { status: 'available', features: { MutableCSINodeAllocatableCount: 'available', CSIServiceAccountTokenSecrets: 'available', SELinuxMountReadWriteOncePod: 'available' } },
-    schema: { status: 'available', paths: [['spec'], ['spec', 'nodeAllocatableUpdatePeriodSeconds'], ['spec', 'serviceAccountTokenInSecrets'], ['spec', 'seLinuxMount'], ['provisioner'], ['driverName'], ['parameters'], ['reclaimPolicy'], ['volumeBindingMode'], ['allowVolumeExpansion'], ['mountOptions'], ['allowedTopologies']] },
+    schema: { status: 'available', paths: [
+      ['spec'], ['spec', 'attachRequired'], ['spec', 'podInfoOnMount'], ['spec', 'fsGroupPolicy'],
+      ['spec', 'storageCapacity'], ['spec', 'requiresRepublish'], ['spec', 'seLinuxMount'],
+      ['spec', 'volumeLifecycleModes'], ['spec', 'tokenRequests'], ['spec', 'tokenRequests', '*'], ['spec', 'tokenRequests', '*', 'audience'],
+      ['spec', 'tokenRequests', '*', 'expirationSeconds'], ['spec', 'serviceAccountTokenInSecrets'],
+      ['spec', 'nodeAllocatableUpdatePeriodSeconds'], ['provisioner'], ['driverName'], ['parameters'], ['parameters', '*'],
+      ['reclaimPolicy'], ['volumeBindingMode'], ['allowVolumeExpansion'], ['mountOptions'], ['mountOptions', '*'],
+      ['allowedTopologies'], ['allowedTopologies', '*'], ['allowedTopologies', '*', 'matchLabelExpressions'], ['allowedTopologies', '*', 'matchLabelExpressions', '*'],
+      ['allowedTopologies', '*', 'matchLabelExpressions', '*', 'key'],
+      ['allowedTopologies', '*', 'matchLabelExpressions', '*', 'values'],
+    ] },
   };
 }

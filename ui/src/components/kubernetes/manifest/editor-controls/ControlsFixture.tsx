@@ -1,4 +1,5 @@
 import type { ResourceEditorContribution, ResourceEditorFormProps } from '@omniviewdev/runtime';
+
 import { EditorChoice, EditorField, EditorSection, ExactValueField, KeyValueFields, ReferencePicker, parseExactInteger, patchError, scalarText, setDraftField, useFieldValidity } from './index';
 
 /**
@@ -12,7 +13,7 @@ import { EditorChoice, EditorField, EditorSection, ExactValueField, KeyValueFiel
  * Transport fixtures must be supplied by the capture runner. No live mutation is needed.
  *
  * API audit: base-ui Input and Select compound exports cover field/choice composition.
- * Native details supplies click/keyboard help with explicit Escape handling. No base-ui
+ * Tooltip and Popover supply hover/focus/click help and Escape/focus return. No base-ui
  * release is needed. Quantity grammar, selector rules, bounds and omission remain group
  * adapter responsibilities. apps issue266 and storage issue272 consume these primitives;
  * node issue282 uses value validation and reference groups use cancellable suggestions.

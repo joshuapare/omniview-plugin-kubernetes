@@ -46,12 +46,21 @@ separate work in the [SDK connection-sharing design](https://github.com/omniview
 
 ## Creating and editing resources
 
-Pod, Deployment, StatefulSet, Service, Ingress, ConfigMap, Secret, and
-PersistentVolumeClaim creation share the compact resource editor with the drawer's
-edit view. Other resource kinds keep the same creation frame with YAML only and
-no mode switch. Forms cover stable core `v1`, `apps/v1` workloads, and
-`networking.k8s.io/v1` Ingresses. Schema discovery supplies the actual API identity;
-other API versions remain YAML-only and defer version-specific admission to the API.
+Create and edit use the same compact resource editor. The original Pod,
+Deployment, StatefulSet, Service, Ingress, ConfigMap, Secret, and
+PersistentVolumeClaim forms remain available alongside API-group editor providers
+for the native baseline and selected ecosystem APIs. Providers match exact
+discovered group, version, kind, resource, and scope; installing a form does not
+install its CRDs or grant authorization. Request-only and controller-owned APIs
+use their appropriate action or inspection flow.
+
+The Form/YAML switch appears only when a compatible form is available. Other
+resources retain the same frame and an honest source fallback, without an empty
+form switch. Unsupported versions and fields remain intact for API admission.
+
+The expanded editor-provider catalog requires Omniview 0.24.0 or newer and the
+matching runtime/Vite-plugin package cohort. Update the desktop application before
+installing Kubernetes plugin 0.14.0.
 
 Nonsecret Form and YAML views edit one document. Controls patch individual AST
 nodes, preserving unsupported fields, comments, omitted defaults, sibling fields,
@@ -566,6 +575,19 @@ back. Raw source and sensitive action results require separate explicit
 disclosure and remask on editor, session, mode, or pending-operation changes.
 Unknown-resource fallback starts with a protected preview.
 
+Ordinary registered resources show the editable canonical YAML, including unknown
+fields and comments. Sensitive registered resources show a useful, read-only full
+projection with protected values replaced, never a mutation document. Such
+projections omit comments; unknown, unloaded, or crashed editors retain the
+protected fallback. Protected paths survive provider replacement within a session.
+
+Both standalone builds and the host's shared Monaco 0.52.2 cohort declare the
+word-highlighter promise-ownership backport from [upstream VS Code](https://github.com/microsoft/vscode/blob/e57fbd7a49486f12be089ec5800293f3453eefbd/src/vs/editor/contrib/wordHighlighter/browser/wordHighlighter.ts#L294-L315).
+Closing YAML immediately after cursor or Find activity disposes the editor
+normally; pending highlight cancellation belongs to its callers, and unexpected
+errors still use Monaco's error handler. No feature is disabled or global error
+filter installed.
+
 Both Create and Submit prepare the canonical snapshot before mutation, regardless
 of Form/YAML mode. This includes pure validation and optional read-only
 `validateSubmission` prerequisite checks. A changed session, revision, provider,
@@ -970,6 +992,10 @@ Resource editor requests use explicit SDK actions, not named-object CRUD for
 nameless review APIs. Supported protocols cover authentication/authorization
 reviews, service-account tokens, CSR approval, pod eviction, generic scale,
 resource/custom/external metrics, aggregated API discovery, and reference lookups.
+Action DTOs such as approval, scale reads, and metric queries are object inputs
+whose exact target comes from the admitted action; only review envelopes require
+an explicit matching `apiVersion` and `kind`. Custom-metric wildcard names are
+sent as wildcard path segments, not literal percent-encoded object names.
 The Kubernetes API server remains the authorization and admission authority.
 Approval and eviction preserve observed object identity and optimistic-write
 preconditions. A CronJob run-now handoff reads the saved template into a separate

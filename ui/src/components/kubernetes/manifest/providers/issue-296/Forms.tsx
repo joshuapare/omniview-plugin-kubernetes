@@ -112,10 +112,11 @@ export function Observed({ form }: { form: ResourceEditorFormProps }) {
 }
 export function CertificateRequest(form: ResourceEditorFormProps) {
   const owners = form.draft.get(['metadata', 'ownerReferences']);
+  const ownerRows: readonly unknown[] = Array.isArray(owners) ? owners : [];
   const inspection = { ...form, disabled: true };
   return <><p>Immutable one-shot request. Controller-owned requests must be managed through their Certificate.</p>
     <Fields form={inspection} fields={[['Issuer kind', 'issuerRef.kind'], ['Issuer group', 'issuerRef.group'], ['Requested duration', 'duration']]} />
-    <EditorSection title="Ownership">{Array.isArray(owners) && owners.length ? owners.filter(owner => owner && typeof owner === 'object').map((owner, index) => <p key={index}>{scalarText(owner.kind)} / {scalarText(owner.name)}{owner.controller === true ? ' · controller' : ''}</p>) : <span>No owner reference reported.</span>}</EditorSection>
+    <EditorSection title="Ownership">{ownerRows.length ? ownerRows.map((owner, index) => owner !== null && typeof owner === 'object' ? <p key={index}>{scalarText('kind' in owner ? owner.kind : undefined)} / {scalarText('name' in owner ? owner.name : undefined)}{'controller' in owner && owner.controller === true ? ' · controller' : ''}</p> : null) : <span>No owner reference reported.</span>}</EditorSection>
     <Observed form={form} />
     <details><summary>Advanced CSR submission</summary><p>Persistent CSR submission requires a separate explicit creation workflow. This inspection interface does not submit or alter immutable request bytes.</p></details>
   </>;

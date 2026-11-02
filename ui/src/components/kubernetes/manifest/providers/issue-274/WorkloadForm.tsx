@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
 import { Button } from '@omniviewdev/base-ui';
 import type { ResourceEditorFormProps, ResourceEditorPatch } from '@omniviewdev/runtime';
+import { useEffect, useRef, useState } from 'react';
+
 import { EditorChoice, EditorField, EditorHelp, EditorSection, ReferencePicker, scalarText } from '../../editor-controls';
-import { BufferedField, useSchedulingForm } from './formState';
+
+import { BufferedField } from './formState';
 import { controllerLookup, controllerPath, dnsLabel, dnsSubdomain, integer, pathSegment, podGroupsPath, policyChanges, record, schedulingReadOnly, validateWorkload } from './model';
+import { useSchedulingForm } from './useSchedulingForm';
 import './scheduling.css';
 
 export default function WorkloadForm(form: ResourceEditorFormProps) {
@@ -12,6 +15,7 @@ export default function WorkloadForm(form: ResourceEditorFormProps) {
 
 function WorkloadSession(form: ResourceEditorFormProps) {
   const state = useSchedulingForm(form);
+  const { report } = state;
   const { draft, context } = form;
   const groupsValue = draft.get(podGroupsPath);
   const groups = Array.isArray(groupsValue) ? groupsValue : [];
@@ -23,7 +27,7 @@ function WorkloadSession(form: ResourceEditorFormProps) {
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const newNameError = !dnsLabel(newName) ? 'Enter a DNS label (up to 63 characters).' : groups.some(group => record(group) && group.name === newName) ? 'Pod-group names must be unique.' : null;
-  useEffect(() => state.report('new-group', adding ? 'Add the pending pod group or cancel it.' : null), [adding, state.report]);
+  useEffect(() => report('new-group', adding ? 'Add the pending pod group or cancel it.' : null), [adding, report]);
   const issues = validateWorkload(draft, context);
   const readonly = schedulingReadOnly(draft, context);
   return <div className="scheduling-editor" key={draft.sessionID}>
@@ -60,7 +64,7 @@ function WorkloadSession(form: ResourceEditorFormProps) {
       })}
       {!groups.length && <p role="status">Add at least one pod group.</p>}
       {context.discovery.features.GangScheduling !== 'available' && <p role="status">{gangAvailable ? 'Gang scheduler support is unconfirmed; API acceptance does not guarantee gang behavior.' : 'GangScheduling is confirmed disabled. Basic policy remains available.'}</p>}
-      {issues.map((issue, index) => <p role="alert" key={index}>{issue.message}</p>)}
+      {issues.map(issue => <p role="alert" key={JSON.stringify(issue.path)}>{issue.message}</p>)}
       {context.intent !== 'create' && <p className="scheduling-note">Pod groups and policies are immutable after creation.</p>}
       {groups.some(group => record(group) && record(group.policy) && group.policy.gang !== undefined) && <p className="scheduling-consequence">Gang groups wait for their minimum schedulable Pod count.</p>}
       {adding ? <div className="scheduling-group">
@@ -83,8 +87,8 @@ function WorkloadSession(form: ResourceEditorFormProps) {
 function ControllerReference({ form, locked, report, apply }: {
   form: ResourceEditorFormProps;
   locked: boolean;
-  report(key: string, message: string | null): void;
-  apply(operations: readonly ResourceEditorPatch[]): string | null;
+  report: (key: string, message: string | null) => void;
+  apply: (operations: readonly ResourceEditorPatch[]) => string | null;
 }) {
   const ref = form.draft.get(controllerPath);
   const original = record(ref) ? ref : {};

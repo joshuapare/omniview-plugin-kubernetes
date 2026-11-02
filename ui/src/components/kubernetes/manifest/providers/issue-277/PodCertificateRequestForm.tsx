@@ -1,5 +1,7 @@
 import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
+
 import { EditorHelp, EditorSection, scalarText } from '../../editor-controls';
+
 import { Lifecycle } from './fields';
 
 const bindingFields = [

@@ -57,13 +57,13 @@ reportingInstance: scheduler-fixture
 
 /** Isolated fixture transport. No cluster request or mutation occurs. */
 export function fixtureEventReferences(state: 'alias' | 'empty' | 'denied' | 'absent' | 'unavailable' = 'alias'): ResourceEditorReferenceService {
-  return { list: async request => {
-    if (request.signal.aborted) return { status: 'unavailable', message: 'Fixture read cancelled.' };
-    if (state !== 'alias' && state !== 'empty') return { status: state, message: 'Fixture-only reference boundary.' };
-    return { status: 'ready', items: state === 'empty' ? [] : [{ name: 'legacy-observation-01', namespace: 'diagnostics-fixture', uid: 'fixture-event-uid' }] };
+  return { list: request => {
+    if (request.signal.aborted) return Promise.resolve({ status: 'unavailable', message: 'Fixture read cancelled.' });
+    if (state !== 'alias' && state !== 'empty') return Promise.resolve({ status: state, message: 'Fixture-only reference boundary.' });
+    return Promise.resolve({ status: 'ready', items: state === 'empty' ? [] : [{ name: 'legacy-observation-01', namespace: 'diagnostics-fixture', uid: 'fixture-event-uid' }] });
   } };
 }
 
 export const fixtureEventActions: ResourceEditorActionService = {
-  execute: async () => ({ status: 'unavailable', message: 'Events expose no mutation protocol. Fixture only.' }),
+  execute: () => Promise.resolve({ status: 'unavailable', message: 'Events expose no mutation protocol. Fixture only.' }),
 };

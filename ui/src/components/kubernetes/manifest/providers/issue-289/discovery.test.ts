@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { discoveryAccept, filterDiscovery, inspectDiscovery, kindLabel } from './discovery';
 
 const response = (versions: unknown[]) => ({ apiVersion: 'apidiscovery.k8s.io/v2', kind: 'APIGroupDiscovery', metadata: { name: 'apps' }, versions });
@@ -23,12 +24,16 @@ describe('aggregated discovery inspection', () => {
     expect(kindLabel(pod.responseKind)).toBe('No response kind advertised');
   });
   it('searches aliases and subresources without changing original inventory', () => {
-    const result = inspectDiscovery(response([{ version: 'v1', resources: [resource, { ...resource, resource: 'statefulsets', shortNames: ['sts'], subresources: [] }] }]));
+    const result = inspectDiscovery(response([{ version: 'v1', resources: [resource, { ...resource, resource: 'statefulsets', singularResource: 'statefulset', responseKind: { group: 'apps', version: 'v1', kind: 'StatefulSet' }, shortNames: ['sts'], subresources: [] }] }]));
     if (!result.valid) throw new Error('Fixture invalid');
+    const original = structuredClone(result.groups);
     expect(filterDiscovery(result.groups, 'deploy')[0].versions[0].resources.map(item => item.resource)).toEqual(['deployments']);
     expect(filterDiscovery(result.groups, 'scale')[0].versions[0].resources.map(item => item.resource)).toEqual(['deployments']);
     expect(filterDiscovery(result.groups, 'nothing')).toEqual([]);
     expect(result.groups[0].versions[0].resources).toHaveLength(2);
+    expect(result.groups).toEqual(original);
+    expect(filterDiscovery(result.groups, '')).toEqual(original);
+    expect(filterDiscovery(result.groups, 'StatefulSet')[0].versions[0].resources.map(item => item.resource)).toEqual(['statefulsets']);
   });
   it('rejects malformed nested fields without echoing untrusted payload in errors', () => {
     const result = inspectDiscovery(response([{ version: 'v1', resources: [{ ...resource, verbs: ['get', { private: 'untrusted-content' }] }] }]));

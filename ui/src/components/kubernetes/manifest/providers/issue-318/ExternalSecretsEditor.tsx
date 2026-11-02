@@ -35,7 +35,7 @@ export default function ExternalSecretsEditor(form: ResourceEditorFormProps) {
   function rows(label: string, path: ResourceEditorPath, render: (index: number) => ReactNode, seed: unknown) {
     const current = form.draft.get(path);
     const length = Array.isArray(current) ? current.length : 0;
-    return <EditorSection title={label}>{Array.from({ length }, (_, index) => <fieldset key={index} disabled={f.disabled} style={{ minWidth: 0, border: '1px solid var(--ov-border-default)', padding: 10, margin: '0 0 8px' }}><legend>{label} {index + 1}</legend>{render(index)}<Button size="sm" variant="ghost" disabled={f.disabled} onClick={() => validity(label, patchError(patchFields(f, [{ op: 'remove', path: [...path, index] }])))}>Remove {label.toLowerCase()} {index + 1}</Button></fieldset>)}<Button size="sm" disabled={f.disabled} onClick={() => validity(label, patchError(patchFields(f, [form.draft.has(path) ? { op: 'insert', path, index: length, value: seed } : { op: 'set', path, value: [seed] }])))}>Add {label.toLowerCase()}</Button></EditorSection>;
+    return <EditorSection title={label}>{Array.from({ length }, (_, index) => <fieldset key={index} disabled={f.disabled} style={{ minWidth: 0, border: '1px solid var(--ov-color-border-default)', padding: 10, margin: '0 0 8px' }}><legend>{label} {index + 1}</legend>{render(index)}<Button size="sm" variant="ghost" disabled={f.disabled} onClick={() => validity(label, patchError(patchFields(f, [{ op: 'remove', path: [...path, index] }])))}>Remove {label.toLowerCase()} {index + 1}</Button></fieldset>)}<Button size="sm" disabled={f.disabled} onClick={() => validity(label, patchError(patchFields(f, [form.draft.has(path) ? { op: 'insert', path, index: length, value: seed } : { op: 'set', path, value: [seed] }])))}>Add {label.toLowerCase()}</Button></EditorSection>;
   }
   function store(path: ResourceEditorPath) {
     const cluster = value([...path, 'kind']) === 'ClusterSecretStore';
@@ -66,6 +66,10 @@ export default function ExternalSecretsEditor(form: ResourceEditorFormProps) {
 function ownerText(form: ResourceEditorFormProps, key: string): string {
   const owners = form.draft.get(['metadata', 'ownerReferences']);
   if (!Array.isArray(owners)) return 'Unknown';
-  const owner = owners.find(item => item && typeof item === 'object' && item.controller === true);
-  return owner && typeof owner[key] === 'string' ? owner[key] : 'Unknown';
+  const rows: readonly unknown[] = owners;
+  const owner = rows.find(item => item !== null && typeof item === 'object' && 'controller' in item && item.controller === true);
+  if (!owner || typeof owner !== 'object' || !(key in owner)) return 'Unknown';
+  const descriptor = Object.getOwnPropertyDescriptor(owner, key);
+  const value: unknown = descriptor?.value;
+  return typeof value === 'string' ? value : 'Unknown';
 }

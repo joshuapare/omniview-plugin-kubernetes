@@ -1,17 +1,22 @@
-import { useEffect, useState } from 'react';
 import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
+import { useEffect, useState } from 'react';
+
 import { EditorChoice, EditorField, EditorHelp, EditorSection, scalarText } from '../../editor-controls';
-import { leaseFields, leaseWriteBoundary, parseLeaseField, readAvailability, type LeaseField } from './coordination';
+
+import { coordinationShapeError, leaseFields, leaseWriteBoundary, parseLeaseField, readAvailability, type LeaseField } from './coordination';
 import './coordination.css';
 
 export default function LeaseEditor(props: ResourceEditorFormProps) {
+  const unavailable = readAvailability(props.context);
+  if (unavailable) return <div role="status">{unavailable}</div>;
+  const unsupported = coordinationShapeError(props.draft);
+  if (unsupported) return <div role="status">{unsupported}</div>;
   return <LeaseSession key={props.draft.sessionID} {...props} />;
 }
 
 function LeaseSession(props: ResourceEditorFormProps) {
   const { context, draft, section, disabled, patch, onValidityChange } = props;
   const boundary = leaseWriteBoundary(draft, context);
-  const unavailable = readAvailability(context);
   const readOnly = boundary !== null;
   const [acknowledged, setAcknowledged] = useState(false);
   const [local, setLocal] = useState<Record<string, { text: string; error: string }>>({});
@@ -44,7 +49,6 @@ function LeaseSession(props: ResourceEditorFormProps) {
       inputMode={field.kind === 'positive' || field.kind === 'counter' ? 'numeric' : 'text'} />;
   }
 
-  if (unavailable) return <div role="status">{unavailable}</div>;
   return <div className="coordination-editor">
     {boundary && <div role="status" className="coordination-boundary">{boundary}</div>}
     {section === 'ownership' ? <EditorSection title="Ownership and availability">

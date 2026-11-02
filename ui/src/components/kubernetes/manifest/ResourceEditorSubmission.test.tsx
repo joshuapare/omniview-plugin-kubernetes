@@ -1,7 +1,8 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { createRef, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ResourceEditorContext, ResourceEditorContribution, ResourceEditorFormProps } from '@omniviewdev/runtime';
+import { jsonToValue, type ResourceEditorContext, type ResourceEditorContribution, type ResourceEditorFormProps } from '@omniviewdev/runtime';
+import { parse } from 'yaml';
 import ResourceManifestEditor from './ResourceManifestEditor';
 import type { ResourceEditorSubmissionHandle } from './resourceEditorSubmission';
 import { setManifestMode } from './useManifestMode';
@@ -79,5 +80,52 @@ describe('canonical submission preparation', () => {
     expect((screen.getByLabelText('Canonical YAML') as HTMLTextAreaElement).value).not.toContain('private-fixture-value');
     expect(await submission.current!.prepare(new AbortController().signal)).toEqual({ status: 'invalid', message: 'The resource editor admission provider is unavailable.' });
     expect(observe).toHaveBeenCalledTimes(1);
+  });
+
+  it('round-trips an ordinary registered resource through Form and editable YAML without losing exact mutation data', async () => {
+    act(() => setManifestMode('form'));
+    const ordinarySource = 'apiVersion: demo.example/v1\nkind: Demo\nmetadata: {name: demo, namespace: team}\nspec:\n  message: old # keep field comment\n  unknown: 9007199254740993\n  extension: {preserved: true}\n';
+    const provider: ResourceEditorContribution = { ...contribution, sensitivePaths: [['metadata', 'annotations', '*']] };
+    const submission = createRef<ResourceEditorSubmissionHandle>();
+    function Harness() {
+      const [value, setValue] = useState(ordinarySource);
+      return <ResourceManifestEditor value={value} onChange={setValue} resourceKey="k8s:demo.example/demos" editorContext={context} contribution={provider} references={references} actions={actions} submissionRef={submission} />;
+    }
+    render(<Harness />);
+    fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'from-form' } });
+    fireEvent.click(screen.getByRole('radio', { name: 'YAML' }));
+    const yaml = screen.getByLabelText<HTMLTextAreaElement>('Canonical YAML');
+    expect(yaml).not.toHaveAttribute('readonly');
+    expect(yaml.value).toContain('message: from-form # keep field comment');
+    expect(yaml.value).toContain('unknown: 9007199254740993');
+    fireEvent.change(yaml, { target: { value: `${yaml.value.replace('from-form', 'from-yaml')}advanced: retained\n` } });
+    fireEvent.click(screen.getByRole('radio', { name: 'Form' }));
+    expect(screen.getByLabelText('Message')).toHaveValue('from-yaml');
+    fireEvent.click(screen.getByRole('radio', { name: 'YAML' }));
+    expect(screen.getByLabelText<HTMLTextAreaElement>('Canonical YAML').value).toContain('# keep field comment');
+    const prepared = await submission.current!.prepare(new AbortController().signal);
+    expect(prepared.status).toBe('ready');
+    if (prepared.status !== 'ready') throw new Error('Expected exact canonical source');
+    const payload = jsonToValue(parse(prepared.source, { intAsBigInt: true }));
+    expect(payload).toMatchObject({ kind: 'map', value: { spec: { kind: 'map', value: { message: { kind: 'string', value: 'from-yaml' }, unknown: { kind: 'int64', value: '9007199254740993' }, extension: { kind: 'map', value: { preserved: { kind: 'bool', value: true } } } } }, advanced: { kind: 'string', value: 'retained' } } });
+  });
+
+  it('shows useful registered-resource YAML while hiding sensitive paths without changing canonical source', async () => {
+    const annotatedSource = source.replace('namespace: team}', 'namespace: team, annotations: {credential: fixture-only-secret}}');
+    const provider: ResourceEditorContribution = { ...contribution, sensitivePaths: [['spec', 'token'], ['metadata', 'annotations', '*']] };
+    const submission = createRef<ResourceEditorSubmissionHandle>();
+    const observe = vi.fn();
+    render(<ResourceManifestEditor value={annotatedSource} onChange={observe} resourceKey="k8s:demo.example/demos" editorContext={context} contribution={provider} references={references} actions={actions} submissionRef={submission} />);
+    const yaml = screen.getByLabelText<HTMLTextAreaElement>('Canonical YAML');
+    expect(yaml).toHaveAttribute('readonly');
+    expect(yaml.value).toContain('message: old');
+    expect(yaml.value).toContain('[REDACTED]');
+    expect(yaml.value).not.toContain('fixture-only-secret');
+    expect(yaml.value).not.toContain('private-fixture-value');
+    const prepared = await submission.current!.prepare(new AbortController().signal);
+    expect(prepared.status).toBe('ready');
+    if (prepared.status !== 'ready') throw new Error('Expected unmodified private source');
+    expect(prepared.source).toBe(annotatedSource);
+    expect(observe).not.toHaveBeenCalled();
   });
 });

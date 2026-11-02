@@ -1,11 +1,15 @@
 import { Button, TagInput } from '@omniviewdev/base-ui';
 import type { ResourceEditorFormProps, ResourceEditorPatch, ResourceEditorPath } from '@omniviewdev/runtime';
-import { useEffect, useState } from 'react';
+
+import { useEffect, useId, useState } from 'react';
+
 import { EditorChoice, EditorField, EditorHelp, EditorSection, patchFields, scalarText, useEditorReferences } from '../../editor-controls';
-import { budgetOperations, controllerOwned, expressionOperators, matchesSelector, parseBudget, policyReadOnly, record, selectorMode, statusIsCurrent, validLabelKey, validLabelValue, type BudgetRule, type BudgetUnit } from './policy';
+
+import { budgetOperations, controllerOwned, expressionOperators, matchesSelector, parseBudget, policyReadOnly, reconcileExpressionIdentity, record, selectionOperations, selectorMode, statusIsCurrent, validLabelKey, validLabelValue, type BudgetRule, type BudgetUnit } from './policy';
 import styles from './PolicyEditor.module.css';
 
 type LocalValue = { text: string; base: string; error: string | null; input?: string };
+type BudgetDraft = { base: string; rule: BudgetRule | 'omitted'; unit: BudgetUnit; amount: string };
 const operatorOptions = expressionOperators.map(value => ({ value, label: value }));
 
 export default function PodDisruptionBudgetForm(props: ResourceEditorFormProps) {
@@ -17,9 +21,13 @@ function PolicySession(form: ResourceEditorFormProps) {
   const min = draft.get(['spec', 'minAvailable']);
   const max = draft.get(['spec', 'maxUnavailable']);
   const canonicalAmount = min ?? max;
-  const [rule, setRule] = useState<BudgetRule | 'omitted'>(min != null ? 'minAvailable' : max != null ? 'maxUnavailable' : 'omitted');
-  const [unit, setUnit] = useState<BudgetUnit>(typeof canonicalAmount === 'string' ? 'percent' : 'pods');
-  const [amount, setAmount] = useState(scalarText(canonicalAmount).replace(/%$/, ''));
+  const budgetBase = `${typeof min}:${scalarText(min)}|${typeof max}:${scalarText(max)}`;
+  const [budgetDraft, setBudgetDraft] = useState<BudgetDraft | null>(null);
+  const budget = budgetDraft?.base === budgetBase ? budgetDraft : null;
+  const rule = budget?.rule ?? (min != null ? 'minAvailable' : max != null ? 'maxUnavailable' : 'omitted');
+  const unit = budget?.unit ?? (typeof canonicalAmount === 'string' ? 'percent' : 'pods');
+  const amount = budget?.amount ?? scalarText(canonicalAmount).replace(/%$/, '');
+  const tokenID = useId();
   const [local, setLocal] = useState<Record<string, LocalValue>>({});
   const [patchFailure, setPatchFailure] = useState<string | null>(null);
   const [labelEditing, setLabelEditing] = useState(false);
@@ -35,6 +43,9 @@ function PolicySession(form: ResourceEditorFormProps) {
   const mode = selectorMode(draft);
   const labels = record(selector) && record(selector.matchLabels) ? selector.matchLabels : {};
   const expressions = record(selector) && Array.isArray(selector.matchExpressions) ? selector.matchExpressions : [];
+  const [expressionIdentity, setExpressionIdentity] = useState(() => reconcileExpressionIdentity(undefined, expressions));
+  const expressionRows = reconcileExpressionIdentity(expressionIdentity, expressions);
+  if (expressionRows !== expressionIdentity) setExpressionIdentity(expressionRows);
   const policy = scalarText(draft.get(['spec', 'unhealthyPodEvictionPolicy']));
   const parsedAmount = parseBudget(amount, unit);
   const amountError = rule !== 'omitted' && !parsedAmount.valid ? parsedAmount.error : null;
@@ -44,11 +55,6 @@ function PolicySession(form: ResourceEditorFormProps) {
   })?.[1];
   const pending = labelKey !== '' || labelValue !== '' || expressionKey !== '' || expressionValues.length > 0 || expressionInput !== '';
 
-  useEffect(() => {
-    setRule(min != null ? 'minAvailable' : max != null ? 'maxUnavailable' : 'omitted');
-    setAmount(scalarText(min ?? max).replace(/%$/, ''));
-    setUnit(typeof (min ?? max) === 'string' ? 'percent' : 'pods');
-  }, [min, max]);
   useEffect(() => {
     onValidityChange(disabled ? null : amountError || localError?.error || (localError?.input ? 'Commit or clear the pending expression value.' : null) || patchFailure || rowError || (pending ? 'Add the pending selector requirement or clear its fields.' : null));
   }, [disabled, amountError, localError, patchFailure, rowError, pending, onValidityChange]);
@@ -71,7 +77,7 @@ function PolicySession(form: ResourceEditorFormProps) {
     }} />;
   }
   function updateBudget(nextRule: BudgetRule | 'omitted', nextUnit: BudgetUnit, nextAmount: string) {
-    setRule(nextRule); setUnit(nextUnit); setAmount(nextAmount);
+    setBudgetDraft({ base: budgetBase, rule: nextRule, unit: nextUnit, amount: nextAmount });
     if (nextRule === 'omitted') {
       commit([{ op: 'remove', path: ['spec', 'minAvailable'] }, { op: 'remove', path: ['spec', 'maxUnavailable'] }]);
       return;
@@ -81,7 +87,8 @@ function PolicySession(form: ResourceEditorFormProps) {
   }
   function chooseSelection(next: string) {
     if (pending) { setRowError('Add pending requirements or clear their fields before changing scope.'); return; }
-    const operations: ResourceEditorPatch[] = next === 'omitted' ? [{ op: 'remove', path: ['spec', 'selector'] }] : next === 'none' ? [{ op: 'remove', path: ['spec', 'selector'] }, { op: 'set', path: ['spec', 'selector'], value: null }] : [{ op: 'set', path: ['spec', 'selector'], value: {} }];
+    if (next !== 'omitted' && next !== 'none' && next !== 'all' && next !== 'labels') return;
+    const operations = selectionOperations(draft, next);
     if (next === 'labels' && mode === 'labels') { setLabelEditing(true); return; }
     if (commit(operations)) {
       setLabelEditing(next === 'labels'); setLabelKey(''); setLabelValue(''); setExpressionKey(''); setExpressionValues([]); setLocal({}); setRowError(null);
@@ -128,9 +135,11 @@ function PolicySession(form: ResourceEditorFormProps) {
               const valuesBase = Array.isArray(row.values) ? JSON.stringify(row.values) : scalarText(row.values);
               const tokenDraft = local[valuesPath]?.base === valuesBase ? local[valuesPath] : undefined;
               const tokens = tokenDraft ? JSON.parse(tokenDraft.text) as string[] : Array.isArray(row.values) ? row.values as string[] : [];
-              return <div className={styles.expression} key={index}>
+              return <div className={styles.expression} key={expressionRows.ids[index]}>
                 <div className={styles.row}>{textField([...path, 'key'], `Expression key ${index + 1}`, validLabelKey)}<EditorChoice label={`Operator ${index + 1}`} value={scalarText(row.operator)} options={operatorOptions} disabled={disabled} onChange={next => commit([{ op: 'set', path: [...path, 'operator'], value: next }, ...(['Exists', 'DoesNotExist'].includes(next) ? [{ op: 'remove' as const, path: [...path, 'values'] }] : [])])} /><Button size="sm" variant="ghost" disabled={disabled} aria-label={`Remove expression ${index + 1}`} onClick={() => {
-                  if (commit([{ op: 'remove', path }])) setLocal(values => {
+                  if (commit([{ op: 'remove', path }])) {
+                    setExpressionIdentity(current => ({ ...current, signatures: current.signatures.filter((_, rowIndex) => rowIndex !== index), ids: current.ids.filter((_, rowIndex) => rowIndex !== index) }));
+                    setLocal(values => {
                     const shifted: Record<string, LocalValue> = {};
                     Object.entries(values).forEach(([key, value]) => {
                       const parts = JSON.parse(key) as (string | number)[];
@@ -141,9 +150,10 @@ function PolicySession(form: ResourceEditorFormProps) {
                       shifted[JSON.stringify(parts)] = value;
                     });
                     return shifted;
-                  });
+                    });
+                  }
                 }}>Remove</Button></div>
-                {(row.operator === 'In' || row.operator === 'NotIn') && <div className={styles.tokens}><label>Values {index + 1}</label><TagInput size="sm" value={tokens} disabled={disabled} inputProps={{ 'aria-label': `Expression values ${index + 1}`, onInput: event => { const input = event.currentTarget.value; setLocal(values => ({ ...values, [valuesPath]: { text: JSON.stringify(tokens), base: valuesBase, error: tokenDraft?.error ?? null, input } })); } }} onChange={next => {
+                {(row.operator === 'In' || row.operator === 'NotIn') && <div className={styles.tokens}><label htmlFor={`${tokenID}-${expressionRows.ids[index]}`}>Values {index + 1}</label><TagInput size="sm" value={tokens} disabled={disabled} inputProps={{ id: `${tokenID}-${expressionRows.ids[index]}`, 'aria-label': `Expression values ${index + 1}`, onInput: event => { const input = event.currentTarget.value; setLocal(values => ({ ...values, [valuesPath]: { text: JSON.stringify(tokens), base: valuesBase, error: tokenDraft?.error ?? null, input } })); } }} onChange={next => {
                   const error = !next.length ? 'Add at least one label value.' : next.some(value => !validLabelValue(value)) ? 'Use valid label values.' : null;
                   setLocal(values => ({ ...values, [valuesPath]: { text: JSON.stringify(next), base: valuesBase, error } }));
                   if (error) return;
@@ -156,7 +166,7 @@ function PolicySession(form: ResourceEditorFormProps) {
               </div>;
             })}
             <div className={styles.expression}><div className={styles.grid}><EditorField label="New expression key" value={expressionKey} disabled={disabled} onChange={next => { setExpressionKey(next); setRowError(null); }} /><EditorChoice label="New expression operator" value={expressionOperator} options={operatorOptions} disabled={disabled} onChange={next => { setExpressionOperator(next); setRowError(null); if (next === 'Exists' || next === 'DoesNotExist') { setExpressionValues([]); setExpressionInput(''); } }} /></div>
-              {(expressionOperator === 'In' || expressionOperator === 'NotIn') && <div className={styles.tokens}><label>New expression values</label><TagInput size="sm" value={expressionValues} disabled={disabled} inputProps={{ 'aria-label': 'New expression values', onInput: event => setExpressionInput(event.currentTarget.value) }} onChange={next => { setExpressionValues(next); setExpressionInput(''); setRowError(null); }} /></div>}
+              {(expressionOperator === 'In' || expressionOperator === 'NotIn') && <div className={styles.tokens}><label htmlFor={`${tokenID}-new`}>New expression values</label><TagInput size="sm" value={expressionValues} disabled={disabled} inputProps={{ id: `${tokenID}-new`, 'aria-label': 'New expression values', onInput: event => setExpressionInput(event.currentTarget.value) }} onChange={next => { setExpressionValues(next); setExpressionInput(''); setRowError(null); }} /></div>}
               <Button size="sm" disabled={disabled} onClick={() => {
                 const needsValues = expressionOperator === 'In' || expressionOperator === 'NotIn';
                 if (!validLabelKey(expressionKey) || (needsValues && (!expressionValues.length || expressionValues.some(value => !validLabelValue(value))))) { setRowError('Enter a valid expression key and its required values.'); return; }
@@ -197,11 +207,11 @@ function DisruptionStatus({ form }: { form: ResourceEditorFormProps }) {
       <dl className={styles.status}>{[['Generation', ['metadata', 'generation']], ['Observed generation', ['status', 'observedGeneration']], ['Disruptions allowed', ['status', 'disruptionsAllowed']], ['Healthy pods', ['status', 'currentHealthy']], ['Desired healthy', ['status', 'desiredHealthy']], ['Expected pods', ['status', 'expectedPods']]].map(([label, path]) => <div key={label as string}><dt>{label}</dt><dd>{scalarText(draft.get(path as string[])) || 'Not reported'}</dd></div>)}</dl>
       <EditorHelp label="Disruption status">Counters and conditions belong to the disruption controller. Only current observed generation is meaningful; even current counters do not authorize an eviction.</EditorHelp>
       <details className={styles.advanced}><summary>Conditions and pending disruptions</summary>
-        <ul>{Array.isArray(conditions) && conditions.map((condition, index) => record(condition) ? <li key={index}>{scalarText(condition.type)} · {scalarText(condition.status)} · {scalarText(condition.reason)} · {scalarText(condition.lastTransitionTime)}</li> : null)}</ul>
+        <ul>{Array.isArray(conditions) && conditions.map(condition => record(condition) ? <li key={scalarText(condition.type)}>{scalarText(condition.type)} · {scalarText(condition.status)} · {scalarText(condition.reason)} · {scalarText(condition.lastTransitionTime)}</li> : null)}</ul>
         {record(disrupted) && Object.keys(disrupted).map(name => <div key={name}>{name} · {scalarText(disrupted[name])}</div>)}
         {!Array.isArray(conditions) && !record(disrupted) && <span>No controller detail reported.</span>}
       </details>
     </EditorSection>
-    <EditorSection title="Pod eviction boundary"><p className={styles.notice}>Evict an existing Pod from its Pod action. PDB status never grants eviction permission.</p><EditorHelp label="Pod eviction">Eviction uses POST /api/v1/namespaces/{namespace}/pods/{name}/eviction with a policy/v1 Eviction payload. It is not a persisted resource and never uses Create Eviction. Pod actions retain identity preconditions and admission errors.</EditorHelp></EditorSection>
+    <EditorSection title="Pod eviction boundary"><p className={styles.notice}>Evict an existing Pod from its Pod action. PDB status never grants eviction permission.</p><EditorHelp label="Pod eviction">Eviction uses <code>{'POST /api/v1/namespaces/{namespace}/pods/{name}/eviction'}</code> with a policy/v1 Eviction payload. It is not a persisted resource and never uses Create Eviction. Pod actions retain identity preconditions and admission errors.</EditorHelp></EditorSection>
   </>;
 }

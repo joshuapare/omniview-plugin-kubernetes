@@ -72,7 +72,7 @@ export function unsupportedCSR(draft: ResourceEditorDraft, context: ResourceEdit
   const unavailable = availability(draft, context);
   if (unavailable) return unavailable;
   const selected = draft.get(['spec', 'usages']);
-  if (selected !== undefined && (!Array.isArray(selected) || selected.some(value => typeof value !== 'string' || !usages.some(usage => usage === value)))) return 'Unsupported key usage shape. Source remains unchanged.';
+  if (selected !== undefined && (!Array.isArray(selected) || selected.some(value => typeof value !== 'string' || !usages.some(usage => usage === value)) || new Set(selected).size !== selected.length)) return 'Unsupported or duplicate key usage shape. Source remains unchanged.';
   for (const key of ['signerName', 'expirationSeconds']) {
     const value = draft.get(['spec', key]);
     if (value !== undefined && (key === 'signerName' ? typeof value !== 'string' : typeof value !== 'number' && typeof value !== 'bigint')) return 'Unsupported certificate field type. Source remains unchanged.';

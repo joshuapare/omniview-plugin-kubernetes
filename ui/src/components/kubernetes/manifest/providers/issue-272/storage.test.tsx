@@ -1,15 +1,18 @@
+import type { ResourceEditorContext, ResourceEditorFormProps } from '@omniviewdev/runtime';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useReducer, type ComponentType } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ResourceEditorContext, ResourceEditorFormProps } from '@omniviewdev/runtime';
+
 import { ResourceEditorController } from '../../ResourceEditorController';
+
+import CSIDriverForm from './CSIDriverForm';
+import { storageFixtureContext, storageFixtures, type StorageFixtureKind } from './fixtures';
+import { CSINodeForm, CSIStorageCapacityForm, VolumeAttachmentForm } from './InspectionForms';
+import { integerError, parameterError, unsupportedShape } from './rules';
 import StorageClassForm from './StorageClassForm';
 import VolumeAttributesClassForm from './VolumeAttributesClassForm';
-import CSIDriverForm from './CSIDriverForm';
-import { CSINodeForm, CSIStorageCapacityForm, VolumeAttachmentForm } from './InspectionForms';
+
 import { resourceEditors } from './index';
-import { storageFixtureContext, storageFixtures, type StorageFixtureKind } from './fixtures';
-import { integerError, parameterError, unsupportedShape } from './rules';
 
 const forms: Record<StorageFixtureKind, ComponentType<ResourceEditorFormProps>> = { StorageClass: StorageClassForm, VolumeAttributesClass: VolumeAttributesClassForm, CSIDriver: CSIDriverForm, CSINode: CSINodeForm, CSIStorageCapacity: CSIStorageCapacityForm, VolumeAttachment: VolumeAttachmentForm };
 const references = { list: vi.fn(async () => ({ status: 'ready' as const, items: [] })) };
@@ -90,6 +93,37 @@ describe('storage domain editing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add token request' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Each token audience must be unique.');
     expect(controller.draft().get(['spec', 'tokenRequests'])).toHaveLength(1);
+  });
+  it('retains an invalid sibling token draft when an earlier row is removed', () => {
+    const source = storageFixtures.CSIDriver.replace('  futureDriverField: retained', '    - audience: second-audience\n      expirationSeconds: 1800\n  futureDriverField: retained');
+    const controller = new ResourceEditorController(source);
+    render(<FormHarness kind="CSIDriver" controller={controller} section="tokens" />);
+    fireEvent.change(screen.getByLabelText('Token expiration 2 (seconds)'), { target: { value: '5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove request 1' }));
+    expect(screen.getByLabelText('Token audience 1')).toHaveValue('second-audience');
+    expect(screen.getByLabelText('Token expiration 1 (seconds)')).toHaveValue('5');
+    expect(screen.getByLabelText('Token expiration 1 (seconds)')).toHaveAttribute('aria-invalid', 'true');
+    expect(controller.draft().get(['spec', 'tokenRequests', 0, 'expirationSeconds'])).toBe(1800n);
+  });
+  it('does not infer leaf schema permission from an admitted parameter parent', () => {
+    const controller = new ResourceEditorController(storageFixtures.StorageClass);
+    const context = storageFixtureContext('StorageClass');
+    context.schema.paths = context.schema.paths?.filter(path => !(path.length === 2 && path[0] === 'parameters' && path[1] === '*'));
+    render(<FormHarness kind="StorageClass" controller={controller} context={context} />);
+    fireEvent.change(screen.getByLabelText('Parameter key'), { target: { value: 'performance' } });
+    fireEvent.change(screen.getByLabelText('Parameter value'), { target: { value: 'balanced' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add parameter' }));
+    expect(controller.getSource()).toBe(storageFixtures.StorageClass);
+    expect(screen.getByRole('alert')).toHaveTextContent('Schema does not admit this field.');
+  });
+  it('resets local partial fields synchronously when the canonical session changes', () => {
+    const controller = new ResourceEditorController(storageFixtures.CSIDriver);
+    const view = render(<FormHarness kind="CSIDriver" controller={controller} />);
+    fireEvent.change(screen.getByLabelText('Allocatable refresh interval (seconds)'), { target: { value: '9' } });
+    const replacement = new ResourceEditorController(storageFixtures.CSIDriver);
+    view.rerender(<FormHarness kind="CSIDriver" controller={replacement} />);
+    expect(screen.getByLabelText('Allocatable refresh interval (seconds)')).toHaveValue('30');
+    expect(screen.getByLabelText('Allocatable refresh interval (seconds)')).toHaveAttribute('aria-invalid', 'false');
   });
   it('locks driver changes for unknown ownership, managed installation and unconfirmed gates', () => {
     const controller = new ResourceEditorController(storageFixtures.CSIDriver);

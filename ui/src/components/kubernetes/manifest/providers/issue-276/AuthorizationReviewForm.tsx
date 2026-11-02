@@ -139,7 +139,7 @@ function ReviewSession(props: ResourceEditorFormProps) {
   </div>;
 }
 
-function SensitiveField({ label, present, disabled, onChange }: { label: string; present: boolean; disabled: boolean; onChange(value: string): boolean }) {
+function SensitiveField({ label, present, disabled, onChange }: { label: string; present: boolean; disabled: boolean; onChange(this: void, value: string): boolean }) {
   const [text, setText] = useState('');
   return <EditorField label={label} type="password" value={text} disabled={disabled} placeholder={present ? 'Stored · type to replace' : undefined} onChange={value => { setText(value); onChange(value); }} />;
 }

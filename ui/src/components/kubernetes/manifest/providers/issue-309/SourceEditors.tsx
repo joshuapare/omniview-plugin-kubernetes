@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@omniviewdev/base-ui';
 import type { ResourceEditorFormProps, ResourceEditorPatch, ResourceEditorPath } from '@omniviewdev/runtime';
-import { EditorField, EditorChoice, EditorSection, ExactValueField, ReferencePicker, useFieldValidity } from '../../editor-controls';
+import { EditorField, EditorChoice, EditorSection, ExactValueField, ReferencePicker, scalarText, useFieldValidity } from '../../editor-controls';
 import { common, fields, lists, isReadOnly, type Field } from './domain';
 
 function SourceField({ form, field, path = field.path.split('.'), report }: { form: ResourceEditorFormProps; field: Field; path?: ResourceEditorPath; report: (field: string, error: string | null) => void }) {
@@ -36,6 +36,7 @@ function SourceEditor(form: ResourceEditorFormProps) {
  const [error, setError] = useState<string | null>(null);
  const readonly = isReadOnly(form.draft, form.context);
  const report = useFieldValidity(form);
+ const owners = form.draft.get(['metadata', 'ownerReferences']);
  const patch = (operations: ResourceEditorPatch[]) => {
   const result = form.patch({ sessionID: form.draft.sessionID, expectedRevision: form.draft.revision, operations });
   setError(result.status === 'accepted' ? null : result.message);
@@ -43,9 +44,9 @@ function SourceEditor(form: ResourceEditorFormProps) {
  };
  if (readonly) return <EditorSection title={form.context.kind === 'ExternalArtifact' ? 'External producer artifact' : 'Controller-owned chart'}>
   <div role="status">{form.context.kind === 'ExternalArtifact' ? 'Produced externally. Source and status are read-only.' : 'Edit the owning HelmRelease, not its generated HelmChart.'}</div>
-  {['apiVersion', 'kind', 'name', 'namespace'].map(key => <EditorField key={key} label={`Producer ${key}`} value={String(form.draft.get(['spec', 'sourceRef', key]) ?? '')} readOnly onChange={() => {}} />)}
-  {['revision', 'digest', 'lastUpdateTime'].map(key => <EditorField key={key} label={`Observed ${key}`} value={String(form.draft.get(['status', 'artifact', key]) ?? '')} readOnly onChange={() => {}} />)}
-  {Array.isArray(form.draft.get(['metadata', 'ownerReferences'])) && (form.draft.get(['metadata', 'ownerReferences']) as Record<string, unknown>[]).map((owner, index) => <div key={index}>{String(owner.kind ?? '')}: {String(owner.name ?? '')}</div>)}
+  {['apiVersion', 'kind', 'name', 'namespace'].map(key => <EditorField key={key} label={`Producer ${key}`} value={scalarText(form.draft.get(['spec', 'sourceRef', key]))} readOnly onChange={() => {}} />)}
+  {['revision', 'digest', 'lastUpdateTime'].map(key => <EditorField key={key} label={`Observed ${key}`} value={scalarText(form.draft.get(['status', 'artifact', key]))} readOnly onChange={() => {}} />)}
+  {Array.isArray(owners) && Array.from({length: owners.length}, (_, index) => <div key={index}>{scalarText(form.draft.get(['metadata','ownerReferences',index,'kind']))}: {scalarText(form.draft.get(['metadata','ownerReferences',index,'name']))}</div>)}
  </EditorSection>;
  const kindFields = fields[form.context.kind] ?? [];
  return <div style={{ display: 'grid', gap: 16 }}>
@@ -68,7 +69,7 @@ function SourceEditor(form: ResourceEditorFormProps) {
    })}
   </details>
   {form.context.intent !== 'create' && <details><summary>Observed artifact provenance</summary>
-   {['revision', 'digest', 'lastUpdateTime'].map(key => <EditorField key={key} label={`Observed ${key}`} value={String(form.draft.get(['status', 'artifact', key]) ?? '')} readOnly onChange={() => {}} />)}
+   {['revision', 'digest', 'lastUpdateTime'].map(key => <EditorField key={key} label={`Observed ${key}`} value={scalarText(form.draft.get(['status', 'artifact', key]))} readOnly onChange={() => {}} />)}
   </details>}
   {error && <div role="alert">{error}</div>}
  </div>;

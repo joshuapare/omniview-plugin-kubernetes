@@ -8,7 +8,8 @@ export function validate(draft: ResourceEditorDraft, context: ResourceEditorCont
   if (context.kind === 'PeerAuthentication') {
     const ports = draft.get(['spec', 'portLevelMtls']);
     if (ports && typeof ports === 'object') {
-      if (!Object.keys((draft.get(['spec', 'selector', 'matchLabels']) ?? {}) as object).length) add(['spec', 'selector'], 'Workload port overrides require workload labels.');
+      const labels = draft.get(['spec', 'selector', 'matchLabels']);
+      if (!labels || typeof labels !== 'object' || Array.isArray(labels) || !Object.keys(labels).length) add(['spec', 'selector'], 'Workload port overrides require workload labels.');
       for (const port of Object.keys(ports)) if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) add(['spec', 'portLevelMtls', port], 'Workload port must be 1–65535.');
     }
     if (context.discovery.features['istio.ambient'] === 'available' && draft.get(['spec', 'mtls', 'mode']) === 'DISABLE') add(['spec', 'mtls', 'mode'], 'Ambient does not support DISABLE.');

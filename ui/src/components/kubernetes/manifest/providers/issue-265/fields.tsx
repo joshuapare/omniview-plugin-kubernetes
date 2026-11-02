@@ -67,23 +67,21 @@ export function Repeat({ form, path, title, initial, children, disabled = false 
 export function ReferenceField({ form, path, label, query, optional = false }: { form: ResourceEditorFormProps; path: ResourceEditorPath; label: string; query: ReferenceQuery; optional?: boolean }) {
   const report = useContext(Validity);
   const locked = useContext(ReadOnly);
-  const [pending, setPending] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const key = JSON.stringify(path);
   const canonicalValue = text(form.draft,path);
+  const identity = JSON.stringify([form.draft.sessionID, path, canonicalValue]);
+  const [edit, setEdit] = useState<{ identity: string; pending: string | null; error: string | null }>({ identity, pending: null, error: null });
+  if (edit.identity !== identity) setEdit({ identity, pending: null, error: null });
+  const { pending, error } = edit.identity === identity ? edit : { pending: null, error: null };
+  const key = JSON.stringify(path);
   useEffect(() => {
-    setPending(null);
-    setError(null);
-    report(key,null);
+    report(key, error);
     return () => report(key,null);
-  }, [canonicalValue, key, report]);
+  }, [key, error, report]);
   return <ReferencePicker form={{...form,disabled:form.disabled||locked}} query={query} label={label} error={error} value={pending ?? canonicalValue} help={path.join('.')} onChange={value => {
-    setPending(value);
     const invalidName = value !== '' && (!/^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$/.test(value) || value.length > 253);
     const failure = !value && !optional ? 'Enter a reference name.' : invalidName ? 'Use a valid resource name.' : patchError(patchFields(form, [value === '' ? {op:'remove',path} : {op: 'set', path, value}]));
-    setError(failure);
+    setEdit({ identity, pending: failure ? value : null, error: failure });
     report(key, failure);
-    if (!failure) setPending(null);
   }} />;
 }
 export function Advanced({ children }: { children: ReactNode }) { return <details className="core-advanced"><summary>Advanced</summary>{children}</details>; }

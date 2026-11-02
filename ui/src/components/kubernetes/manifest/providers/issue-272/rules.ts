@@ -69,11 +69,11 @@ export function validateStorage(draft: ResourceEditorDraft, context: ResourceEdi
       add(['spec', 'tokenRequests', index, 'audience'], typeof audience !== 'string' ? 'Audience must be text.' : seen.has(audience) ? 'Each token audience must be unique.' : null);
       if (typeof audience === 'string') seen.add(audience);
       const expiry = draft.get(['spec', 'tokenRequests', index, 'expirationSeconds']);
-      if (expiry !== undefined) add(['spec', 'tokenRequests', index, 'expirationSeconds'], integerError(String(expiry), 600n, 4294967296n));
+      if (expiry !== undefined) add(['spec', 'tokenRequests', index, 'expirationSeconds'], typeof expiry === 'bigint' || typeof expiry === 'number' && Number.isSafeInteger(expiry) ? integerError(String(expiry), 600n, 4294967296n) : 'Use an integer YAML scalar for token expiration.');
     });
     if (draft.has(['spec', 'serviceAccountTokenInSecrets']) && (!Array.isArray(requests) || !requests.length)) add(['spec', 'serviceAccountTokenInSecrets'], 'Token delivery requires at least one token request, even when false.');
     const period = draft.get(['spec', 'nodeAllocatableUpdatePeriodSeconds']);
-    if (period !== undefined) add(['spec', 'nodeAllocatableUpdatePeriodSeconds'], integerError(String(period), 10n));
+    if (period !== undefined) add(['spec', 'nodeAllocatableUpdatePeriodSeconds'], typeof period === 'bigint' || typeof period === 'number' && Number.isSafeInteger(period) ? integerError(String(period), 10n) : 'Use an integer YAML scalar for the refresh interval.');
   }
   return issues;
 }
@@ -93,6 +93,9 @@ export function unsupportedShape(draft: ResourceEditorDraft, context: ResourceEd
     }
     const tokens = draft.get(['spec', 'tokenRequests']);
     if (tokens !== undefined && (!Array.isArray(tokens) || tokens.some(token => !record(token) || typeof token.audience !== 'string'))) return 'Unsupported token request shape. Source remains unchanged.';
+    if (Array.isArray(tokens) && tokens.some(token => record(token) && token.expirationSeconds !== undefined && typeof token.expirationSeconds !== 'bigint' && !(typeof token.expirationSeconds === 'number' && Number.isSafeInteger(token.expirationSeconds)))) return 'Unsupported token expiration scalar. Source remains unchanged.';
+    const period = draft.get(['spec', 'nodeAllocatableUpdatePeriodSeconds']);
+    if (period !== undefined && typeof period !== 'bigint' && !(typeof period === 'number' && Number.isSafeInteger(period))) return 'Unsupported refresh interval scalar. Source remains unchanged.';
     const modes = draft.get(['spec', 'volumeLifecycleModes']);
     if (modes !== undefined && (!Array.isArray(modes) || modes.some(mode => mode !== 'Persistent' && mode !== 'Ephemeral'))) return 'Unsupported lifecycle mode. Source remains unchanged.';
   }

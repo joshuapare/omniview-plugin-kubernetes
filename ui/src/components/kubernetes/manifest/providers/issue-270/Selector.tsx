@@ -16,7 +16,7 @@ export default function Selector({ editor, path, label }: { editor: NetworkingFo
   const validExpression = labelKey(expressionKey) && (!needsValues || values !== '' && parsedValues.every(labelValue));
   return <fieldset className="networking-selector"><legend>{label} <EditorHelp label={label}>Labels and expressions in one selector are ANDed. An empty selector matches every object in its scope.</EditorHelp></legend>
     {!Object.keys(labels).length && !expressions.length && <span className="networking-muted">All {label.toLowerCase()}</span>}
-    {Object.entries(labels).map(([key, value]) => <div className="networking-row" key={key}>
+    {Object.keys(labels).map(key => <div className="networking-row" key={key}>
       <span className="networking-muted" aria-label={`${label} label key`}>{key}</span>
       <NetworkField editor={editor} path={[...path, 'matchLabels', key]} label={`${label} label value ${key}`} parse={next => labelValue(next) ? { value: next } : { error: 'Use a label value up to 63 characters.' }} />
       <RemoveButton editor={editor} path={[...path, 'matchLabels', key]} label={`Remove ${label} label ${key}`} />

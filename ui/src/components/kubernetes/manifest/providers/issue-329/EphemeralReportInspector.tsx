@@ -41,7 +41,7 @@ export default function EphemeralReportInspector({ draft, context, section }: Re
       const path = ['spec', 'results', item.index] as const;
       const resources = rows(draft.get([...path, 'resources']));
       const selector = record(draft.get([...path, 'resourceSelector']));
-      return <details key={item.index} style={{ borderBottom: '1px solid var(--ov-border-default)', padding: '8px 0' }}><summary style={{ cursor: 'pointer', overflowWrap: 'anywhere' }}>{item.result} · {item.policy} / {item.rule} · {item.severity}</summary>
+      return <details key={item.index} style={{ borderBottom: '1px solid var(--ov-color-border-default)', padding: '8px 0' }}><summary style={{ cursor: 'pointer', overflowWrap: 'anywhere' }}>{item.result} · {item.policy} / {item.rule} · {item.severity}</summary>
         <Facts value={{ scored: draft.get([...path, 'scored']), category: draft.get([...path, 'category']), source: draft.get([...path, 'source']) }} fields={['scored', 'category', 'source']} />
         <p>{timestamp(draft.get([...path, 'timestamp', 'seconds']), draft.get([...path, 'timestamp', 'nanos']))}</p>
         <h4>Resource references</h4>{resources.length ? resources.map((resource, index) => <div key={index}><ReferenceLink value={resource} connectionID={context.connectionID} namespace={context.namespace} /><Facts value={resource} fields={referenceFields} /></div>) : <p>No explicit resource references recorded.</p>}

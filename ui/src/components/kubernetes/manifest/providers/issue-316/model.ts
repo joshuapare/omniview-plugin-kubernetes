@@ -37,7 +37,7 @@ export function unavailable(draft: ResourceEditorDraft): string | null {
     if (value !== undefined && (!value || typeof value !== 'object' || Array.isArray(value))) return 'Unsupported container shape. Source remains unchanged.';
   }
   const kind = draft.get(['spec', 'authenticationRef', 'kind']);
-  if (kind !== undefined && !['TriggerAuthentication', 'ClusterTriggerAuthentication'].includes(String(kind))) return 'Unsupported authentication kind. Source remains unchanged.';
+  if (kind !== undefined && (typeof kind !== 'string' || !['TriggerAuthentication', 'ClusterTriggerAuthentication'].includes(kind))) return 'Unsupported authentication kind. Source remains unchanged.';
   for (const path of ownedPaths.filter(path => path.length > 3 || path[1] === 'clusterName' || path[1] === 'eventSubscription' || (path[1] === 'authenticationRef' && path.length === 3))) {
     const value = draft.get(path);
     if (value === undefined) continue;

@@ -1,5 +1,6 @@
-import { lazy } from 'react';
 import type { ResourceEditorContribution } from '@omniviewdev/runtime';
+import { lazy } from 'react';
+
 import { designs, isReadOnly, pathOf } from './domain';
 const CiliumForm = lazy(() => import('./CiliumForm'));
 export const resourceEditors: readonly ResourceEditorContribution[] = designs.map(design => ({
@@ -10,7 +11,7 @@ export const resourceEditors: readonly ResourceEditorContribution[] = designs.ma
  label:design.kind,
  sections:[{id:'network',label:design.inspect ? 'Observed state' : 'Network configuration'}],
  ownedPaths:design.inspect ? [] : design.fields.filter(field=>!design.kind.includes('EnvoyConfig') || !field.startsWith('resources.')).map(field => {
-  const path=pathOf(field).filter((part,index,parts) => index !== parts.length-1 || parts[index-1] !== 'matchLabels');
+  const path=pathOf(field).filter((_part,index,parts) => index !== parts.length-1 || parts[index-1] !== 'matchLabels');
   const collection=path.findIndex(part => typeof part === 'number');
   return collection < 0 ? path : path.slice(0,collection);
  }),

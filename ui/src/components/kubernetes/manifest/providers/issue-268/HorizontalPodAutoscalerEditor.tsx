@@ -31,7 +31,7 @@ function HPASession(form: ResourceEditorFormProps) {
   const validation = validateHPA(draft, context);
   const issue = patchFailure || localErrors.values().next().value || (validation[0] ? `${validation[0].path.join('.')}: ${validation[0].message}` : null);
   const validity = useRef(form.onValidityChange);
-  validity.current = form.onValidityChange;
+  useEffect(() => { validity.current = form.onValidityChange; }, [form.onValidityChange]);
   useEffect(() => { validity.current(issue); }, [issue]);
   useEffect(() => () => validity.current(null), []);
   const commit = (operations: readonly ResourceEditorPatch[]): string | null => {
@@ -150,15 +150,17 @@ function HPASession(form: ResourceEditorFormProps) {
 
 function TargetName({ form, workload, value, onCommit, onValidityChange }: {
   form: ResourceEditorFormProps; workload: typeof workloads[number]; value: string;
-  onCommit(value: string): string | null; onValidityChange(error: string | null): void;
+  onCommit: (value: string) => string | null; onValidityChange: (error: string | null) => void;
 }) {
-  const [input, setInput] = useState(value);
-  const [error, setError] = useState<string | null>(null);
+  const identity = JSON.stringify([form.draft.sessionID, workload.kind, value]);
+  const [edit, setEdit] = useState<{ identity: string; input: string; error: string | null }>({ identity, input: value, error: null });
+  if (edit.identity !== identity) setEdit({ identity, input: value, error: null });
+  const { input, error } = edit.identity === identity ? edit : { input: value, error: null };
   const report = useRef(onValidityChange);
-  report.current = onValidityChange;
-  useEffect(() => { setInput(value); setError(null); report.current(null); }, [value]);
+  useEffect(() => { report.current = onValidityChange; }, [onValidityChange]);
+  useEffect(() => { report.current(error); }, [error]);
   useEffect(() => () => report.current(null), []);
   return <ReferencePicker form={form} query={{ group: workload.group, version: workload.version, resource: workload.resource, namespace: form.context.namespace }}
     label="Target name" value={input} error={error} help="Same namespace. Existing or manually entered names stay valid when lookup is unavailable."
-    onChange={next => { setInput(next); const failure = next.trim() ? onCommit(next) : 'Required.'; setError(failure); onValidityChange(failure); }} />;
+    onChange={next => { const failure = next.trim() ? onCommit(next) : 'Required.'; setEdit({ identity, input: next, error: failure }); onValidityChange(failure); }} />;
 }

@@ -45,7 +45,16 @@ export function unavailable(draft: ResourceEditorDraft, context: ResourceEditorC
     if (value !== undefined && typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'bigint') return 'Unsupported overhead quantity. Keep this document in YAML.';
   }
   const tolerations = draft.get(['scheduling', 'tolerations']);
-  if (tolerations !== undefined && (!Array.isArray(tolerations) || tolerations.some(value => !record(value) || ['key', 'operator', 'value', 'effect'].some(key => value[key] !== undefined && typeof value[key] !== 'string') || value.operator !== undefined && value.operator !== 'Equal' && value.operator !== 'Exists' || value.effect !== undefined && !['', 'NoSchedule', 'PreferNoSchedule', 'NoExecute'].includes(String(value.effect)) || value.tolerationSeconds !== undefined && typeof value.tolerationSeconds !== 'bigint' && !(typeof value.tolerationSeconds === 'number' && Number.isSafeInteger(value.tolerationSeconds))))) return 'Unsupported toleration structure. Keep this document in YAML.';
+  if (tolerations !== undefined) {
+    if (!Array.isArray(tolerations)) return 'Unsupported toleration structure. Keep this document in YAML.';
+    for (const value of tolerations) {
+      if (!record(value)) return 'Unsupported toleration structure. Keep this document in YAML.';
+      if (['key', 'operator', 'value', 'effect'].some(key => value[key] !== undefined && typeof value[key] !== 'string')) return 'Unsupported toleration structure. Keep this document in YAML.';
+      if (value.operator !== undefined && value.operator !== 'Equal' && value.operator !== 'Exists') return 'Unsupported toleration structure. Keep this document in YAML.';
+      if (value.effect !== undefined && (typeof value.effect !== 'string' || !['', 'NoSchedule', 'PreferNoSchedule', 'NoExecute'].includes(value.effect))) return 'Unsupported toleration structure. Keep this document in YAML.';
+      if (value.tolerationSeconds !== undefined && typeof value.tolerationSeconds !== 'bigint' && !(typeof value.tolerationSeconds === 'number' && Number.isSafeInteger(value.tolerationSeconds))) return 'Unsupported toleration structure. Keep this document in YAML.';
+    }
+  }
   return null;
 }
 export function tolerationError(value: Record<string, unknown>): string | null {

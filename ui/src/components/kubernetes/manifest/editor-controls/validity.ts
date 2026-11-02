@@ -1,12 +1,17 @@
-import { useCallback, useEffect, useRef } from 'react';
 import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 type ValidityReporter = ResourceEditorFormProps['onValidityChange'];
 interface ValidityLedger {
   buckets: Map<symbol, Map<string, string>>;
   report: ValidityReporter;
 }
-// Callback identity is the host's form boundary. Weak keys do not retain closed editors.
+interface Registration {
+  session: string;
+  ledger: ValidityLedger;
+  errors: Map<string, string>;
+}
+// Registries are touched only by committed effects/events, never during render.
 const ledgers = new WeakMap<ValidityReporter, Map<string, ValidityLedger>>();
 
 function reportLedger(ledger: ValidityLedger): void {
@@ -18,38 +23,38 @@ function reportLedger(ledger: ValidityLedger): void {
 }
 
 /**
- * Independent children sharing the same form callback/session also share admission.
- * Each hook owns its error bucket: unmounting or validating one child cannot clear a
- * sibling. A wrapped callback intentionally creates a nested boundary (for example,
- * a map control reporting its aggregate through a parent's named validity field).
+ * Independent children sharing a host callback/session share admission. Every hook
+ * owns a bucket; sibling validation and row unmount remove only that bucket's errors.
+ * Wrapped callbacks intentionally create nested boundaries. Session changes reset
+ * local errors; callback changes migrate the current bucket without discarding it.
  */
 export function useFieldValidity(form: ResourceEditorFormProps): (field: string, error: string | null) => void {
-  const token = useRef(Symbol('resource-editor-validity'));
-  const local = useRef({ session: form.draft.sessionID, errors: new Map<string, string>() });
-  if (local.current.session !== form.draft.sessionID) local.current = { session: form.draft.sessionID, errors: new Map() };
-  const errors = local.current.errors;
-  const sessions = ledgers.get(form.onValidityChange) ?? new Map<string, ValidityLedger>();
-  if (!ledgers.has(form.onValidityChange)) ledgers.set(form.onValidityChange, sessions);
-  const ledger = sessions.get(form.draft.sessionID) ?? { buckets: new Map<symbol, Map<string, string>>(), report: form.onValidityChange };
-  if (!sessions.has(form.draft.sessionID)) sessions.set(form.draft.sessionID, ledger);
-  const current = useRef(ledger);
-  current.current = ledger;
+  const [token] = useState(() => Symbol('resource-editor-validity'));
   const session = form.draft.sessionID;
-  useEffect(() => {
+  const report = form.onValidityChange;
+  const bucket = useMemo(() => ({ session, errors: new Map<string, string>() }), [session]);
+  const registered = useRef<Registration | null>(null);
+  useLayoutEffect(() => {
+    const sessions = ledgers.get(report) ?? new Map<string, ValidityLedger>();
+    ledgers.set(report, sessions);
+    const ledger = sessions.get(session) ?? { buckets: new Map<symbol, Map<string, string>>(), report };
     sessions.set(session, ledger);
-    ledger.buckets.set(token.current, errors);
+    const registration = { session, ledger, errors: bucket.errors };
+    registered.current = registration;
+    ledger.buckets.set(token, bucket.errors);
     reportLedger(ledger);
     return () => {
-      ledger.buckets.delete(token.current);
+      if (registered.current === registration) registered.current = null;
+      ledger.buckets.delete(token);
       reportLedger(ledger);
       if (!ledger.buckets.size && sessions.get(session) === ledger) sessions.delete(session);
     };
-  }, [ledger, errors, sessions, session]);
+  }, [report, session, token, bucket]);
   return useCallback((field, error) => {
-    if (current.current !== ledger) return;
-    if (error) errors.set(field, error);
-    else errors.delete(field);
-    ledger.buckets.set(token.current, errors);
-    reportLedger(ledger);
-  }, [ledger, errors]);
+    const registration = registered.current;
+    if (!registration || registration.session !== session || registration.ledger.report !== report || registration.errors !== bucket.errors) return;
+    if (error) bucket.errors.set(field, error);
+    else bucket.errors.delete(field);
+    reportLedger(registration.ledger);
+  }, [session, report, bucket]);
 }

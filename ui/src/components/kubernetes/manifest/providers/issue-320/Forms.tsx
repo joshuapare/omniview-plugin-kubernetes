@@ -2,7 +2,7 @@ import { Button } from '@omniviewdev/base-ui';
 import { useState } from 'react';
 import type { ResourceEditorFormProps as Props, ResourceEditorPath as Path, ResourceEditorPatch } from '@omniviewdev/runtime';
 import { EditorField, EditorChoice, EditorSection, ExactValueField, EditorHelp, ReferencePicker, patchError, setDraftField, useFieldValidity } from '../../editor-controls';
-import { parseScalar } from './model';
+import { parseScalar, parseSchemaFragment } from './model';
 const text = (form: Props, path: Path) => { const value = form.draft.get(path); return typeof value === 'string' || typeof value === 'number' || typeof value === 'bigint' || typeof value === 'boolean' ? String(value) : ''; };
 function Leaf({form,path,label,locked=false,help}:{form:Props;path:Path;label:string;locked?:boolean;help?:string}) {
  const report=useFieldValidity(form); return <ExactValueField label={label} help={help} value={text(form,path)} identity={`${form.draft.sessionID}:${JSON.stringify(path)}`} disabled={form.disabled||locked} parse={value=>({valid:true,value})} onCommit={value=>patchError(setDraftField(form,path,value))} onValidityChange={error=>report(JSON.stringify(path),error)}/>;
@@ -18,7 +18,11 @@ export function XRD(form:Props) {
 function Schema({form,path}:{form:Props;path:Path}) {
  const value=form.draft.get(path);const report=useFieldValidity(form);const [input,setInput]=useState('');const [error,setError]=useState<string|null>(null);
  // Never stringify a redacted schema projection. Only a new explicitly typed fragment is committed.
- return <details><summary>OpenAPI schema</summary><EditorHelp label="Schema fragment">Enter a complete JSON OpenAPI schema fragment. Existing schema stays unchanged until Apply. Use source for existing or sensitive schema values.</EditorHelp><EditorField label="New OpenAPI schema JSON" value={input} onChange={setInput} disabled={form.disabled} error={error}/><Button size="sm" disabled={form.disabled||!input} onClick={()=>{let failure:string|null=null;try {const schema=JSON.parse(input);if(!schema||Array.isArray(schema)||typeof schema!=='object') failure='Schema must be an object.';else failure=patchError(setDraftField(form,path,schema));}catch{failure='Enter valid JSON.';}setError(failure);report(JSON.stringify(path),failure);}}>Apply schema</Button><span>{value===undefined?'Schema not set':'Schema present; inspect in source'}</span></details>;
+ return <details><summary>OpenAPI schema</summary><EditorHelp label="Schema fragment">Enter a complete JSON OpenAPI schema fragment. Existing schema stays unchanged until Apply. Use source for existing or sensitive schema values.</EditorHelp><EditorField label="New OpenAPI schema JSON" value={input} onChange={setInput} disabled={form.disabled} error={error}/><Button size="sm" disabled={form.disabled||!input} onClick={()=>{
+  const parsed = parseSchemaFragment(input);
+  const failure = parsed.valid ? patchError(form.patch({sessionID:form.draft.sessionID,expectedRevision:form.draft.revision,operations:[{op:'set',path,value:parsed.value}]})) : parsed.error;
+  setError(failure);report(JSON.stringify(path),failure);
+ }}>Apply schema</Button><span>{value===undefined?'Schema not set':'Schema present; inspect in source'}</span></details>;
 }
 export function Composition(form:Props) {
  const ops=useOps(form);const pipeline=form.draft.get(['spec','pipeline']);const editing=form.context.intent!=='create';

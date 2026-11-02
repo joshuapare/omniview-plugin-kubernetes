@@ -7,7 +7,7 @@ import './dra.css';
 
 type LocalField = { canonical: string; text: string; error: string | null };
 type Parsed = { value: string | bigint | boolean } | { error: string };
-interface Composition { form: ResourceEditorFormProps; locked: boolean; locals: Record<string, LocalField>; setLocal(key: string, value: LocalField): void; commit(operations: readonly ResourceEditorPatch[]): string | null; }
+interface Composition { form: ResourceEditorFormProps; locked: boolean; locals: Record<string, LocalField>; setLocal: (key: string, value: LocalField) => void; commit: (operations: readonly ResourceEditorPatch[]) => string | null; }
 const DraftContext = createContext<Composition | null>(null);
 export function useDra() { const value = useContext(DraftContext); if (!value) throw new Error('DRA fields require an editor.'); return value; }
 export function DraEditor({ form, locked = false, children }: { form: ResourceEditorFormProps; locked?: boolean; children: ReactNode }) {

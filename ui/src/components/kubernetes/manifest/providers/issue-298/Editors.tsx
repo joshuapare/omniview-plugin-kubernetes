@@ -54,7 +54,7 @@ function IstioEditor(props: ResourceEditorFormProps) {
  {design.rows?.map(row=>{
  const path:Path=['spec',...row.path];const current=props.draft.get(path);const rows=Array.isArray(current)?current:[];
  return <EditorSection key={row.title} title={row.title}>
- {rows.map((_,i)=><fieldset key={`${props.draft.sessionID}:${i}`} style={{border:'1px solid var(--ov-border-default)',borderRadius:6,padding:12,marginBottom:8,minWidth:0}}><legend>{row.title} {i+1}</legend>
+ {rows.map((_,i)=><fieldset key={`${props.draft.sessionID}:${i}`} style={{border:'1px solid var(--ov-color-border-default)',borderRadius:6,padding:12,marginBottom:8,minWidth:0}}><legend>{row.title} {i+1}</legend>
  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,220px),1fr))',gap:10}}>{row.fields.filter(field=>{
  if(props.context.kind!=='Gateway'||field.path[0]!=='tls')return true;
  const protocol=props.draft.get([...path,i,'port','protocol']);return protocol==='HTTPS'||protocol==='TLS';

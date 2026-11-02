@@ -25,8 +25,10 @@ export function validate(draft: ResourceEditorDraft, context: ResourceEditorCont
     });
     const min = draft.get(['spec', 'minReplicaCount']); const max = draft.get(['spec', 'maxReplicaCount']);
     if (min !== undefined && max !== undefined) {
-      if (!/^\d+$/.test(String(min)) || !/^\d+$/.test(String(max))) issues.push({ path: ['spec', 'minReplicaCount'], message: 'Replica limits must be nonnegative integers.' });
-      else if (BigInt(String(min)) > BigInt(String(max))) issues.push({ path: ['spec', 'maxReplicaCount'], message: 'Maximum must be at least minimum.' });
+      const minimum = typeof min === 'bigint' ? min : typeof min === 'number' && Number.isSafeInteger(min) ? BigInt(min) : typeof min === 'string' && /^\d+$/.test(min) ? BigInt(min) : null;
+      const maximum = typeof max === 'bigint' ? max : typeof max === 'number' && Number.isSafeInteger(max) ? BigInt(max) : typeof max === 'string' && /^\d+$/.test(max) ? BigInt(max) : null;
+      if (minimum === null || maximum === null || minimum < 0n || maximum < 0n) issues.push({ path: ['spec', 'minReplicaCount'], message: 'Replica limits must be nonnegative integers.' });
+      else if (minimum > maximum) issues.push({ path: ['spec', 'maxReplicaCount'], message: 'Maximum must be at least minimum.' });
     }
     const fallback = draft.get(['spec', 'fallback']);
     if (fallback !== undefined) { need(['spec', 'fallback', 'failureThreshold']); if (!draft.has(['spec', 'fallback', 'replicas'])) issues.push({ path: ['spec', 'fallback', 'replicas'], message: 'Required with fallback.' }); }

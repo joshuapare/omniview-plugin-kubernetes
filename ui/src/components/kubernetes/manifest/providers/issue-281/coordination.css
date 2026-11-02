@@ -1,6 +1,6 @@
 .coordination-editor { display: grid; gap: 16px; min-width: 0; font-size: 13px; }
 .coordination-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: 12px 16px; min-width: 0; }
-.coordination-boundary { border-inline-start: 2px solid var(--ov-accent, currentColor); padding: 6px 10px; overflow-wrap: anywhere; }
+.coordination-boundary { border-inline-start: 2px solid var(--ov-color-border-focus, currentColor); padding: 6px 10px; overflow-wrap: anywhere; }
 .coordination-facts { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr); gap: 8px 16px; margin: 0; }
 .coordination-facts dd { margin: 0; overflow-wrap: anywhere; }
 .coordination-facts dt { opacity: .72; }

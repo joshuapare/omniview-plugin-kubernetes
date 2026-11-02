@@ -8,8 +8,8 @@ import RbacBindingForm from './RbacBindingForm';
 import { resourceEditors } from './index';
 import { ruleBranchPatches, subjectKindPatches, unavailable, validate } from './model';
 
-const roleSource = 'apiVersion: rbac.authorization.k8s.io/v1\nkind: Role\nmetadata: {name: reader, namespace: team}\nrules:\n  - verbs: [get, list]\n    apiGroups: [\"\"]\n    resources: [pods] # keep resource comment\n    futureField: 9007199254740993\n  - verbs: [watch]\n    apiGroups: [apps]\n    resources: [deployments]\n';
-const bindingSource = 'apiVersion: rbac.authorization.k8s.io/v1\nkind: RoleBinding\nmetadata: {name: readers, namespace: team}\nroleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: reader}\nsubjects:\n  - kind: ServiceAccount\n    apiGroup: \"\"\n    name: workload\n    namespace: team\n    futureField: retained\n';
+const roleSource = 'apiVersion: rbac.authorization.k8s.io/v1\nkind: Role\nmetadata: {name: reader, namespace: team}\nrules:\n  - verbs: [get, list]\n    apiGroups: [""]\n    resources: [pods] # keep resource comment\n    futureField: 9007199254740993\n  - verbs: [watch]\n    apiGroups: [apps]\n    resources: [deployments]\n';
+const bindingSource = 'apiVersion: rbac.authorization.k8s.io/v1\nkind: RoleBinding\nmetadata: {name: readers, namespace: team}\nroleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: reader}\nsubjects:\n  - kind: ServiceAccount\n    apiGroup: ""\n    name: workload\n    namespace: team\n    futureField: retained\n';
 function contextFor(contribution: ResourceEditorContribution, intent: ResourceEditorContext['intent'] = 'create'): ResourceEditorContext {
   return { ...contribution.targets[0], connectionID: 'fixture', namespace: 'team', intent, capabilities: { create: 'available', update: 'available', delete: 'unknown', get: 'available', list: 'available', actions: {} }, discovery: { status: 'available', features: {} }, schema: { status: 'available' }, ownership: { status: 'application' } };
 }

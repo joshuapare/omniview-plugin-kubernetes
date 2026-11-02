@@ -20,7 +20,7 @@ function ObjectReference({ label, reference, connectionID }: { label: string; re
   return <EditorSection title={label}>
     <Grid><Fact label="Kind" value={kind} /><Fact label="API version" value={apiVersion} /><Fact label="Name" value={name} /><Fact label="Namespace" value={namespace} help="Only the referenced namespace is used. Cluster scope comes from the discovered target, never the Event namespace." /></Grid>
     <Fact label="Object UID" value={uid} help="The inspector verifies this exact incarnation. A same-name replacement must not open as the original object." />
-    {navigable ? <div className="event-inspector-link"><ResourceLinkChip connectionID={connectionID} namespace={namespace} ownerReference={{ apiVersion: apiVersion!, kind: kind!, name: name!, uid: uid! }} resourceName={`Inspect ${kind}`} /></div> : <Text size="xs" tone="muted">Incomplete reference — safe object handoff unavailable.</Text>}
+    {navigable ? <div className="event-inspector-link"><ResourceLinkChip connectionID={connectionID} namespace={namespace} ownerReference={{ apiVersion, kind, name, uid }} resourceName={`Inspect ${kind}`} /></div> : <Text size="xs" tone="muted">Incomplete reference — safe object handoff unavailable.</Text>}
     <details className="event-inspector-advanced"><summary>Reference details</summary><Grid><Fact label="Object revision" value={reference.resourceVersion} /><Fact label="Field / container path" value={reference.fieldPath} /></Grid></details>
   </EditorSection>;
 }
@@ -32,10 +32,11 @@ function AliasLookup({ form, namespace }: { form: ResourceEditorFormProps; names
   else if (result.status === 'denied') message = 'Core Event alias lookup denied.';
   else if (result.status === 'absent') message = 'Core Event API is not served.';
   else if (result.status === 'unavailable') message = 'Core Event alias lookup unavailable.';
-  else {
+  else if (result.status === 'ready') {
     const alias = coreEventAlias(form.draft, namespace, result.items);
     message = alias ? `core/v1 alias: ${alias.name}. One Event; counts are not added.` : 'No matching core/v1 UID found. No counts combined.';
   }
+  else message = 'Core Event alias lookup unavailable.';
   return <Text as="div" size="xs" tone="muted" role="status" aria-label="Core Event alias">{message}</Text>;
 }
 

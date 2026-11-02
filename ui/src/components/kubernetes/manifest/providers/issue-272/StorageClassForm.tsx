@@ -1,11 +1,17 @@
 import { Button } from '@omniviewdev/base-ui';
 import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
 import { useState } from 'react';
+
 import { EditorField, EditorHelp, EditorSection } from '../../editor-controls';
-import { Availability, booleanOptions, ChoiceValue, DriverField, omitted, Parameters, storageBuffer, TextValue, useStorageForm, type StorageState } from './StorageFields';
+
 import { identifierError, topologyValuesError } from './rules';
+import { Availability, ChoiceValue, DriverField, Parameters, TextValue } from './StorageFields';
+import { booleanOptions, omitted, storageBuffer, useStorageForm, type StorageState } from './storageState';
 
 export default function StorageClassForm(form: ResourceEditorFormProps) {
+  return <StorageClassSession key={form.draft.sessionID} form={form} />;
+}
+function StorageClassSession({ form }: { form: ResourceEditorFormProps }) {
   const state = useStorageForm(form);
   const immutable = form.context.intent !== 'create';
   if (form.section === 'availability') return <Availability form={form} />;
@@ -28,7 +34,7 @@ function MountOptions({ form, state }: { form: ResourceEditorFormProps; state: S
   const values = form.draft.get(['mountOptions']);
   const [value, setValue] = storageBuffer(state, 'new-mount-value');
   const [error, setError] = useState<string | null>(null);
-  return <div className="storage-list">{Array.isArray(values) && values.map((_, index) => <div className="storage-row" key={index}>
+  return <div className="storage-list">{state.rows(['mountOptions']).map(({ id, index }) => <div className="storage-row" key={id}>
     <TextValue form={form} state={state} path={['mountOptions', index]} label={`Mount option ${index + 1}`} required />
     <Button size="sm" variant="ghost" disabled={state.locked} onClick={() => { const failure = state.commit([{ op: 'remove', path: ['mountOptions', index] }]); setError(failure); state.report('mounts', failure); }}>Remove option {index + 1}</Button>
   </div>)}<div className="storage-row"><EditorField label="New mount option" value={value} disabled={state.locked} onChange={next => { setValue(next); state.report('new-mount', next ? 'Add or discard the pending mount option.' : null); }} />
@@ -36,11 +42,10 @@ function MountOptions({ form, state }: { form: ResourceEditorFormProps; state: S
     <Button size="sm" variant="ghost" disabled={state.locked || !value} onClick={() => { setValue(''); state.report('new-mount', null); }}>Discard</Button></div>{error && <p role="alert">{error}</p>}</div>;
 }
 function Topologies({ form, state }: { form: ResourceEditorFormProps; state: StorageState }) {
-  const terms = form.draft.get(['allowedTopologies']);
-  return <div className="storage-list">{Array.isArray(terms) && terms.map((_, termIndex) => {
-    const expressions = form.draft.get(['allowedTopologies', termIndex, 'matchLabelExpressions']);
-    return <div className="storage-card" key={termIndex}><div className="storage-heading"><strong>Topology term {termIndex + 1}</strong><Button size="sm" variant="ghost" disabled={state.locked} onClick={() => state.report('topology', state.commit([{ op: 'remove', path: ['allowedTopologies', termIndex] }]))}>Remove term</Button></div>
-      {Array.isArray(expressions) && expressions.map((__, index) => <div className="storage-row" key={index}>
+  return <div className="storage-list">{state.rows(['allowedTopologies']).map(({ id, index: termIndex }) => {
+    const expressions = state.rows(['allowedTopologies', termIndex, 'matchLabelExpressions']);
+    return <div className="storage-card" key={id}><div className="storage-heading"><strong>Topology term {termIndex + 1}</strong><Button size="sm" variant="ghost" disabled={state.locked} onClick={() => state.report('topology', state.commit([{ op: 'remove', path: ['allowedTopologies', termIndex] }]))}>Remove term</Button></div>
+      {expressions.map(({ id: expressionID, index }) => <div className="storage-row" key={expressionID}>
         <TextValue form={form} state={state} path={['allowedTopologies', termIndex, 'matchLabelExpressions', index, 'key']} label={`Term ${termIndex + 1} topology key ${index + 1}`} required parse={text => { const error = identifierError(text); return error ? { error } : { value: text }; }} />
         <TopologyValues form={form} state={state} term={termIndex} index={index} />
         <Button size="sm" variant="ghost" disabled={state.locked || expressions.length === 1} onClick={() => state.report('topology', state.commit([{ op: 'remove', path: ['allowedTopologies', termIndex, 'matchLabelExpressions', index] }]))}>Remove requirement</Button>
@@ -51,17 +56,18 @@ function Topologies({ form, state }: { form: ResourceEditorFormProps; state: Sto
 function TopologyValues({ form, state, term, index }: { form: ResourceEditorFormProps; state: StorageState; term: number; index: number }) {
   const path = ['allowedTopologies', term, 'matchLabelExpressions', index, 'values'];
   const values = form.draft.get(path);
-  const canonical = Array.isArray(values) ? values.join(', ') : '';
-  const [text, setText] = storageBuffer(state, JSON.stringify(path), canonical);
+  const canonical = Array.isArray(values) && values.every(value => typeof value === 'string') ? values.join(', ') : '';
+  const entry = state.buffers[JSON.stringify(path)];
+  const text = entry?.canonical === canonical ? entry.text : canonical;
   return <EditorField label={`Term ${term + 1} values ${index + 1}`} value={text} error={state.errors[JSON.stringify(path)]} disabled={state.locked} help="Comma-separated exact topology values. Requirements preserve unrelated terms and unknown expression fields." onChange={next => {
-    setText(next); const parsed = next.split(',').map(value => value.trim());
+    state.buffer(JSON.stringify(path), next, canonical); const parsed = next.split(',').map(value => value.trim());
     const failure = topologyValuesError(parsed) || state.commit([{ op: 'set', path, value: parsed }]);
     state.report(JSON.stringify(path), failure);
   }} />;
 }
 function TopologyBuilder({ form, state, term }: { form: ResourceEditorFormProps; state: StorageState; term?: number }) {
-  const ledger = `topology-builder-${term ?? 'new'}`;
-  const [key, setKey] = storageBuffer(state, `${ledger}-key`); const [values, setValues] = storageBuffer(state, `${ledger}-values`); const [error, setError] = useState<string | null>(null);
+  const ledger = JSON.stringify(['allowedTopologies', term ?? 'new', '$builder']);
+  const [key, setKey] = storageBuffer(state, JSON.stringify(['allowedTopologies', term ?? 'new', '$builder-key'])); const [values, setValues] = storageBuffer(state, JSON.stringify(['allowedTopologies', term ?? 'new', '$builder-values'])); const [error, setError] = useState<string | null>(null);
   const pending = (nextKey: string, nextValues: string) => state.report(ledger, nextKey || nextValues ? 'Add or discard the pending topology requirement.' : null);
   return <div className="storage-row"><EditorField label={term === undefined ? 'New term topology key' : `Term ${term + 1} new key`} value={key} disabled={state.locked} onChange={next => { setKey(next); pending(next, values); }} /><EditorField label={term === undefined ? 'New term values' : `Term ${term + 1} new values`} value={values} disabled={state.locked} onChange={next => { setValues(next); pending(key, next); }} />
     <Button size="sm" disabled={state.locked || !key || !values} onClick={() => {

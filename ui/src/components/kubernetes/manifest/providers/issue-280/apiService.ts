@@ -21,7 +21,7 @@ export function ownershipReason(draft: ResourceEditorDraft): string | null {
   const managed = draft.get(['metadata', 'labels', automanagedLabel]);
   if (managed === 'true' || managed === 'onstart') return 'Auto-registered APIService. Inspect only; controller may restore its registration.';
   const owners = draft.get(['metadata', 'ownerReferences']);
-  if (Array.isArray(owners) && owners.some(owner => owner && typeof owner === 'object' && owner.controller === true)) return 'Controller-owned APIService. Inspect only; change its owning configuration.';
+  if (Array.isArray(owners) && owners.some((owner: unknown) => owner !== null && typeof owner === 'object' && 'controller' in owner && owner.controller === true)) return 'Controller-owned APIService. Inspect only; change its owning configuration.';
   return null;
 }
 export function validateAPIService(draft: ResourceEditorDraft, context: ResourceEditorContext): readonly ResourceEditorFieldIssue[] {

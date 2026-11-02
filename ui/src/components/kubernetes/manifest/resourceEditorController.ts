@@ -76,6 +76,15 @@ function draftFromManifest(parsed: ManifestDraft, sessionID: string, revision: n
   return Object.freeze({ sessionID, revision, get, has: (path: ResourceEditorPath) => get(path) !== undefined });
 }
 
+export interface ResourceEditorControllerSnapshot {
+  readonly source: string;
+  readonly revision: number;
+  readonly sensitive: boolean;
+  readonly readOnly: boolean;
+  readonly protectedPaths: readonly ResourceEditorPath[];
+  readonly fallback: boolean;
+}
+
 /** Canonical host-only source; contributors receive only draft and scoped patch capability. */
 export class ResourceEditorController {
   readonly sessionID: string;
@@ -84,12 +93,33 @@ export class ResourceEditorController {
   private manifest: ManifestDraft;
   private projection?: { paths: readonly ResourceEditorPath[]; draft: ResourceEditorDraft };
   private active = true;
-  constructor(source: string, sessionID = globalThis.crypto?.randomUUID?.() ?? `editor-${Date.now()}-${Math.random()}`) { this.source = source; this.manifest = inspectManifest(source); this.sessionID = sessionID; }
+  private readonly listeners = new Set<() => void>();
+  private snapshot: ResourceEditorControllerSnapshot;
+  constructor(source: string, sessionID = globalThis.crypto?.randomUUID?.() ?? `editor-${Date.now()}-${Math.random()}`) {
+    this.source = source; this.manifest = inspectManifest(source); this.sessionID = sessionID;
+    this.snapshot = { source, revision: 0, sensitive: false, readOnly: false, protectedPaths: [], fallback: false };
+  }
+  readonly subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
+  readonly getSnapshot = () => this.snapshot;
+  private publish(sensitive = this.snapshot.sensitive, readOnly = this.snapshot.readOnly, protectedPaths = this.snapshot.protectedPaths, fallback = this.snapshot.fallback) {
+    this.snapshot = { source: this.source, revision: this.revision, sensitive, readOnly, protectedPaths, fallback };
+    this.listeners.forEach((listener) => listener());
+  }
+  commitSafety(sensitive: boolean, readOnly?: boolean, paths?: readonly ResourceEditorPath[], fallback = false) {
+    const nextSensitive = this.snapshot.sensitive || sensitive;
+    const nextReadOnly = readOnly ?? this.snapshot.readOnly;
+    let protectedPaths = this.snapshot.protectedPaths;
+    for (const path of paths ?? []) {
+      if (!protectedPaths.some((saved) => saved.length === path.length && saved.every((segment, index) => segment === path[index]))) protectedPaths = [...protectedPaths, Object.freeze([...path])];
+    }
+    const nextFallback = this.snapshot.fallback || fallback;
+    if (nextSensitive !== this.snapshot.sensitive || nextReadOnly !== this.snapshot.readOnly || protectedPaths !== this.snapshot.protectedPaths || nextFallback !== this.snapshot.fallback) this.publish(nextSensitive, nextReadOnly, protectedPaths, nextFallback);
+  }
   getSource() { return this.source; }
   isActive() { return this.active; }
   activate() { this.active = true; }
-  syncSource(source: string) { if (this.source !== source) { this.source = source; this.manifest = inspectManifest(source); this.revision++; this.projection = undefined; } }
-  invalidate() { this.revision++; this.projection = undefined; }
+  syncSource(source: string) { if (this.source !== source) { this.source = source; this.manifest = inspectManifest(source); this.revision++; this.projection = undefined; this.publish(); } }
+  invalidate() { this.revision++; this.projection = undefined; this.publish(); }
   dispose() { this.active = false; }
   draft(paths: readonly ResourceEditorPath[] = noSensitivePaths): ResourceEditorDraft {
     if (!this.projection || this.projection.paths !== paths) this.projection = { paths, draft: draftFromManifest(this.manifest, this.sessionID, this.revision, paths) };
@@ -209,4 +239,19 @@ export function resourceEditorPreview(source: string): string {
   const get = (path: ResourceEditorPath) => readManifestValue(draft, path);
   const scalar = (value: unknown) => typeof value === 'string' ? value : undefined;
   return stringify({ apiVersion: scalar(get(['apiVersion'])), kind: scalar(get(['kind'])), metadata: { name: scalar(get(['metadata', 'name'])), namespace: scalar(get(['metadata', 'namespace'])) }, hidden: 'Sensitive source omitted. Explicit raw access is required.' });
+}
+
+/** Full display-only projection: comments are excluded and opaque values stay non-mutating placeholders. */
+export function inspectResourceEditorProjection(source: string, paths: readonly ResourceEditorPath[]) {
+  const draft = inspectManifest(source);
+  if (draft.error || !draft.document) return { sensitive: paths.length > 0, preview: '# Sensitive YAML is invalid. Values are hidden.\n' };
+  let sensitive = false;
+  const display = (value: unknown): unknown => {
+    if (!value || typeof value !== 'object') return value;
+    if (opaque.has(value)) { sensitive = true; return '[REDACTED]'; }
+    if (Array.isArray(value)) return value.map(display);
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, display(child)]));
+  };
+  const value = display(project(readManifestValue(draft, []), paths));
+  return { sensitive, preview: stringify(value, { lineWidth: 0 }) };
 }

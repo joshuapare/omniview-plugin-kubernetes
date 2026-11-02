@@ -39,6 +39,7 @@ export function validate(draft: ResourceEditorDraft): readonly ResourceEditorFie
       const kind = draft.get([...path, 'kind']);
       const name = draft.get([...path, 'name']);
       if (kind !== 'Secret' && kind !== 'ConfigMap') errors.push({ path: [...path, 'kind'], message: 'Choose Secret or ConfigMap.' });
+      if (typeof kind !== 'string' || typeof name !== 'string') return;
       const key = `${kind}/${name}`;
       if (seen.has(key)) errors.push({ path, message: 'Duplicate substitution reference.' });
       seen.add(key);

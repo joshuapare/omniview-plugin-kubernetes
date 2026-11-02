@@ -11,17 +11,18 @@ export default function OwnerInspection({ draft, context, references }: Resource
   const owner = owned.owner;
   const ownerResource = owner?.apiVersion === 'apps/v1' ? ownerResources[owner.kind] : undefined;
   const hasOwner = !!owner;
-  const [lookup, setLookup] = useState<ResourceEditorReferenceResult | 'loading' | null>(null);
+  const identity = JSON.stringify([ownerResource, owner?.name, owner?.uid, context.namespace, draft.sessionID, draft.revision]);
+  const [result, setResult] = useState<{ identity: string; value: ResourceEditorReferenceResult } | null>(null);
+  const lookup = ownerResource && context.namespace && hasOwner ? result?.identity === identity ? result.value : 'loading' : null;
   useEffect(() => {
-    if (!ownerResource || !context.namespace || !hasOwner) { setLookup(null); return; }
+    if (!ownerResource || !context.namespace || !hasOwner) return;
     const controller = new AbortController();
     let active = true;
-    setLookup('loading');
     references.list({ group: 'apps', version: 'v1', resource: ownerResource, namespace: context.namespace, projection: 'metadata', sessionID: draft.sessionID, generation: draft.revision, signal: controller.signal }).then(result => {
-      if (active && !controller.signal.aborted) setLookup(result);
-    }, () => { if (active && !controller.signal.aborted) setLookup({ status: 'unavailable', message: 'Owner lookup unavailable.' }); });
+      if (active && !controller.signal.aborted) setResult({ identity, value: result });
+    }, () => { if (active && !controller.signal.aborted) setResult({ identity, value: { status: 'unavailable', message: 'Owner lookup unavailable.' } }); });
     return () => { active = false; controller.abort(); };
-  }, [ownerResource, hasOwner, context.namespace, draft.sessionID, draft.revision, references]);
+  }, [identity, ownerResource, hasOwner, context.namespace, draft.sessionID, draft.revision, references]);
   const revision = context.kind === 'ControllerRevision';
   let availability = 'Owner lookup not supported for this owner kind.';
   if (lookup === 'loading') availability = 'Loading owner reference…';

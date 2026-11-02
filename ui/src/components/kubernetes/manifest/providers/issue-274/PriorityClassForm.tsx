@@ -1,8 +1,11 @@
 import { Checkbox, TextArea } from '@omniviewdev/base-ui';
 import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
+
 import { EditorChoice, EditorHelp, EditorSection, scalarText } from '../../editor-controls';
-import { BufferedField, useSchedulingForm } from './formState';
+
+import { BufferedField } from './formState';
 import { integer, schedulingReadOnly, validatePriority } from './model';
+import { useSchedulingForm } from './useSchedulingForm';
 import './scheduling.css';
 
 export default function PriorityClassForm(form: ResourceEditorFormProps) {

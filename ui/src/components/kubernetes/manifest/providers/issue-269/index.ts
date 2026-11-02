@@ -1,5 +1,7 @@
-import { lazy } from 'react';
 import type { ResourceEditorContribution } from '@omniviewdev/runtime';
+
+import { lazy } from 'react';
+
 import { policyFormUnavailable, policyReadOnly, validatePolicy } from './policy';
 
 export const resourceEditors: readonly ResourceEditorContribution[] = [{

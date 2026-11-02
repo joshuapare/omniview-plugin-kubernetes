@@ -21,11 +21,14 @@ function Integer({ form, path, label, bits = 64 }: { form: ResourceEditorFormPro
   return <ExactValueField identity={`${form.draft.sessionID}:${JSON.stringify(path)}`} label={label} help={`Optional nonnegative int${bits}. Clear to use API default; values remain exact.`} value={scalarText(form.draft.get(path))} disabled={form.disabled} inputMode="numeric" parse={text => text === '' ? { valid: true, value: '' } : exactNonnegative(text, bits)} onCommit={value => patchError(value === '' ? removeDraftField(form, path) : setDraftField(form, path, value))} onValidityChange={error => validity(JSON.stringify(path), error)} />;
 }
 function FunctionField({ form, path, label }: { form: ResourceEditorFormProps; path: ResourceEditorPath; label: string }) {
+  return <FunctionFieldSession key={`${form.draft.sessionID}/${JSON.stringify(path)}/${scalarText(form.draft.get(path))}`} form={form} path={path} label={label} />;
+}
+function FunctionFieldSession({ form, path, label }: { form: ResourceEditorFormProps; path: ResourceEditorPath; label: string }) {
   const [text, setText] = useState(() => scalarText(form.draft.get(path)));
   const [error, setError] = useState<string | null>(null);
   const validity = useFieldValidity(form);
-  const current = scalarText(form.draft.get(path));
-  useEffect(() => { setText(current); setError(null); validity(JSON.stringify(path), null); }, [current, validity, JSON.stringify(path)]);
+  const fieldID = JSON.stringify(path);
+  useEffect(() => { validity(fieldID, error); return () => validity(fieldID, null); }, [validity, fieldID, error]);
   return <ReferencePicker form={form} label={label} query={{ group: 'pkg.crossplane.io', version: 'v1', resource: 'functions', projection: 'metadata' }} value={text} error={error} disabled={form.disabled} onChange={value => {
     setText(value);
     const failure = value.trim() ? patchError(setDraftField(form, path, value)) : 'Function name is required.';
@@ -43,7 +46,7 @@ function Pipeline({ form }: { form: ResourceEditorFormProps }) {
   const validity = useFieldValidity(form);
   const report = (message: string | null) => { setError(message); validity('pipeline-add', message); };
   return <EditorSection title="Function pipeline"><EditorHelp label="Function pipeline">Steps execute in order. Functions must already be installed and compatible. Function input and credentials remain in protected source; no values are loaded here.</EditorHelp>
-    {Array.from({ length: count }, (_, i) => <div key={i} style={{ borderBottom: '1px solid var(--ov-border-default)', paddingBottom: 12 }}><Text form={form} path={[...path, i, 'step']} label={`Step ${i + 1} name`} required /><FunctionField key={`${form.draft.sessionID}:${i}`} form={form} path={[...path, i, 'functionRef', 'name']} label={`Step ${i + 1} Function`} />
+    {Array.from({ length: count }, (_, i) => <div key={i} style={{ borderBottom: '1px solid var(--ov-color-border-default)', paddingBottom: 12 }}><Text form={form} path={[...path, i, 'step']} label={`Step ${i + 1} name`} required /><FunctionField key={`${form.draft.sessionID}:${i}`} form={form} path={[...path, i, 'functionRef', 'name']} label={`Step ${i + 1} Function`} />
       <Button size="sm" variant="ghost" disabled={form.disabled} aria-label={`Remove step ${i + 1}`} onClick={() => report(patchError(removeDraftField(form, [...path, i])))}>Remove step</Button>
       <details><summary>Step advanced fields</summary><span>Input, credentials and required-resource selectors use source. Existing fields stay unchanged.</span></details>
     </div>)}

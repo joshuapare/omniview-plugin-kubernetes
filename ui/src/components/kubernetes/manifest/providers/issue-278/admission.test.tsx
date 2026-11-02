@@ -34,6 +34,15 @@ describe('admission registration behavior', () => {
     expect(unavailable(draft, context)).toBeNull();
     expect(validateAdmission(draft, context)).toEqual([]);
   });
+  it.each([
+    ['port: 443', 'port: {toString: withheld}', 'Port must be 1–65535.'],
+    ['timeoutSeconds: 10', 'timeoutSeconds: {toString: withheld}', 'Timeout must be 1–30 seconds.'],
+  ])('rejects opaque numeric webhook fields without coercion: %s', (before, after, message) => {
+    const source = admissionFixtures[0].source.replace(before, after);
+    const { controller, context, contribution } = session(0, source);
+    expect(validateAdmission(controller.draft(contribution.sensitivePaths), context).map(issue => issue.message)).toContain(message);
+    expect(controller.getSource()).toBe(source);
+  });
   it('keeps CA material and unknown siblings when atomically switching webhook clients', () => {
     const source = admissionFixtures[0].source.replace('    sideEffects:', '      caBundle: fixture-public-trust-material\n      futureTLSOption: preserve\n    sideEffects:');
     const { controller, contribution, patch } = session(0, source);

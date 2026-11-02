@@ -1,13 +1,17 @@
-import { useState } from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ResourceEditorContext, ResourceEditorContribution, ResourceEditorReferenceService } from '@omniviewdev/runtime';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { useState } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { ResourceEditorController } from '../../resourceEditorController';
+
+import { fixtureContext, prioritySource, workloadSource } from './fixtures';
+import { BufferedField } from './formState';
+import { controllerLookup, integer, policyChanges, priorityUnavailable, schedulingReadOnly, validateWorkload, workloadUnavailable } from './model';
 import PriorityClassForm from './PriorityClassForm';
 import WorkloadForm from './WorkloadForm';
-import { fixtureContext, prioritySource, workloadSource } from './fixtures';
+
 import { resourceEditors } from './index';
-import { controllerLookup, integer, policyChanges, priorityUnavailable, schedulingReadOnly, validateWorkload, workloadUnavailable } from './model';
 
 const references: ResourceEditorReferenceService = { list: async () => ({ status: 'ready', items: [] }) };
 function Harness({ source = prioritySource, context = fixtureContext('PriorityClass'), contribution = resourceEditors[0], validity = () => {} }: {
@@ -47,10 +51,39 @@ describe('Scheduling editor behavior', () => {
     expect(screen.getByLabelText('Preemption')).toBeDisabled();
     expect(screen.getByLabelText('Description')).not.toBeDisabled();
   });
-  it('does not author bootstrap or controller-owned classes', () => {
-    render(<Harness source={prioritySource.replace('batch-priority', 'system-cluster-critical')} />);
+  it.each(['bootstrap', 'controller-policy', 'controller-reference'])('blocks canonical mutations for %s classes', ownership => {
+    const context = fixtureContext('PriorityClass');
+    let source = prioritySource;
+    if (ownership === 'bootstrap') source = source.replace('batch-priority', 'system-cluster-critical');
+    if (ownership === 'controller-policy') context.ownership = { status: 'controller' };
+    if (ownership === 'controller-reference') source = source.replace('  name: batch-priority', '  name: batch-priority\n  ownerReferences:\n    - apiVersion: apps/v1\n      kind: Deployment\n      name: scheduler-owner\n      uid: fixture-owner\n      controller: true');
+    render(<Harness source={source} context={context} />);
     expect(screen.getByLabelText('Description')).toBeDisabled();
-    expect(screen.getByRole('status')).toHaveTextContent('Inspection only');
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Forbidden change' } });
+    expect(screen.getByLabelText('Canonical fixture source').textContent).toBe(source);
+    const controller = new ResourceEditorController(source, 'ownership-test');
+    const draft = controller.draft();
+    expect(controller.patch({ sessionID: draft.sessionID, expectedRevision: draft.revision, operations: [{ op: 'set', path: ['globalDefault'], value: true }] }, resourceEditors[0], context).status).toBe('forbidden');
+    expect(controller.getSource()).toBe(source);
+  });
+  it('rejects unsupported identity shapes and preserves trusted system identity restrictions', () => {
+    const context = fixtureContext('PriorityClass');
+    const malformed = new ResourceEditorController(prioritySource.replace('name: batch-priority', 'name: {unsupported: true}')).draft();
+    expect(schedulingReadOnly(malformed, context)).toBe(true);
+    context.name = 'system-cluster-critical';
+    expect(schedulingReadOnly(new ResourceEditorController(prioritySource).draft(), context)).toBe(true);
+  });
+  it('does not resurrect an old invalid buffer after canonical field changes', () => {
+    const report = vi.fn();
+    const field = { label: 'Buffered priority', fieldKey: 'priority', report, validate: (text: string) => integer(text, -2147483648, 1000000000) === null ? 'Invalid priority' : null, onCommit: () => null };
+    const view = render(<BufferedField {...field} value="100" />);
+    fireEvent.change(screen.getByLabelText('Buffered priority'), { target: { value: '-' } });
+    expect(screen.getByLabelText('Buffered priority')).toHaveValue('-');
+    view.rerender(<BufferedField {...field} value="200" />);
+    expect(screen.getByLabelText('Buffered priority')).toHaveValue('200');
+    view.rerender(<BufferedField {...field} value="100" />);
+    expect(screen.getByLabelText('Buffered priority')).toHaveValue('100');
+    expect(report).toHaveBeenLastCalledWith('priority', null);
   });
   it('adds a group only after a valid unique local name and removes only the selected row', () => {
     render(<Harness source={workloadSource} context={fixtureContext('Workload')} contribution={resourceEditors[1]} />);
@@ -69,6 +102,16 @@ describe('Scheduling editor behavior', () => {
     render(<Harness source={workloadSource} context={fixtureContext('Workload')} contribution={resourceEditors[1]} />);
     fireEvent.change(screen.getByLabelText('Group 1 minimum Pods'), { target: { value: '2147483648' } });
     expect(screen.getByLabelText('Group 1 minimum Pods')).toHaveValue('2147483648');
+    expect(screen.getByLabelText('Canonical fixture source')).toHaveTextContent('minCount: 3');
+  });
+  it('retains an invalid remaining group buffer when an earlier row is removed', () => {
+    const validity = vi.fn();
+    const source = workloadSource.replace('basic: {}', 'gang:\n          minCount: 3');
+    render(<Harness source={source} context={fixtureContext('Workload')} contribution={resourceEditors[1]} validity={validity} />);
+    fireEvent.change(screen.getByLabelText('Group 2 minimum Pods'), { target: { value: '-' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove pod group 1' }));
+    expect(screen.getByLabelText('Group 1 minimum Pods')).toHaveValue('-');
+    expect(validity).toHaveBeenLastCalledWith('Enter an integer from 1 to 2147483647 Pods.');
     expect(screen.getByLabelText('Canonical fixture source')).toHaveTextContent('minCount: 3');
   });
   it('locks existing group policies and a set controller reference', () => {

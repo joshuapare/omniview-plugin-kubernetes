@@ -133,7 +133,7 @@ describe('core domain authoring', () => {
   });
   it('keeps dotted quota resource names as literal keys and rejects incompatible scopes', () => {
     const provider = resourceEditors.find(item => item.targets[0].kind === 'ResourceQuota')!;
-    const controller = new ResourceEditorController('spec:\n  hard: {requests.cpu: \"1\", requests.memory: 2Gi}\n  scopes: [BestEffort, NotBestEffort]\n','quota');
+    const controller = new ResourceEditorController('spec:\n  hard: {requests.cpu: "1", requests.memory: 2Gi}\n  scopes: [BestEffort, NotBestEffort]\n','quota');
     expect(controller.patch({sessionID:'quota',expectedRevision:0,operations:[{op:'set',path:['spec','hard','requests.cpu'],value:'1500m'}]},provider,context('ResourceQuota')).status).toBe('accepted');
     expect(controller.draft().get(['spec','hard','requests.cpu'])).toBe('1500m');
     expect(controller.draft().get(['spec','hard','requests.memory'])).toBe('2Gi');

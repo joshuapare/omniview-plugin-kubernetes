@@ -43,10 +43,10 @@ export function validateOperation(draft: ResourceEditorDraft, context: ResourceE
   if (context.kind === 'CronOperation') integers.push([['spec', 'startingDeadlineSeconds'], 64]);
   for (const [path, bits] of integers) if (draft.has(path)) {
     const value = draft.get(path);
-    const result = exactNonnegative(typeof value === 'number' && !Number.isSafeInteger(value) ? '' : String(value), bits);
+    const result = exactNonnegative(typeof value === 'bigint' || typeof value === 'string' || typeof value === 'number' && Number.isSafeInteger(value) ? String(value) : '', bits);
     if (!result.valid) add(path, result.error);
   }
   const concurrency = draft.get(['spec', 'concurrencyPolicy']);
-  if (context.kind !== 'Operation' && concurrency !== undefined && !['Allow', 'Forbid', 'Replace'].includes(String(concurrency))) add(['spec', 'concurrencyPolicy'], 'Choose Allow, Forbid or Replace.');
+  if (context.kind !== 'Operation' && concurrency !== undefined && (typeof concurrency !== 'string' || !['Allow', 'Forbid', 'Replace'].includes(concurrency))) add(['spec', 'concurrencyPolicy'], 'Choose Allow, Forbid or Replace.');
   return issues;
 }

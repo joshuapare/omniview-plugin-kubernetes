@@ -1,7 +1,9 @@
-import { useEffect, useId, useMemo, useState } from 'react';
 import { Button } from '@omniviewdev/base-ui';
 import type { ResourceEditorFormProps, ResourceEditorPatch, ResourceEditorPath } from '@omniviewdev/runtime';
+import { useEffect, useId, useMemo, useState } from 'react';
+
 import { EditorChoice, EditorField, EditorHelp, EditorSection, patchFields, useEditorReferences } from '../../editor-controls';
+
 import { MANAGER, SERVICE, addressError, dnsLabel, dnsName, formUnavailable, isReadOnly, labelValue, managerError, ownership, portError, qualifiedName, record, rows, text, validate } from './model';
 import './endpoint-slice.css';
 
@@ -14,7 +16,7 @@ export default function EndpointSliceForm(props: ResourceEditorFormProps) {
   return <EndpointSliceSession key={props.draft.sessionID} {...props} />;
 }
 function EndpointSliceSession(form: ResourceEditorFormProps) {
-  const { draft, context, section } = form;
+  const { draft, context, section, onValidityChange } = form;
   const [pending, setPending] = useState<Record<string, Pending>>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [newAddress, setNewAddress] = useState('');
@@ -29,13 +31,26 @@ function EndpointSliceSession(form: ResourceEditorFormProps) {
   const family = draft.get(['addressType']);
   const endpoints = rows(draft.get(['endpoints']));
   const ports = rows(draft.get(['ports']));
+  const [rowKeys, setRowKeys] = useState(() => ({
+    endpoints: endpoints.map((_, position) => `endpoint-${position}`),
+    ports: ports.map((_, position) => `port-${position}`),
+    next: endpoints.length + ports.length,
+  }));
+  // Source-mode replacement can change collection lengths between mounted revisions.
+  // Explicit form insert/remove updates these identities in the originating event.
+  if (rowKeys.endpoints.length !== endpoints.length || rowKeys.ports.length !== ports.length) {
+    let next = rowKeys.next;
+    const endpointKeys = Array.from({ length: endpoints.length }, (_, position) => rowKeys.endpoints[position] ?? `row-${next++}`);
+    const portKeys = Array.from({ length: ports.length }, (_, position) => rowKeys.ports[position] ?? `row-${next++}`);
+    setRowKeys({ endpoints: endpointKeys, ports: portKeys, next });
+  }
   const fieldIssues = validate(draft, context);
   const unsupported = formUnavailable(draft, context);
   const selectedService = lookup.status === 'ready' ? lookup.items.find(item => item.name === draft.get(SERVICE) && item.namespace === context.namespace) : undefined;
   const serviceError = !readonly && selectedService?.serviceSelector === 'present' ? 'Service has a selector. Choose a selectorless Service for manual association.' : null;
   const pendingError = Object.values(pending)[0]?.error ?? (newAddress ? 'Add the pending endpoint or clear its address.' : null);
-  useEffect(() => { form.onValidityChange(pendingError ?? failure ?? serviceError); }, [pendingError, failure, serviceError, form.onValidityChange]);
-  useEffect(() => () => form.onValidityChange(null), [form.onValidityChange]);
+  useEffect(() => { onValidityChange(pendingError ?? failure ?? serviceError); }, [pendingError, failure, serviceError, onValidityChange]);
+  useEffect(() => () => onValidityChange(null), [onValidityChange]);
   const commit = (operations: readonly ResourceEditorPatch[]) => {
     if (locked) return false;
     const result = patchFields(form, operations);
@@ -55,9 +70,14 @@ function EndpointSliceSession(form: ResourceEditorFormProps) {
     const value = draft.get(path);
     return <EditorField key={key} label={label} value={pending[key]?.text ?? (typeof value === 'bigint' || typeof value === 'number' ? String(value) : text(value))} disabled={locked || forceLocked} inputMode={numeric ? 'numeric' : 'text'} help={help} error={pending[key]?.error ?? fieldIssues.find(issue => pathKey(issue.path) === key)?.message} onChange={next => change(path, next, check, numeric)} />;
   };
-  const append = (key: 'endpoints' | 'ports', value: unknown) => commit(draft.has([key]) ? [{ op: 'insert', path: [key], index: rows(draft.get([key])).length, value }] : [{ op: 'set', path: [key], value: [value] }]);
+  const append = (key: 'endpoints' | 'ports', value: unknown) => {
+    const accepted = commit(draft.has([key]) ? [{ op: 'insert', path: [key], index: rows(draft.get([key])).length, value }] : [{ op: 'set', path: [key], value: [value] }]);
+    if (accepted) setRowKeys(current => ({ ...current, [key]: [...current[key], `row-${current.next}`], next: current.next + 1 }));
+    return accepted;
+  };
   const remove = (key: 'endpoints' | 'ports', index: number) => {
     if (!commit([{ op: 'remove', path: [key, index] }])) return;
+    setRowKeys(current => ({ ...current, [key]: current[key].filter((_, position) => position !== index) }));
     setPending(current => Object.fromEntries(Object.entries(current).flatMap(([name, value]) => {
       const path = JSON.parse(name) as (string | number)[];
       if (path[0] !== key || typeof path[1] !== 'number') return [[name, value]];
@@ -84,7 +104,7 @@ function EndpointSliceSession(form: ResourceEditorFormProps) {
         <div role="status" aria-label="Service lookup">{lookup.status === 'loading' ? 'Loading Services…' : lookup.status === 'ready' ? !lookup.items.length ? 'No Services found. Existing or manual name remains available.' : selectedService?.serviceSelector === 'none' ? 'Same-namespace selectorless Service verified. Controller health is not checked.' : 'Only verified selectorless Services are suggested. Manual or existing association remains unresolved.' : lookup.status === 'denied' ? 'Service access denied. Manual association remains unresolved.' : lookup.status === 'absent' ? 'Service API absent. Manual association remains unresolved.' : 'Service lookup unavailable. Manual association remains unresolved.'}</div>
       </EditorSection>
       <EditorSection title="Owners">
-        {rows(draft.get(['metadata', 'ownerReferences'])).length ? <ul>{rows(draft.get(['metadata', 'ownerReferences'])).map((owner, index) => <li key={index}>{text(record(owner).kind)} / {text(record(owner).name)}{record(owner).controller === true ? ' · controller' : ''}</li>)}</ul> : <span>No owner reference declared.</span>}
+        {rows(draft.get(['metadata', 'ownerReferences'])).length ? <ul>{rows(draft.get(['metadata', 'ownerReferences'])).map(owner => <li key={`${text(record(owner).apiVersion)}/${text(record(owner).kind)}/${text(record(owner).name)}/${text(record(owner).uid)}`}>{text(record(owner).kind)} / {text(record(owner).name)}{record(owner).controller === true ? ' · controller' : ''}</li>)}</ul> : <span>No owner reference declared.</span>}
         <EditorHelp label="Ownership boundary">Labels alone do not prove manual ownership. Edit requires trusted application ownership and a distinct manual manager. Unknown or generated ownership remains inspection-only.</EditorHelp>
       </EditorSection>
     </>}
@@ -92,7 +112,7 @@ function EndpointSliceSession(form: ResourceEditorFormProps) {
       {!endpoints.length && <p>No endpoints. An empty slice sends no traffic to a backend.</p>}
       {endpoints.map((endpoint, index) => {
         const row = record(endpoint);
-        return <div className="endpoint-slice-row" key={index}>
+        return <div className="endpoint-slice-row" key={rowKeys.endpoints[index]}>
           <div className="endpoint-slice-row-heading"><strong>Backend {index + 1}</strong><Button size="sm" variant="ghost" disabled={locked} onClick={() => remove('endpoints', index)} aria-label={`Remove backend ${index + 1}`}>Remove</Button></div>
           <div className="endpoint-slice-grid">
             {field(['endpoints', index, 'addresses', 0], `Backend ${index + 1} address`, value => addressError(value, family), 'First address drives kube-proxy. Additional source addresses stay unchanged.')}
@@ -115,7 +135,7 @@ function EndpointSliceSession(form: ResourceEditorFormProps) {
     </EditorSection>}
     {section === 'ports' && <EditorSection title={`Backend ports (${ports.length})`}>
       {!ports.length && <p>No ports declared.</p>}
-      {ports.map((_port, index) => <div className="endpoint-slice-row" key={index}>
+      {ports.map((_port, index) => <div className="endpoint-slice-row" key={rowKeys.ports[index]}>
         <div className="endpoint-slice-row-heading"><strong>Port {index + 1}</strong><Button size="sm" variant="ghost" disabled={locked} aria-label={`Remove port ${index + 1}`} onClick={() => remove('ports', index)}>Remove</Button></div>
         <div className="endpoint-slice-grid">
           {field(['ports', index, 'name'], `Port ${index + 1} name`, value => value && !dnsLabel(value) ? 'Use a lowercase DNS label.' : null, 'Names must be unique, including the unnamed port.')}

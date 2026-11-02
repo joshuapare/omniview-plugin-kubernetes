@@ -1,5 +1,5 @@
 .external-metrics-series { display: grid; gap: 12px; min-width: 0; }
-.external-metrics-series article { border: 1px solid var(--ov-border-default); border-radius: 6px; padding: 12px; min-width: 0; }
+.external-metrics-series article { border: 1px solid var(--ov-color-border-default); border-radius: 6px; padding: 12px; min-width: 0; }
 .external-metrics-series h4 { margin: 0 0 8px; font-size: 13px; }
 .external-metrics-series dl { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(0, 2fr); gap: 6px 12px; margin: 0; }
 .external-metrics-series dl > div { display: contents; }

@@ -1,35 +1,47 @@
-import { Input } from '@omniviewdev/base-ui';
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import type { Ref } from 'react';
+import { Input, Popover, Tooltip } from '@omniviewdev/base-ui';
+import { useContext, useEffect, useEffectEvent, useId, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react';
+
+import { ResourcePortalContext } from '../ResourcePortalContext';
+
 import './controls.css';
 
-/** Hover/focus previews help; clicking pins it. Escape closes before the editor. */
+/** Existing primitives own positioning, focus, dismissal and hover timing. */
 export function EditorHelp({ label, children }: { label: string; children: ReactNode }) {
+  const container = useContext(ResourcePortalContext);
+  const previewID = useId();
   const [open, setOpen] = useState(false);
-  const pinned = useRef(false);
-  return <details className="resource-editor-help" open={open}
-    onPointerEnter={() => setOpen(true)}
-    onPointerLeave={event => { if (!pinned.current && !event.currentTarget.contains(document.activeElement)) setOpen(false); }}
-    onFocus={() => setOpen(true)}
-    onBlur={event => { if (!pinned.current && !event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}
-    onKeyDown={event => {
-      if (event.key !== 'Escape' || !event.currentTarget.open) return;
-      event.preventDefault();
-      event.stopPropagation();
-      pinned.current = false;
-      event.currentTarget.querySelector('summary')?.focus();
-      setOpen(false);
-    }}><summary aria-label={`Help: ${label}`} onClick={event => {
-      event.preventDefault();
-      pinned.current = !pinned.current;
-      setOpen(pinned.current);
-    }}>?</summary><div>{children}</div></details>;
+  const [preview, setPreview] = useState(false);
+  const suppressPreview = useRef(false);
+  function closeOnEscape(event: KeyboardEvent<HTMLElement>) {
+    if (event.key !== 'Escape' || !open && !preview) return;
+    event.preventDefault();
+    event.stopPropagation();
+    suppressPreview.current = true;
+    setPreview(false);
+    setOpen(false);
+  }
+  return <Popover.Root open={open} onOpenChange={(next, details) => {
+    setOpen(next);
+    setPreview(false);
+    suppressPreview.current = !next;
+    if (details.reason === 'escape-key') details.event.stopPropagation();
+  }}>
+    <Tooltip.Root open={preview && !open} onOpenChange={(next, details) => {
+      if (next && suppressPreview.current) return;
+      setPreview(next);
+      if (details.reason === 'escape-key') details.event.stopPropagation();
+    }}>
+      <Tooltip.Trigger aria-describedby={preview && !open ? previewID : undefined} render={<Popover.Trigger type="button" className="resource-editor-help" aria-label={`Help: ${label}`} onKeyDown={closeOnEscape} onPointerEnter={() => { suppressPreview.current = false; }} onBlur={() => { suppressPreview.current = false; }} />}>?</Tooltip.Trigger>
+      <Tooltip.Portal container={container}><Tooltip.Positioner sideOffset={6}><Tooltip.Popup id={previewID} role="tooltip" className="resource-editor-help-popup">{children}</Tooltip.Popup></Tooltip.Positioner></Tooltip.Portal>
+    </Tooltip.Root>
+    <Popover.Portal container={container}><Popover.Positioner sideOffset={6}><Popover.Popup className="resource-editor-help-popup" aria-label={`Help: ${label}`} initialFocus={false} onKeyDown={closeOnEscape}>{children}</Popover.Popup></Popover.Positioner></Popover.Portal>
+  </Popover.Root>;
 }
 
 export interface EditorFieldProps {
   label: string;
   value: string;
-  onChange(value: string): void;
+  onChange: (value: string) => void;
   help?: ReactNode;
   error?: string | null;
   disabled?: boolean;
@@ -59,25 +71,22 @@ export function parseExactInteger(text: string): ExactParseResult {
 export interface ExactValueFieldProps extends Omit<EditorFieldProps, 'value' | 'onChange' | 'error'> {
   value: string;
   identity: string;
-  parse(text: string): ExactParseResult;
-  onCommit(value: string | bigint | number): string | null;
-  onValidityChange(error: string | null): void;
+  parse: (text: string) => ExactParseResult;
+  onCommit: (value: string | bigint | number) => string | null;
+  onValidityChange: (error: string | null) => void;
 }
-/** Identity is session plus field path. Sibling revisions must not discard partial text. */
+/** Source value and session/path identity reset a field; sibling revisions do not. */
 export function ExactValueField(props: ExactValueFieldProps) {
-  return <ExactValueSession key={props.identity} {...props} />;
+  return <ExactValueSession key={JSON.stringify([props.identity, props.value])} {...props} />;
 }
 function ExactValueSession({ value, parse, onCommit, onValidityChange, identity: _identity, ...field }: ExactValueFieldProps) {
   const [text, setText] = useState(value);
   const [error, setError] = useState<string | null>(null);
-  const report = useRef(onValidityChange);
-  report.current = onValidityChange;
+  const report = useEffectEvent(onValidityChange);
   useEffect(() => {
-    setText(value);
-    setError(null);
-    report.current(null);
-    return () => report.current(null);
-  }, [value]);
+    report(error);
+    return () => report(null);
+  }, [error]);
   return <EditorField {...field} value={text} error={error} onChange={next => {
     setText(next);
     const result = parse(next);

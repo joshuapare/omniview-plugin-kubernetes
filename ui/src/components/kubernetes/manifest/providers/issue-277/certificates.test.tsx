@@ -1,15 +1,24 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import type { ResourceEditorContext, ResourceEditorFormProps } from '@omniviewdev/runtime';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ResourceEditorContext, ResourceEditorFormProps } from '@omniviewdev/runtime';
+
 import { ResourceEditorController } from '../../resourceEditorController';
+
 import CertificateSigningRequestForm from './CertificateSigningRequestForm';
 import ClusterTrustBundleForm from './ClusterTrustBundleForm';
-import PodCertificateRequestForm from './PodCertificateRequestForm';
-import { resourceEditors } from './index';
 import { lifetimeError, signerError, trustNameError, validateCSR } from './domain';
 import { parseMaterial } from './material';
-import requestPEM from './fixtures/request.pem?raw';
-import caPEM from './fixtures/ca.pem?raw';
+import PodCertificateRequestForm from './PodCertificateRequestForm';
+
+import { resourceEditors } from './index';
+
+const fixtureDirectory = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
+const requestPEM = readFileSync(join(fixtureDirectory, 'request.pem'), 'utf8');
+const caPEM = readFileSync(join(fixtureDirectory, 'ca.pem'), 'utf8');
 
 const csr = 'apiVersion: certificates.k8s.io/v1\nkind: CertificateSigningRequest\nmetadata:\n  name: fixture\n  resourceVersion: "9"\nspec:\n  signerName: fixture.invalid/client\n  request: masked-fixture\n  usages:\n    - client auth # keep comment\n    - digital signature\n  expirationSeconds: 1200\n  extensionNumber: 90071992547409931234 # unknown stays exact\n';
 const context: ResourceEditorContext = {
@@ -41,7 +50,7 @@ describe('certificate policy', () => {
     expect(trustNameError('unbound:root', '')).toBeTruthy();
   });
   it('requires usages without populating defaults and never validates existing immutable spec as authoring', () => {
-    const form = props(csr.replace(/  usages:[\s\S]*?  expirationSeconds:/, '  expirationSeconds:'));
+    const form = props(csr.replace(/ {2}usages:[\s\S]*? {2}expirationSeconds:/, '  expirationSeconds:'));
     expect(validateCSR(form.draft, form.context).some(issue => issue.path[1] === 'usages')).toBe(true);
     expect(validateCSR(form.draft, { ...form.context, intent: 'inspect' })).toEqual([]);
   });
@@ -134,11 +143,40 @@ describe('pending material callback ownership', () => {
     const file = new File([], 'fixture.pem');
     Object.defineProperty(file, 'arrayBuffer', { value: () => promise });
     fireEvent.change(screen.getByLabelText('Attach Certificate signing request'), { target: { files: [file] } });
-    const replacement = vi.fn(form.patch);
+    const replacement = vi.fn<ResourceEditorFormProps['patch']>(request => form.patch(request));
     view.rerender(<CertificateSigningRequestForm {...form} patch={replacement} />);
     await act(async () => { resolve(new TextEncoder().encode(requestPEM).buffer); });
+    expect(vi.mocked(form.patch).mock.calls.length).toBe(0);
+    expect(replacement.mock.calls.length).toBe(0);
+    expect(form.controller.getSource() === csr).toBe(true);
+  });
+});
+describe('certificate revision lifecycles', () => {
+  it('reflects externally edited valid scalars without discarding a local invalid sibling', () => {
+    const form = props();
+    const view = render(<CertificateSigningRequestForm {...form} />);
+    fireEvent.click(screen.getByText('Optional lifetime'));
+    fireEvent.change(screen.getByLabelText('Requested lifetime (seconds)'), { target: { value: '59' } });
+    form.controller.syncSource(csr.replace('fixture.invalid/client', 'other.invalid/client'));
+    view.rerender(<CertificateSigningRequestForm {...form} draft={form.controller.draft(resourceEditors[0].sensitivePaths)} />);
+    expect((screen.getByLabelText('Signer') as HTMLInputElement).value).toBe('other.invalid/client');
+    expect((screen.getByLabelText('Requested lifetime (seconds)') as HTMLInputElement).value).toBe('59');
     expect(form.patch).not.toHaveBeenCalled();
-    expect(replacement).not.toHaveBeenCalled();
-    expect(form.controller.getSource()).toBe(csr);
+  });
+  it('aborts an in-flight approval when the revision changes and suppresses its late result', async () => {
+    const form = props(csr, 'inspect');
+    const pending = Promise.withResolvers<{ status: 'ready'; output: Record<string, never> }>();
+    const execute = vi.fn<ResourceEditorFormProps['actions']['execute']>(() => pending.promise);
+    const view = render(<CertificateSigningRequestForm {...form} section="lifecycle" actions={{ execute }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Review approval' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm approval' }));
+    const signal = execute.mock.calls[0][0].signal;
+    form.controller.syncSource(csr + '# refreshed revision\n');
+    view.rerender(<CertificateSigningRequestForm {...form} section="lifecycle" draft={form.controller.draft(resourceEditors[0].sensitivePaths)} actions={{ execute }} />);
+    expect(signal.aborted).toBe(true);
+    await act(async () => { pending.resolve({ status: 'ready', output: {} }); });
+    expect(screen.queryByText(/Approval update accepted/)).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Approval review' })).toBeNull();
+    expect(form.controller.getSource()).toBe(csr + '# refreshed revision\n');
   });
 });

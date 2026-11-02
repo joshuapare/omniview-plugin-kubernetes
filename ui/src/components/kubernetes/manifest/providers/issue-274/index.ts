@@ -1,5 +1,6 @@
-import { lazy } from 'react';
 import type { ResourceEditorContribution } from '@omniviewdev/runtime';
+import { lazy } from 'react';
+
 import { controllerPath, podGroupsPath, priorityUnavailable, schedulingReadOnly, validatePriority, validateWorkload, workloadUnavailable } from './model';
 
 const PriorityClassForm = lazy(() => import('./PriorityClassForm'));

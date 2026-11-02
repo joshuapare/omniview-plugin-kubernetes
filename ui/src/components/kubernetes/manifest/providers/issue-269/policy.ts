@@ -36,6 +36,50 @@ export function selectorMode(draft: ResourceEditorDraft): 'omitted' | 'none' | '
   return record(selector) && Object.keys(record(selector.matchLabels) ? selector.matchLabels : {}).length === 0 && (!Array.isArray(selector.matchExpressions) || selector.matchExpressions.length === 0) ? 'all' : 'labels';
 }
 
+/** Scope changes explicitly remove owned requirements; setting {} alone is not deletion. */
+export function selectionOperations(draft: ResourceEditorDraft, mode: 'omitted' | 'none' | 'all' | 'labels'): ResourceEditorPatch[] {
+  const path = ['spec', 'selector'];
+  if (mode === 'omitted') return [{ op: 'remove', path }];
+  if (mode === 'none') return [{ op: 'remove', path }, { op: 'set', path, value: null }];
+  const selector = draft.get(path);
+  return [
+    ...(record(selector) ? [
+      { op: 'remove' as const, path: [...path, 'matchLabels'] },
+      { op: 'remove' as const, path: [...path, 'matchExpressions'] },
+    ] : draft.has(path) ? [{ op: 'remove' as const, path }] : []),
+    { op: 'set', path, value: {} },
+  ];
+}
+
+export interface ExpressionIdentity {
+  signatures: readonly string[];
+  ids: readonly string[];
+  nextID: number;
+}
+
+/** Keep mounted token inputs attached to their row through edits and removal. */
+export function reconcileExpressionIdentity(previous: ExpressionIdentity | undefined, expressions: readonly unknown[]): ExpressionIdentity {
+  const signatures = expressions.map(entry => record(entry) ? JSON.stringify([
+    typeof entry.key === 'string' ? entry.key : null,
+    typeof entry.operator === 'string' ? entry.operator : null,
+    Array.isArray(entry.values) ? entry.values.filter(value => typeof value === 'string') : null,
+  ]) : 'unsupported');
+  if (previous && signatures.length === previous.signatures.length && signatures.every((signature, index) => signature === previous.signatures[index])) return previous;
+  const used = new Set<number>();
+  let nextID = previous?.nextID ?? 0;
+  const ids = signatures.map(signature => {
+    const match = previous?.signatures.findIndex((candidate, index) => candidate === signature && !used.has(index)) ?? -1;
+    if (match < 0) return undefined;
+    used.add(match);
+    return previous!.ids[match];
+  });
+  return { signatures, nextID: nextID + ids.filter(id => id === undefined).length, ids: ids.map((id, index) => {
+    if (id !== undefined) return id;
+    if (previous?.ids[index] && !used.has(index)) { used.add(index); return previous.ids[index]; }
+    return `expression-${nextID++}`;
+  }) };
+}
+
 /** Unknown sibling spec fields are intentionally untouched. Unsupported owned shapes stay in YAML. */
 export function policyFormUnavailable(draft: ResourceEditorDraft, context: ResourceEditorContext): string | null {
   if (context.discovery.status !== 'available') return 'policy/v1 PodDisruptionBudget discovery is not available. Draft retained.';
@@ -74,8 +118,12 @@ export function validatePolicy(draft: ResourceEditorDraft): readonly ResourceEdi
   for (const rule of ['minAvailable', 'maxUnavailable']) {
     const value = draft.get(['spec', rule]);
     if (!present(value)) continue;
+    if (typeof value !== 'string' && typeof value !== 'bigint' && !(typeof value === 'number' && Number.isSafeInteger(value))) {
+      issues.push({ path: ['spec', rule], message: 'Enter an exact pod count or percentage string.' });
+      continue;
+    }
     const unit = typeof value === 'string' ? 'percent' : 'pods';
-    const parsed = parseBudget(typeof value === 'string' && value.endsWith('%') ? value.slice(0, -1) : String(value), unit);
+    const parsed = parseBudget(typeof value === 'string' ? value.endsWith('%') ? value.slice(0, -1) : '' : value.toString(), unit);
     if (!parsed.valid) issues.push({ path: ['spec', rule], message: parsed.error });
   }
   const selector = draft.get(['spec', 'selector']);

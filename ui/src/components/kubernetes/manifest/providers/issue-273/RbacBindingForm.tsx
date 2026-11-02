@@ -40,15 +40,16 @@ export default function RbacBindingForm(props: ResourceEditorFormProps) {
   </div>;
 }
 
-function RoleName({ editor, kind, namespace, onCommit }: { editor: RbacForm; kind: string; namespace: string; onCommit(name: string): void }) {
+function RoleName({ editor, kind, namespace, onCommit }: { editor: RbacForm; kind: string; namespace: string; onCommit: (name: string) => void }) {
   const canonical = text(editor.form.draft.get(['roleRef', 'name']));
-  const [name, setName] = useState(canonical);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => { setName(canonical); }, [canonical, editor.form.draft.sessionID]);
+  const identity = JSON.stringify([editor.form.draft.sessionID, kind, canonical]);
+  const [edit, setEdit] = useState<{ identity: string; name: string; error: string | null }>({ identity, name: canonical, error: null });
+  if (edit.identity !== identity) setEdit({ identity, name: canonical, error: null });
+  const { name, error } = edit.identity === identity ? edit : { name: canonical, error: null };
+  useEffect(() => { editor.report('role-name', error); }, [editor.report, error]);
   return <ReferencePicker form={editor.form} query={{ group: GROUP, version: 'v1', resource: kind === 'Role' ? 'roles' : 'clusterroles', ...(kind === 'Role' ? { namespace } : {}), projection: 'metadata' }} label="Role name" value={name} error={error} disabled={editor.form.disabled} onChange={next => {
-    setName(next);
     const invalid = !next.trim() ? 'Enter a role name.' : /[/%]/.test(next) || next === '.' || next === '..' ? 'Enter a valid role name.' : null;
-    setError(invalid); editor.report('role-name', invalid);
+    setEdit({ identity, name: next, error: invalid }); editor.report('role-name', invalid);
     if (!invalid) onCommit(next);
   }} help="Choose an existing role or type an unresolved name. Names never imply permission or existence." />;
 }

@@ -59,7 +59,12 @@ export function validateLease(draft: ResourceEditorDraft): readonly ResourceEdit
   return leaseFields.flatMap(field => {
     const value = draft.get(['spec', field.name]);
     if (value === undefined) return [];
-    const parsed = parseLeaseField(field, String(value));
+    const integer = field.kind === 'positive' || field.kind === 'counter';
+    if (integer ? typeof value !== 'bigint' && !(typeof value === 'number' && Number.isSafeInteger(value)) : typeof value !== 'string') {
+      return [{ path: ['spec', field.name], message: 'Unsupported field type. Source remains unchanged.' }];
+    }
+    const text = typeof value === 'string' ? value : typeof value === 'bigint' || typeof value === 'number' ? value.toString() : '';
+    const parsed = parseLeaseField(field, text);
     return parsed.valid ? [] : [{ path: ['spec', field.name], message: parsed.error }];
   });
 }

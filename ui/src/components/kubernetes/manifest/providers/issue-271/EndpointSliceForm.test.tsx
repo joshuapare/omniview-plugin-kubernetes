@@ -1,11 +1,14 @@
-import { useCallback, useState } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
 import type { ResourceEditorContext, ResourceEditorPatchRequest, ResourceEditorReferenceResult } from '@omniviewdev/runtime';
-import EndpointSliceForm from './EndpointSliceForm';
-import { resourceEditors } from './index';
-import { addressError, formUnavailable, isReadOnly, portError, validate } from './model';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useCallback, useState } from 'react';
+import { describe, expect, it, vi } from 'vitest';
+
 import { ResourceEditorController } from '../../resourceEditorController';
+
+import EndpointSliceForm from './EndpointSliceForm';
+import { addressError, formUnavailable, isReadOnly, portError, validate } from './model';
+
+import { resourceEditors } from './index';
 
 const context: ResourceEditorContext = {
   group: 'discovery.k8s.io', version: 'v1', kind: 'EndpointSlice', resource: 'endpointslices', scope: 'Namespaced',
@@ -69,10 +72,21 @@ describe('EndpointSlice domain safety', () => {
     expect(formUnavailable(controller.draft(), context)).toContain('FQDN');
     expect(controller.getSource()).toContain('addressType: FQDN');
     expect(formUnavailable(new ResourceEditorController(initial.replace('port: 8080', 'port: "8080"')).draft(), context)).toContain('scalar type');
+    const unsafePort = new ResourceEditorController(initial.replace('port: 8080', 'port: {future: 8080}')).draft();
+    expect(formUnavailable(unsafePort, context)).not.toBeNull();
+    expect(validate(unsafePort, context).some(issue => issue.path[0] === 'ports' && issue.path[2] === 'port')).toBe(true);
   });
   it('allows explicit empty endpoint slices and detects duplicate unnamed ports', () => {
     const controller = new ResourceEditorController(initial);
-    controller.patch({ sessionID: controller.sessionID, expectedRevision: 0, operations: [{ op: 'set', path: ['endpoints'], value: [] }, { op: 'set', path: ['ports'], value: [{}, {}] }] }, resourceEditors[0], context);
+    const result = controller.patch({ sessionID: controller.sessionID, expectedRevision: 0, operations: [
+      { op: 'set', path: ['endpoints'], value: [] },
+      { op: 'remove', path: ['ports', 0] },
+      { op: 'insert', path: ['ports'], index: 0, value: {} },
+      { op: 'insert', path: ['ports'], index: 1, value: {} },
+    ] }, resourceEditors[0], context);
+    expect(result.status).toBe('accepted');
+    expect(controller.draft().get(['endpoints'])).toEqual([]);
+    expect(controller.draft().get(['ports'])).toEqual([{}, {}]);
     expect(validate(controller.draft(), context).some(issue => issue.path[0] === 'endpoints')).toBe(false);
     expect(validate(controller.draft(), context).some(issue => issue.message.includes('unique'))).toBe(true);
     expect(portError('')).toBeNull();
@@ -116,6 +130,20 @@ describe('EndpointSlice real form and canonical patches', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove backend 2' }));
     expect(controller.draft().get(['endpoints', 1])).toBeUndefined();
     expect(controller.getSource()).toContain('# retained address comment');
+  });
+  it('keeps the surviving backend row and its local partial address when an earlier row is removed', async () => {
+    const controller = new ResourceEditorController(initial);
+    const validity = vi.fn();
+    render(<Harness controller={controller} section="endpoints" validity={validity} />);
+    fireEvent.change(screen.getByLabelText('New backend address'), { target: { value: '10.4.0.12' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add backend' }));
+    const survivingRow = screen.getByLabelText('Backend 2 address').closest('.endpoint-slice-row');
+    fireEvent.change(screen.getByLabelText('Backend 2 address'), { target: { value: '10.4.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove backend 1' }));
+    expect(screen.getByLabelText('Backend 1 address').closest('.endpoint-slice-row')).toBe(survivingRow);
+    expect(screen.getByLabelText('Backend 1 address')).toHaveValue('10.4.');
+    expect(controller.draft().get(['endpoints', 0, 'addresses', 0])).toBe('10.4.0.12');
+    await waitFor(() => expect(validity).toHaveBeenLastCalledWith(expect.any(String)));
   });
   it('locks generated endpoints and immutable address family on edit', () => {
     const controller = new ResourceEditorController(initial);

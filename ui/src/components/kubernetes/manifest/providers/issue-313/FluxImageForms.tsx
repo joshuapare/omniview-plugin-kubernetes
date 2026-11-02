@@ -17,7 +17,7 @@ function Choice({ form, path, label, values, help }: { form: ResourceEditorFormP
   const validity = useFieldValidity(form);
   const full = ['spec', ...path];
   const value = form.draft.get(full);
-  return <EditorChoice label={label} help={help} disabled={form.disabled} value={value === undefined ? '' : String(value)} options={[{ value: '', label: 'Not set' }, ...values.map(value => ({ value, label: value }))]} onChange={value => validity(full.join('.'), patchError(form.patch({ sessionID: form.draft.sessionID, expectedRevision: form.draft.revision, operations: value === '' ? [{ op: 'remove', path: full }] : [{ op: 'set', path: full, value: value === 'true' ? true : value === 'false' ? false : value }] })))} />;
+  return <EditorChoice label={label} help={help} disabled={form.disabled} value={typeof value === 'string' || typeof value === 'boolean' ? String(value) : ''} options={[{ value: '', label: 'Not set' }, ...values.map(value => ({ value, label: value }))]} onChange={value => validity(full.join('.'), patchError(form.patch({ sessionID: form.draft.sessionID, expectedRevision: form.draft.revision, operations: value === '' ? [{ op: 'remove', path: full }] : [{ op: 'set', path: full, value: value === 'true' ? true : value === 'false' ? false : value }] })))} />;
 }
 function Reference({ form, path, label, group = '', resource = 'secrets', version = 'v1', namespace }: { form: ResourceEditorFormProps; path: string[]; label: string; group?: string; resource?: string; version?: string; namespace?: string }) {
   const validity = useFieldValidity(form);

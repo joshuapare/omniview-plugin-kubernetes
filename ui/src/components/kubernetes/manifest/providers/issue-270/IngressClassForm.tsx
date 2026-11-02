@@ -1,6 +1,6 @@
 import { Button } from '@omniviewdev/base-ui';
 import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { EditorChoice, EditorField, EditorSection, useEditorReferences } from '../../editor-controls';
 import { Consequence, NetworkField, RemoveButton, useNetworkingForm } from './fields';
 import { DEFAULT_CLASS, controllerPath, dnsName, namespaceName, parameterSegment, record, scopeChanges, text } from './model';
@@ -11,12 +11,14 @@ export default function IngressClassForm(form: ResourceEditorFormProps) {
 function ClassSession(form: ResourceEditorFormProps) {
   const editor = useNetworkingForm(form), params = record(form.draft.get(['spec', 'parameters']));
   const [adding, setAdding] = useState(false), [group, setGroup] = useState(''), [kind, setKind] = useState(''), [name, setName] = useState(''), [scope, setScope] = useState('Cluster'), [namespace, setNamespace] = useState('');
-  const [pendingScope, setPendingScope] = useState<string | null>(null);
+  const scopeIdentity = JSON.stringify([form.draft.sessionID, params.scope]);
+  const [scopeEdit, setScopeEdit] = useState<{ identity: string; value: string | null }>({ identity: scopeIdentity, value: null });
+  if (scopeEdit.identity !== scopeIdentity) setScopeEdit({ identity: scopeIdentity, value: null });
+  const pendingScope = scopeEdit.identity === scopeIdentity ? scopeEdit.value : null;
   const classes = useEditorReferences(form, { group: 'networking.k8s.io', version: 'v1', resource: 'ingressclasses', projection: 'ingressClass' });
   const defaults = classes.status === 'ready' ? classes.items.filter(item => item.name !== form.context.name && item.ingressClass?.isDefault) : [];
   const annotation = form.draft.get(['metadata', 'annotations', DEFAULT_CLASS]);
   const path = ['spec', 'parameters'];
-  useEffect(() => { setPendingScope(null); }, [params.scope, form.draft.sessionID]);
   return <div className="networking-form">{editor.failure && <div role="alert">{editor.failure}</div>}
     {form.section === 'controller' && <EditorSection title="Ingress controller">
       <NetworkField editor={editor} path={['spec', 'controller']} label="Controller" readOnly={form.context.intent !== 'create'} help="Immutable domain-prefixed controller identifier. Creating a class does not install or verify a controller." parse={value => controllerPath(value) ? { value } : { error: 'Enter a domain-prefixed controller path, up to 250 characters.' }} />
@@ -31,7 +33,7 @@ function ClassSession(form: ResourceEditorFormProps) {
           <NetworkField editor={editor} path={[...path, 'name']} label="Parameter name" parse={value => parameterSegment(value) ? { value } : { error: 'Enter a resource name.' }} />
           <EditorChoice label="Parameter scope" value={pendingScope ?? (text(params.scope) || 'Cluster')} options={[{ value: 'Cluster', label: 'Cluster' }, { value: 'Namespace', label: 'Namespace' }]} disabled={form.disabled} onChange={value => {
             const pending = value === 'Namespace' && !params.namespace;
-            setPendingScope(pending ? value : null);
+            setScopeEdit({ identity: scopeIdentity, value: pending ? value : null });
             editor.stage([...path, 'namespace'], 'scope', pending ? 'Enter the parameter namespace to apply this scope.' : null);
             if (!pending) editor.commit(scopeChanges(path, value));
           }} />

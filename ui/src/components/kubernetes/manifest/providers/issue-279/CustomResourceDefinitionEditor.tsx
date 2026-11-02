@@ -16,23 +16,23 @@ function Leaf({ session, path, label, help, validate, optional: omitEmpty, disab
 }) {
   const current = session.form.draft.get(path);
   const canonical = Array.isArray(current) ? strings(current).join(', ') : text(current);
-  const [value, setValue] = useState(canonical);
-  const [error, setError] = useState<string | null>(null);
   const key = JSON.stringify(path);
+  const identity = JSON.stringify([session.form.draft.sessionID, path, canonical]);
+  const [edit, setEdit] = useState<{ identity: string; value: string; error: string | null }>({ identity, value: canonical, error: null });
+  if (edit.identity !== identity) setEdit({ identity, value: canonical, error: null });
+  const { value, error } = edit.identity === identity ? edit : { value: canonical, error: null };
   const report = session.report;
-  useEffect(() => { setValue(canonical); setError(null); report(key, null); }, [canonical, session.form.draft.sessionID, key, report]);
-  useEffect(() => () => report(key, null), [key, report]);
+  useEffect(() => { report(key, error); return () => report(key, null); }, [key, error, report]);
   const field = { label, value, help, error, disabled: session.locked || disabled, onChange: (next: string) => {
-    setValue(next);
     const problem = next === '' && omitEmpty ? null : validate?.(next) ?? null;
     const failure = problem ?? session.commit([next === '' && omitEmpty ? remove(path) : set(path, parse ? parse(next) : next)]);
-    setError(failure); report(key, failure);
+    setEdit({ identity, value: next, error: failure }); report(key, failure);
   } };
   return referenceNamespace !== undefined
     ? <ReferencePicker {...field} form={session.form} query={{ group: '', version: 'v1', resource: 'services', namespace: referenceNamespace, projection: 'metadata' }} />
     : <EditorField {...field} />;
 }
-function Toggle({ session, label, value, onChange, help, disabled }: { session: Session; label: string; value: boolean; onChange(value: boolean): void; help?: string; disabled?: boolean }) {
+function Toggle({ session, label, value, onChange, help, disabled }: { session: Session; label: string; value: boolean; onChange: (value: boolean) => void; help?: string; disabled?: boolean }) {
   return <div className="crd-toggle"><label><input type="checkbox" checked={value} disabled={session.locked || disabled} onChange={event => onChange(event.target.checked)} />{label}</label>{help && <EditorHelp label={label}>{help}</EditorHelp>}</div>;
 }
 const nameCheck = (value: string) => dnsLabel(value) ? null : 'Enter a lowercase DNS name.';

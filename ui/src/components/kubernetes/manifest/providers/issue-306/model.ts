@@ -81,7 +81,7 @@ export function validatePolicy(draft: ResourceEditorDraft, context: ResourceEdit
           const v = object(port[keys[0]]); const fields = keys[0] === 'portRange' ? ['start', 'end'] : ['port'];
           fields.forEach(key => { const n = v[key]; if ((typeof n !== 'number' && typeof n !== 'bigint') || n < 1 || n > 65535 || (typeof n === 'number' && !Number.isInteger(n))) fail([...p, keys[0], key], 'Port must be an integer from 1 to 65535.'); });
           if (keys[0] === 'portRange' && Number(v.start) >= Number(v.end)) fail(p, 'Range end must exceed start.');
-          if (v.protocol !== undefined && !['TCP', 'UDP', 'SCTP'].includes(String(v.protocol))) fail(p, 'Choose TCP, UDP or SCTP.');
+          if (v.protocol !== undefined && (typeof v.protocol !== 'string' || !['TCP', 'UDP', 'SCTP'].includes(v.protocol))) fail(p, 'Choose TCP, UDP or SCTP.');
         }
       });
     });

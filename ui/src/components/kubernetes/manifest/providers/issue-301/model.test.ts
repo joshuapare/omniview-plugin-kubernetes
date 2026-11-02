@@ -19,4 +19,11 @@ describe('Wasm module integrity and attachment', () => {
     expect(issues.some(issue => issue.message.includes('unique'))).toBe(true);
     expect(JSON.stringify(issues)).not.toContain('never-echo');
   });
+  it('rejects structured references without invoking object coercion', () => {
+    const opaque = { toString() { throw new Error('Must not coerce protected projections'); } };
+    const issues = validate(draft({ url: opaque, targetRefs: [{ kind: opaque, group: opaque, name: opaque }], vmConfig: { env: [{ name: opaque }] } }));
+    expect(issues.some(issue => issue.path.join('.') === 'spec.url')).toBe(true);
+    expect(issues.some(issue => issue.path.join('.') === 'spec.targetRefs.0')).toBe(true);
+    expect(issues.some(issue => issue.path.join('.') === 'spec.vmConfig.env.0.name')).toBe(true);
+  });
 });

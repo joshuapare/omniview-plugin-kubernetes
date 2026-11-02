@@ -1,6 +1,7 @@
+import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
+
 import APIGroupDiscoveryForm from './APIGroupDiscoveryForm';
 import { discoveryQuery, validateDiscoveryQuery } from './request';
 
@@ -41,11 +42,14 @@ describe('discovery inspector behavior', () => {
     expect(screen.getByText('Stale response. Refresh before relying on these capabilities.')).toBeInTheDocument();
   });
   it('keeps previous response on denied query and never mistakes denial for an empty result', () => {
-    render(<APIGroupDiscoveryForm {...props(inventory, { requestResult: { status: 'denied', message: 'untrusted-private-material' } })} />);
+    const form = props({ ...inventory, items: [] });
+    const { rerender } = render(<APIGroupDiscoveryForm {...form} requestResult={{ status: 'ready', output: inventory }} />);
+    rerender(<APIGroupDiscoveryForm {...form} requestResult={{ status: 'denied', message: 'untrusted-private-material' }} />);
     expect(screen.getByText('deployments')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('denied');
+    expect(screen.getByRole('status', { name: 'Discovery request' })).toHaveTextContent('denied');
     expect(screen.queryByText('No API groups returned.')).not.toBeInTheDocument();
     expect(screen.queryByText('untrusted-private-material')).not.toBeInTheDocument();
+    expect(form.patch).not.toHaveBeenCalled();
   });
   it('never displays sensitive action output', () => {
     render(<APIGroupDiscoveryForm {...props(inventory, { requestResult: { status: 'ready', sensitive: true, output: { private: 'must-not-render' } } })} />);
@@ -62,6 +66,15 @@ describe('discovery inspector behavior', () => {
     render(<APIGroupDiscoveryForm {...props(inventory, { requestResult: { status: 'ready', output: null } })} />);
     expect(screen.getByRole('alert')).toHaveTextContent('Returned discovery response has an unsupported shape');
     expect(screen.queryByText('deployments')).not.toBeInTheDocument();
+  });
+  it('discards previous response and filter when the host changes draft session', () => {
+    const form = props({ ...inventory, items: [] });
+    const { rerender } = render(<APIGroupDiscoveryForm {...form} requestResult={{ status: 'ready', output: inventory }} />);
+    fireEvent.change(screen.getByLabelText('Filter resources'), { target: { value: 'deploy' } });
+    rerender(<APIGroupDiscoveryForm {...form} draft={{ ...form.draft, sessionID: 'different-connection-session' }} requestResult={{ status: 'denied', message: 'Denied' }} />);
+    expect(screen.queryByText('deployments')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Filter resources')).toHaveValue('');
+    expect(screen.getByRole('status', { name: 'Discovery request' })).toHaveTextContent('denied');
   });
   it('builds bounded query input without forwarding response or unknown sensitive fields', () => {
     const form = props({ ...inventory, query: { endpoint: '/api', version: 'v2beta1' }, private: 'not-forwarded' });

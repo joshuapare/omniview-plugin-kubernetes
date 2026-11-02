@@ -1,7 +1,9 @@
 import { Button } from '@omniviewdev/base-ui';
-import { useCallback, useEffect, useState } from 'react';
 import type { ResourceEditorFormProps, ResourceEditorPatch, ResourceEditorPath } from '@omniviewdev/runtime';
+import { useCallback, useEffect, useState } from 'react';
+
 import { EditorChoice, EditorField, EditorHelp, EditorSection, ExactValueField, KeyValueFields, patchError, patchFields } from '../../editor-controls';
+
 import { controllerOwned, duplicateToleration, handlerError, labelKeyError, labelValueError, quantityError, readOnly, record, secondsError, text, tolerationError, validate } from './model';
 import './runtime-class.css';
 
@@ -15,10 +17,10 @@ function RuntimeClassSession(props: ResourceEditorFormProps) {
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const report = useCallback((field: string, error: string | null) => setErrors(previous => previous[field] === error ? previous : { ...previous, [field]: error }), []);
   const form = { ...props, disabled: props.disabled || readOnly(props.draft, props.context) };
-  const { draft, context } = props;
+  const { draft, context, onValidityChange } = props;
   const canonicalErrors = validate(draft);
   const error = Object.values(errors).find(Boolean) ?? canonicalErrors[0]?.message ?? null;
-  useEffect(() => { props.onValidityChange(error); }, [error, props.onValidityChange]);
+  useEffect(() => { onValidityChange(error); }, [error, onValidityChange]);
   const commit = (operations: readonly ResourceEditorPatch[]) => patchError(patchFields(form, operations));
   const scalar = (path: ResourceEditorPath, value: string) => commit(value === '' ? [{ op: 'remove', path }] : [{ op: 'set', path, value }]);
   const childForm = (id: string) => ({ ...form, onValidityChange: (failure: string | null) => report(id, failure) });
@@ -62,7 +64,16 @@ function RuntimeClassSession(props: ResourceEditorFormProps) {
       </EditorSection>
       <EditorSection title="Tolerations">
         <EditorHelp label="Runtime tolerations">Tolerations are appended to Pods, excluding duplicates. They permit tainted nodes but do not select nodes. Blank seconds means forever; negative seconds act as zero.</EditorHelp>
-        {rows.map((row, index) => record(row) ? <TolerationRow key={rowKeys.ids[index]} form={form} rows={rows} row={row} index={index} report={(failure) => report(`toleration:${rowKeys.ids[index]}`, failure)} onRemoved={() => { report(`toleration:${rowKeys.ids[index]}`, null); setRowKeys(previous => ({ ...previous, ids: previous.ids.filter((_, position) => position !== index) })); }} /> : null)}
+        {rows.map((row, index) => {
+          if (!record(row)) return null;
+          const rowID = rowKeys.ids[index];
+          return <TolerationRow key={rowID} form={form} rows={rows} row={row} index={index} report={failure => report(`toleration:${rowID}`, failure)} onRemove={() => {
+            const failure = patchError(patchFields(form, [{ op: 'remove', path: ['scheduling', 'tolerations', index] }]));
+            report(`toleration:${rowID}`, failure);
+            if (!failure) setRowKeys(previous => ({ ...previous, ids: previous.ids.filter(id => id !== rowID) }));
+            return failure;
+          }} />;
+        })}
         <NewToleration form={childForm('newToleration')} rows={rows} />
       </EditorSection>
     </div>
@@ -73,7 +84,7 @@ function RuntimeClassSession(props: ResourceEditorFormProps) {
     {error && <div role="alert" className="resource-editor-error">{error}</div>}
   </div>;
 }
-function TolerationRow({ form, rows, row, index, report, onRemoved }: { form: ResourceEditorFormProps; rows: readonly unknown[]; row: Record<string, unknown>; index: number; report(error: string | null): void; onRemoved(): void }) {
+function TolerationRow({ form, rows, row, index, report, onRemove }: { form: ResourceEditorFormProps; rows: readonly unknown[]; row: Record<string, unknown>; index: number; report: (error: string | null) => void; onRemove: () => string | null }) {
   const [local, setLocal] = useState(() => ({ key: text(row.key), operator: text(row.operator) || 'Equal', value: text(row.value), effect: text(row.effect), tolerationSeconds: text(row.tolerationSeconds) }));
   const [error, setError] = useState<string | null>(null);
   const update = (field: keyof typeof local, value: string) => {
@@ -109,7 +120,7 @@ function TolerationRow({ form, rows, row, index, report, onRemoved }: { form: Re
       {local.effect === 'NoExecute' && field('Toleration seconds', 'tolerationSeconds', 'Signed 64-bit integer. Blank means forever. Negative values act as zero.')}
     </div>
     {error && <span role="alert" className="resource-editor-error">{error}</span>}
-    <Button size="sm" variant="ghost" disabled={form.disabled} aria-label={`Remove toleration ${index + 1}`} onClick={() => { const failure = patchError(patchFields(form, [{ op: 'remove', path: ['scheduling', 'tolerations', index] }])); setError(failure); if (failure) report(failure); else onRemoved(); }}>Remove toleration</Button>
+    <Button size="sm" variant="ghost" disabled={form.disabled} aria-label={`Remove toleration ${index + 1}`} onClick={() => setError(onRemove())}>Remove toleration</Button>
   </div>;
 }
 function NewToleration({ form, rows }: { form: ResourceEditorFormProps; rows: readonly unknown[] }) {
@@ -120,8 +131,9 @@ function NewToleration({ form, rows }: { form: ResourceEditorFormProps; rows: re
   const [effect, setEffect] = useState('');
   const [seconds, setSeconds] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const report = (failure: string | null) => { setError(failure); form.onValidityChange(failure); };
-  useEffect(() => { form.onValidityChange(open ? error ?? 'Finish or cancel the new toleration.' : null); }, [open, error, form.onValidityChange]);
+  const { onValidityChange } = form;
+  const report = (failure: string | null) => { setError(failure); onValidityChange(failure); };
+  useEffect(() => { onValidityChange(open ? error ?? 'Finish or cancel the new toleration.' : null); }, [open, error, onValidityChange]);
   if (!open) return <Button size="sm" disabled={form.disabled} onClick={() => setOpen(true)}>Add toleration</Button>;
   const row: Record<string, unknown> = { operator };
   if (key) row.key = key;

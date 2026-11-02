@@ -109,7 +109,7 @@ export function validate(draft: ResourceEditorDraft, context: ResourceEditorCont
     const name = text(row.name);
     add(['ports', index, 'name'], names.has(name) ? 'Port names must be unique, including unnamed ports.' : name && !dnsLabel(name) ? 'Use a lowercase DNS label.' : null);
     names.add(name);
-    if (row.port !== undefined) add(['ports', index, 'port'], portError(String(row.port)));
+    if (row.port !== undefined) add(['ports', index, 'port'], typeof row.port === 'bigint' || typeof row.port === 'number' && Number.isSafeInteger(row.port) ? portError(String(row.port)) : 'Port must be an integer scalar, not a string or object.');
     if (row.protocol !== undefined && !['TCP', 'UDP', 'SCTP'].includes(text(row.protocol))) add(['ports', index, 'protocol'], 'Choose TCP, UDP or SCTP.');
     if (row.appProtocol !== undefined && !qualifiedName(text(row.appProtocol))) add(['ports', index, 'appProtocol'], 'Use an application protocol or qualified protocol name.');
   });

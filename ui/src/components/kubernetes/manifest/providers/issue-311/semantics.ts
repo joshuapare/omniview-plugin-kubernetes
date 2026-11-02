@@ -18,10 +18,11 @@ export function validate(draft: ResourceEditorDraft): ResourceEditorFieldIssue[]
   for (const field of ['valuesFrom', 'dependsOn']) {
     const rows = draft.get(['spec', field]);
     if (!Array.isArray(rows)) continue;
-    rows.forEach((row, index) => {
+    const references: readonly unknown[] = rows;
+    references.forEach((row, index) => {
       if (!row || typeof row !== 'object') { errors.push({ path: ['spec', field, index], message: 'Unsupported row. Use protected source editing.' }); return; }
-      if (typeof row.name !== 'string' || !row.name) errors.push({ path: ['spec', field, index, 'name'], message: 'Reference name is required.' });
-      if (field === 'dependsOn' && row.name === draft.get(['metadata', 'name']) && (!row.namespace || row.namespace === draft.get(['metadata', 'namespace']))) errors.push({ path: ['spec', field, index, 'name'], message: 'A release cannot depend on itself.' });
+      if (!('name' in row) || typeof row.name !== 'string' || !row.name) errors.push({ path: ['spec', field, index, 'name'], message: 'Reference name is required.' });
+      if (field === 'dependsOn' && 'name' in row && row.name === draft.get(['metadata', 'name']) && (!('namespace' in row) || !row.namespace || row.namespace === draft.get(['metadata', 'namespace']))) errors.push({ path: ['spec', field, index, 'name'], message: 'A release cannot depend on itself.' });
     });
   }
   return errors;

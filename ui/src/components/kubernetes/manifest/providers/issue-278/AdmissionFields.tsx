@@ -1,18 +1,22 @@
 import { Button } from '@omniviewdev/base-ui';
 import type { ResourceEditorFormProps, ResourceEditorPatch, ResourceEditorPath } from '@omniviewdev/runtime';
-import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useId, useState, type ReactNode } from 'react';
 import { Choice, Remove, Section } from '../../ResourceFormFields';
 import { EditorField, EditorHelp, KeyValueFields, ReferencePicker, patchFields } from '../../editor-controls';
 import { managed, rows, text } from './model';
 import './admission.css';
 
-type Session = { form: ResourceEditorFormProps; disabled: boolean; commit(operations: readonly ResourceEditorPatch[]): string | null; validity(key: string, error: string | null): void; partial: Map<string, { value: string; error: string }>; remember(key: string, value: string, error: string | null): void };
+type Session = { form: ResourceEditorFormProps; disabled: boolean; commit: (operations: readonly ResourceEditorPatch[]) => string | null; validity: (key: string, error: string | null) => void; partial: Map<string, { value: string; error: string }>; remember: (key: string, value: string, error: string | null) => void };
 const Fields = createContext<Session | null>(null);
 export function useAdmission() { const value = useContext(Fields); if (!value) throw new Error('Admission fields require their editor.'); return value; }
 export function AdmissionPanel({ form, children }: { form: ResourceEditorFormProps; children: ReactNode }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const partial = useRef(new Map<string, { value: string; error: string }>()).current;
-  const remember = (key: string, value: string, error: string | null) => { if (error) partial.set(key, { value, error }); else partial.delete(key); };
+  const [partial, setPartial] = useState(() => new Map<string, { value: string; error: string }>());
+  const remember = (key: string, value: string, error: string | null) => setPartial(previous => {
+    const next = new Map(previous);
+    if (error) next.set(key, { value, error }); else next.delete(key);
+    return next;
+  });
   const validity = useCallback((key: string, error: string | null) => setErrors(old => {
     if ((old[key] ?? null) === error) return old;
     const next = { ...old }; if (error) next[key] = error; else delete next[key]; return next;
@@ -26,7 +30,8 @@ export function AdmissionPanel({ form, children }: { form: ResourceEditorFormPro
       if (operation.op !== 'remove') continue;
       const scope = typeof operation.path.at(-1) === 'number' ? operation.path.slice(0, -1) : operation.path;
       const prefix = JSON.stringify(scope).slice(0, -1);
-      for (const key of partial.keys()) if (key.startsWith(prefix)) { partial.delete(key); validity(key, null); }
+      for (const key of partial.keys()) if (key.startsWith(prefix)) validity(key, null);
+      setPartial(previous => new Map([...previous].filter(([key]) => !key.startsWith(prefix))));
     }
     return result.status === 'accepted' ? null : result.message;
   };
@@ -42,18 +47,18 @@ export function Scalar({ path, label, required = false, help, parse, multiline =
   const [local, setLocal] = useState(partial.get(key)?.value ?? current);
   const [error, setError] = useState<string | null>(partial.get(key)?.error ?? null);
   const id = useId();
-  useEffect(() => { if (!error) setLocal(current); }, [current, error]);
+  const display = error ? local : current;
   const change = (value: string) => {
     setLocal(value);
-    let failure: string | null = null;
+    let failure: string | null;
     try {
       if (required && !value.trim()) failure = `${label} is required.`;
       else failure = commit([{ op: !value && !required ? 'remove' : 'set', path, ...(value || required ? { value: parse ? parse(value) : value } : {}) } as ResourceEditorPatch]);
     } catch (caught) { failure = caught instanceof Error ? caught.message : 'Enter a valid value.'; }
     remember(key, value, failure); setError(failure); validity(key, failure);
   };
-  if (!multiline) return <EditorField label={label} value={local} onChange={change} disabled={disabled} help={help} error={error} type={type} />;
-  return <div className="admission-field"><div className="admission-label"><label htmlFor={id}>{label}</label>{help && <EditorHelp label={label}>{help}</EditorHelp>}</div><textarea id={id} value={local} onChange={event => change(event.target.value)} disabled={disabled} rows={3} spellCheck={false} aria-invalid={!!error} aria-describedby={error ? `${id}-error` : undefined} />{error && <span role="alert" id={`${id}-error`}>{error}</span>}</div>;
+  if (!multiline) return <EditorField label={label} value={display} onChange={change} disabled={disabled} help={help} error={error} type={type} />;
+  return <div className="admission-field"><div className="admission-label"><label htmlFor={id}>{label}</label>{help && <EditorHelp label={label}>{help}</EditorHelp>}</div><textarea id={id} value={display} onChange={event => change(event.target.value)} disabled={disabled} rows={3} spellCheck={false} aria-invalid={!!error} aria-describedby={error ? `${id}-error` : undefined} />{error && <span role="alert" id={`${id}-error`}>{error}</span>}</div>;
 }
 export function boundedInteger(min: number, max: number) { return (value: string) => {
   if (!/^\d+$/.test(value) || BigInt(value) < BigInt(min) || BigInt(value) > BigInt(max)) throw new Error(`Enter a whole number from ${min} to ${max}.`);
@@ -70,8 +75,7 @@ export function List({ path, label, help, required = false, allowed, coreGroup =
   const key = JSON.stringify(path);
   const [local, setLocal] = useState(partial.get(key)?.value ?? current);
   const [error, setError] = useState<string | null>(partial.get(key)?.error ?? null);
-  useEffect(() => { if (!error) setLocal(current); }, [current, error]);
-  return <EditorField label={label} value={local} disabled={disabled} error={error} help={help ?? 'Comma-separated entries; order is preserved.'} onChange={value => {
+  return <EditorField label={label} value={error ? local : current} disabled={disabled} error={error} help={help ?? 'Comma-separated entries; order is preserved.'} onChange={value => {
     setLocal(value);
     const parts = value.split(',').map(part => part.trim());
     const parsed = parts.map(part => coreGroup && part === 'core' ? '' : part);
@@ -81,7 +85,7 @@ export function List({ path, label, help, required = false, allowed, coreGroup =
     remember(key, value, failure); setError(failure); validity(key, failure);
   }} />;
 }
-export function Repeat({ path, label, initial, children, max }: { path: ResourceEditorPath; label: string; initial: unknown; children(path: ResourceEditorPath, index: number): ReactNode; max?: number }) {
+export function Repeat({ path, label, initial, children, max }: { path: ResourceEditorPath; label: string; initial: unknown; children: (path: ResourceEditorPath, index: number) => ReactNode; max?: number }) {
   const { form, disabled, commit, validity } = useAdmission();
   const values = rows(form.draft.get(path));
   return <Section title={label} action={<Button size="sm" variant="ghost" disabled={disabled || (max !== undefined && values.length >= max)} onClick={() => validity(JSON.stringify(path), commit(form.draft.has(path) ? [{ op: 'insert', path, index: values.length, value: initial }] : [{ op: 'set', path, value: [initial] }]))}>Add</Button>}>
@@ -128,12 +132,11 @@ export function Reference({ path, label, resource, version, namespace, group = '
   const current = text(form.draft.get(path));
   const [local, setLocal] = useState(partial.get(key)?.value ?? current);
   const [error, setError] = useState<string | null>(partial.get(key)?.error ?? null);
-  useEffect(() => { if (!error) setLocal(current); }, [current, error]);
   const change = (value: string) => {
     setLocal(value);
     const failure = value.trim() ? commit([{ op: 'set', path, value }]) : `${label} is required.`;
     setError(failure); remember(key, value, failure); validity(key, failure);
   };
-  if (group === '' && !namespace) return <EditorField label={label} value={local} onChange={change} error={error} disabled={disabled} help="Enter the Service namespace before lookup." />;
-  return <ReferencePicker form={form} query={{ group, version, resource, namespace, projection: 'metadata' }} label={label} value={local} error={error} disabled={disabled} help="Manual unresolved names remain valid. Lookup does not prove service health or policy validity." onChange={change} />;
+  if (group === '' && !namespace) return <EditorField label={label} value={error ? local : current} onChange={change} error={error} disabled={disabled} help="Enter the Service namespace before lookup." />;
+  return <ReferencePicker form={form} query={{ group, version, resource, namespace, projection: 'metadata' }} label={label} value={error ? local : current} error={error} disabled={disabled} help="Manual unresolved names remain valid. Lookup does not prove service health or policy validity." onChange={change} />;
 }

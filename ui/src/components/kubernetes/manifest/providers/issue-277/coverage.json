@@ -54,7 +54,7 @@
       "fixtures": ["pod-pending", "pod-issued"]
     }
   ],
-  "regressions": "certificates.test.tsx: policy bounds, signer naming, immutable specs, canonical comment/exact-value preservation, local invalid retention, minimized reviewed approval, terminal contradiction prevention, stale file cancellation, masked trust and kubelet inspection, PEM boundaries",
+  "regressions": "certificates.test.tsx: policy bounds, signer naming, immutable specs, canonical comment/exact-value preservation, local invalid retention across sibling edits, externally changed valid field synchronization, minimized reviewed approval, terminal contradiction prevention, approval abort/late-result suppression on revision changes, stale file/replaced callback cancellation, masked trust and kubelet inspection, PEM boundaries. Public-only PEM fixtures load through Node filesystem in tests, never through Vite's denied certificate asset imports.",
   "privacy": "No raw material, condition messages, proof, signer annotations or metadata annotations rendered. No draft persistence. Errors constant; file names not rendered.",
   "composition": ["base-ui Button", "shared EditorField", "shared EditorChoice", "shared EditorHelp", "shared EditorSection", "host canonical controller", "scoped leaf patch and array insert/remove"],
   "harness": ".local/resource-editor-implementation/issue-277/harness.tsx",

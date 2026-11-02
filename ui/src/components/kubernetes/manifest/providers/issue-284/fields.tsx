@@ -5,11 +5,12 @@ import { EditorChoice, EditorField, EditorSection } from '../../editor-controls'
 import { annotationPath, fieldError, object, ownership, parseInt32, parseTokens, protectedPolicy, rows, text, validate } from './domain';
 import './styles.css';
 
-type Session = { form: ResourceEditorFormProps; locked: boolean; commit(operations: readonly ResourceEditorPatch[]): string | null; validity(key: string, error: string | null): void };
+type Session = { form: ResourceEditorFormProps; locked: boolean; commit: (operations: readonly ResourceEditorPatch[]) => string | null; validity: (key: string, error: string | null) => void };
 const SessionContext = createContext<Session | null>(null);
 export function usePolicy() { const value = useContext(SessionContext); if (!value) throw new Error('APF field requires policy frame.'); return value; }
 export function PolicyFrame({ form, children }: { form: ResourceEditorFormProps; children: ReactNode }) {
-  const latest = useRef(form); latest.current = form;
+  const latest = useRef(form);
+  useEffect(() => { latest.current = form; }, [form]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const validity = useCallback((key: string, error: string | null) => setErrors(previous => {
     if (previous[key] === (error || undefined)) return previous;
@@ -40,24 +41,21 @@ export function ValueField({ path, label, help, integer, min, max, required, tok
   const key = JSON.stringify(path);
   const source = form.draft.get(path);
   const canonical = tokens ? rows(source).map(v => core && v === '' ? '""' : text(v)).join(', ') : text(source);
-  const [local, setLocal] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const previous = useRef(canonical);
-  useEffect(() => {
-    if (previous.current !== canonical) { previous.current = canonical; setLocal(null); setError(null); validity(key, null); }
-  }, [canonical, key, validity]);
+  const identity = JSON.stringify([form.draft.sessionID, canonical]);
+  const [edit, setEdit] = useState<{ identity: string; local: string | null; error: string | null }>({ identity, local: null, error: null });
+  if (edit.identity !== identity) setEdit({ identity, local: null, error: null });
+  const { local, error } = edit.identity === identity ? edit : { local: null, error: null };
   useEffect(() => { validity(key, error); return () => validity(key, null); }, [key, error, validity]);
   return <EditorField label={label} value={local ?? canonical} disabled={locked} help={help} error={error} placeholder={placeholder} inputMode={integer ? 'numeric' : 'text'} onChange={value => {
-    setLocal(value);
     const parsed = integer ? parseInt32(value, min, max) : tokens ? parseTokens(value, core) : value;
     let failure = integer && typeof parsed === 'string' ? parsed : tokens && typeof parsed === 'string' ? parsed : null;
     if (!failure && required && (value.trim() === '' || (Array.isArray(parsed) && parsed.length === 0))) failure = 'Enter a value.';
     if (!failure) failure = fieldError(form.draft, path, parsed);
     if (!failure) failure = commit(parsed === null ? (form.draft.has(path) ? [{ op: 'remove', path }] : []) : [{ op: 'set', path, value: parsed }]);
-    setError(failure); validity(key, failure);
+    setEdit({ identity, local: value, error: failure }); validity(key, failure);
   }} />;
 }
-export function ChoiceField({ path, label, options, help, onSelect }: { path: ResourceEditorPath; label: string; options: readonly { value: string; label: string }[]; help?: string; onSelect?(value: string): readonly ResourceEditorPatch[] | string }) {
+export function ChoiceField({ path, label, options, help, onSelect }: { path: ResourceEditorPath; label: string; options: readonly { value: string; label: string }[]; help?: string; onSelect?: (value: string) => readonly ResourceEditorPatch[] | string }) {
   const { form, locked, commit, validity } = usePolicy();
   const [error, setError] = useState<string | null>(null);
   const key = JSON.stringify(path);
@@ -72,15 +70,19 @@ export function ToggleField({ path, label }: { path: ResourceEditorPath; label: 
   const { form } = usePolicy();
   return <ChoiceField path={path} label={label} options={[{ value: '', label: 'Omitted (No)' }, { value: 'false', label: 'No' }, { value: 'true', label: 'Yes' }]} onSelect={value => value === '' ? (form.draft.has(path) ? [{ op: 'remove', path }] : []) : [{ op: 'set', path, value: value === 'true' }]} />;
 }
-export function Collection({ path, title, addLabel, initial, children }: { path: ResourceEditorPath; title: string; addLabel: string; initial: unknown; children(index: number): ReactNode }) {
+export function Collection({ path, title, addLabel, initial, children }: { path: ResourceEditorPath; title: string; addLabel: string; initial: unknown; children: (index: number) => ReactNode }) {
   const { form, locked, commit } = usePolicy();
   const items = rows(form.draft.get(path));
-  const identity = useRef({ next: 0, keys: [] as number[] });
-  const [, rerender] = useState(0);
-  while (identity.current.keys.length < items.length) identity.current.keys.push(identity.current.next++);
-  if (identity.current.keys.length > items.length) identity.current.keys.length = items.length;
-  return <EditorSection title={title}>{items.map((_, index) => <div className="apf-card" key={identity.current.keys[index]}><div className="apf-row-heading"><strong>{title} {index + 1}</strong><Button size="sm" variant="ghost" disabled={locked} aria-label={`Remove ${title.toLowerCase()} ${index + 1}`} onClick={() => {
-    if (!commit([{ op: 'remove', path: [...path, index] }])) { identity.current.keys.splice(index, 1); rerender(value => value + 1); }
+  const [identity, setIdentity] = useState(() => ({ next: items.length, keys: Array.from({ length: items.length }, (_, index) => index) }));
+  let keys = identity.keys;
+  if (keys.length !== items.length) {
+    keys = keys.slice(0, items.length);
+    let next = identity.next;
+    while (keys.length < items.length) keys.push(next++);
+    setIdentity({ next, keys });
+  }
+  return <EditorSection title={title}>{items.map((_, index) => <div className="apf-card" key={keys[index]}><div className="apf-row-heading"><strong>{title} {index + 1}</strong><Button size="sm" variant="ghost" disabled={locked} aria-label={`Remove ${title.toLowerCase()} ${index + 1}`} onClick={() => {
+    if (!commit([{ op: 'remove', path: [...path, index] }])) setIdentity(previous => ({ ...previous, keys: previous.keys.filter((_, position) => position !== index) }));
   }}>Remove</Button></div>{children(index)}</div>)}<Button size="sm" variant="outline" disabled={locked} onClick={() => commit(form.draft.has(path) ? [{ op: 'insert', path, index: items.length, value: initial }] : [{ op: 'set', path, value: [initial] }])}>{addLabel}</Button></EditorSection>;
 }
 export function PolicyStatus() {

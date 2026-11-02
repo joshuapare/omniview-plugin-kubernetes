@@ -4,26 +4,28 @@ import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
 import { EditorChoice } from '../../editor-controls';
 import { migrationTargets, type MigrationTarget } from './discovery';
 
-export default function TargetDiscovery({ form, disabled, group, resource, onSelect }: {
+type TargetDiscoveryProps = {
   form: ResourceEditorFormProps; disabled: boolean; group: string; resource: string;
-  onSelect(target: MigrationTarget): void;
-}) {
+  onSelect(this: void, target: MigrationTarget): void;
+};
+
+export default function TargetDiscovery(props: TargetDiscoveryProps) {
+  return <TargetDiscoverySession key={`${props.form.context.connectionID}:${props.form.draft.sessionID}`} {...props} />;
+}
+
+function TargetDiscoverySession({ form, disabled, group, resource, onSelect }: TargetDiscoveryProps) {
   const [targets, setTargets] = useState<readonly MigrationTarget[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadingRequest, setLoadingRequest] = useState<{ revision: number; actions: ResourceEditorFormProps['actions'] } | null>(null);
+  const loading = loadingRequest?.revision === form.draft.revision && loadingRequest.actions === form.actions;
   const active = useRef<AbortController | null>(null);
   const generation = useRef(0);
   const { actions, draft, context } = form;
   useEffect(() => {
     generation.current++;
     active.current?.abort();
-    setLoading(false);
     return () => { generation.current++; active.current?.abort(); };
   }, [draft.sessionID, draft.revision, context.connectionID, actions]);
-  useEffect(() => {
-    setTargets([]);
-    setNotice(null);
-  }, [draft.sessionID, context.connectionID]);
 
   async function discover() {
     if (disabled || loading) return;
@@ -31,7 +33,7 @@ export default function TargetDiscovery({ form, disabled, group, resource, onSel
     const abort = new AbortController();
     active.current = abort;
     const current = ++generation.current;
-    setLoading(true);
+    setLoadingRequest({ revision: draft.revision, actions });
     setNotice(null);
     try {
       const results = await Promise.all((['/api', '/apis'] as const).map(endpoint => actions.execute({
@@ -40,7 +42,7 @@ export default function TargetDiscovery({ form, disabled, group, resource, onSel
       })));
       if (abort.signal.aborted || generation.current !== current) return;
       const failed = results.find(result => result.status !== 'ready');
-      if (failed && failed.status !== 'ready') {
+      if (failed) {
         setTargets([]);
         setNotice(failed.status === 'denied' ? 'Target discovery denied. Exact manual targets remain available.'
           : failed.status === 'absent' ? 'Negotiated target discovery is not served. Enter the exact target manually.'
@@ -63,7 +65,7 @@ export default function TargetDiscovery({ form, disabled, group, resource, onSel
         setNotice('Target discovery unavailable. Exact manual targets remain available.');
       }
     } finally {
-      if (!abort.signal.aborted && generation.current === current) setLoading(false);
+      if (!abort.signal.aborted && generation.current === current) setLoadingRequest(null);
     }
   }
   const chosen = targets.findIndex(target => target.group === group && target.resource === resource);

@@ -56,10 +56,11 @@ export function Collector(form: ResourceEditorFormProps) {
 export function Instrumentation(form: ResourceEditorFormProps) {
   const c = useControls(form);
   const propagators = form.draft.get(['spec', 'propagators']);
+  const sampler = form.draft.get(['spec', 'sampler', 'type']);
   return <EditorSection title="Instrumentation"><p role="note">Workloads must opt in. Creating this resource does not instrument existing Pods.</p>
     {c.text('Exporter endpoint', ['spec', 'exporter', 'endpoint'])}
     {c.choice('Sampler', ['spec', 'sampler', 'type'], ['always_on', 'always_off', 'traceidratio', 'parentbased_always_on', 'parentbased_always_off', 'parentbased_traceidratio'])}
-    {String(form.draft.get(['spec', 'sampler', 'type']) ?? '').includes('traceidratio') && c.exact('Sampling ratio', ['spec', 'sampler', 'argument'], ratio)}
+    {typeof sampler === 'string' && sampler.includes('traceidratio') && c.exact('Sampling ratio', ['spec', 'sampler', 'argument'], ratio)}
     <EditorSection title="Propagation">{['tracecontext', 'baggage', 'b3', 'b3multi', 'jaeger', 'xray', 'ottrace'].map(name => <Button key={name} size="sm" disabled={c.disabled || propagators !== undefined && (!Array.isArray(propagators) || !propagators.every(item => typeof item === 'string'))} onClick={() => c.commit(toggleMember(['spec', 'propagators'], propagators, name))}>{Array.isArray(propagators) && propagators.includes(name) ? 'Remove' : 'Add'} {name}</Button>)}</EditorSection>
     <details><summary>Language images</summary>{['java', 'python', 'nodejs', 'dotnet', 'go', 'apacheHttpd', 'nginx'].map(language => c.text(`${language} image`, ['spec', language, 'image'], 'Injection requires installed operator language support and workload opt-in.'))}</details>
   </EditorSection>;

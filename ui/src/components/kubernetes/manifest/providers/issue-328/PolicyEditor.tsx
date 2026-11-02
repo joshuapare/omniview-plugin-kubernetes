@@ -6,14 +6,18 @@ import { layout, type Field } from './domain';
 const Validity = createContext<(field: string, error: string | null) => void>(() => {});
 
 function Value({ field, path, props }: { field: Field; path: ResourceEditorPath; props: ResourceEditorFormProps }) {
+  const value = props.draft.get(path);
+  const items: readonly unknown[] = Array.isArray(value) ? value : [];
+  const source = Array.isArray(value) ? items.every(item => typeof item === 'string') ? items.join(',') : '' : typeof value === 'string' ? value : '';
+  return <ValueSession key={`${props.draft.sessionID}/${JSON.stringify(path)}/${source}`} field={field} path={path} props={props} source={source} />;
+}
+function ValueSession({ field, path, props, source }: { field: Field; path: ResourceEditorPath; props: ResourceEditorFormProps; source: string }) {
   const report = useContext(Validity);
   const fieldID = JSON.stringify(path);
   useEffect(() => () => report(fieldID, null), [report, fieldID]);
   const value = props.draft.get(path);
-  const source = Array.isArray(value) ? value.join(',') : typeof value === 'string' ? value : '';
   const [text, setText] = useState(source);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { setText(source); }, [source, props.draft.sessionID]);
   const commit = (next: unknown) => {
     const operations: ResourceEditorPatch[] = [{ op: 'set', path, value: next }];
     if (path.at(-1) === 'patchType') {

@@ -1,5 +1,5 @@
 import type { ResourceEditorFormProps, ResourceEditorPatch } from '@omniviewdev/runtime';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Choice, Section } from '../../ResourceFormFields';
 import { AdmissionPanel, Matching, Pick, Reference, Scalar, Selector, useAdmission } from './AdmissionFields';
 import { isMutating, rows, text } from './model';
@@ -7,10 +7,10 @@ import { isMutating, rows, text } from './model';
 function Enforcement() {
   const { form, disabled, commit, validity, partial, remember } = useAdmission();
   const key = 'validationActions';
-  const current = rows(form.draft.get(['spec', 'validationActions'])).map(String).join(',');
-  const [actions, setActions] = useState<string[]>(() => (partial.get(key)?.value ?? current).split(',').filter(Boolean));
-  const [error, setError] = useState<string | null>(partial.get(key)?.error ?? (actions.includes('Deny') && actions.includes('Warn') ? 'Deny and Warn cannot be combined.' : !actions.length ? 'Choose at least one validation action.' : null));
-  useEffect(() => { if (!error) setActions(current.split(',').filter(Boolean)); }, [current, error]);
+  const current = rows(form.draft.get(['spec', 'validationActions'])).map(text).join(',');
+  const [localActions, setActions] = useState<string[]>(() => (partial.get(key)?.value ?? current).split(',').filter(Boolean));
+  const [error, setError] = useState<string | null>(partial.get(key)?.error ?? (localActions.includes('Deny') && localActions.includes('Warn') ? 'Deny and Warn cannot be combined.' : !localActions.length ? 'Choose at least one validation action.' : null));
+  const actions = error ? localActions : current.split(',').filter(Boolean);
   return <Section title="Validation actions"><div className="admission-actions">{['Deny', 'Warn', 'Audit'].map(action => <label key={action}><input type="checkbox" checked={actions.includes(action)} disabled={disabled} onChange={event => {
     const next = event.target.checked ? [...actions, action] : actions.filter(value => value !== action);
     const failure = next.includes('Deny') && next.includes('Warn') ? 'Deny and Warn cannot be combined.' : !next.length ? 'Choose at least one validation action.' : commit([{ op: 'set', path: ['spec', 'validationActions'], value: next }]);

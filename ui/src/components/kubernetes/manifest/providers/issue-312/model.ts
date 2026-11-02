@@ -12,25 +12,32 @@ export function validateNotification(draft: ResourceEditorDraft, context: Resour
   const add = (path: (string|number)[], message: string) => issues.push({ path: ['spec', ...path], message });
   if (context.kind === 'Alert') {
     if (!get('providerRef','name')) add(['providerRef','name'], 'Choose a notification Provider.');
-    if (get('eventSeverity') && !['info','error'].includes(String(get('eventSeverity')))) add(['eventSeverity'], 'Choose info or error.');
-    if (typeof get('summary') === 'string' && String(get('summary')).length > 255) add(['summary'], 'Summary must not exceed 255 characters.');
+    const severity = get('eventSeverity');
+    if (severity && severity !== 'info' && severity !== 'error') add(['eventSeverity'], 'Choose info or error.');
+    const summary = get('summary');
+    if (typeof summary === 'string' && summary.length > 255) add(['summary'], 'Summary must not exceed 255 characters.');
   } else {
     const type = get('type');
-    if (!(context.kind === 'Provider' ? providerTypes : receiverTypes).includes(String(type ?? ''))) add(['type'], 'Choose a supported type.');
+    if (typeof type !== 'string' || !(context.kind === 'Provider' ? providerTypes : receiverTypes).includes(type)) add(['type'], 'Choose a supported type.');
     if (context.kind === 'Receiver' && !get('secretRef','name')) add(['secretRef','name'], 'Choose a validation Secret.');
   }
   if (context.kind === 'Provider') {
-    const type = String(get('type'));
+    const rawType = get('type');
+    const type = typeof rawType === 'string' ? rawType : '';
     if (get('serviceAccountName')) {
       if (!identityTypes.includes(type)) add(['serviceAccountName'], 'This provider does not support workload identity.');
       if (get('secretRef','name')) add(['serviceAccountName'], 'Use workload identity or static credentials, not both.');
       if (context.discovery.features.ObjectLevelWorkloadIdentity !== 'available') add(['serviceAccountName'], 'ObjectLevelWorkloadIdentity availability must be confirmed.');
     }
     if (get('commitStatusExpr') && !commitTypes.includes(type)) add(['commitStatusExpr'], 'Commit status expressions require a Git provider.');
-    for (const field of ['address','channel','username']) if (typeof get(field) === 'string' && String(get(field)).length > 2048) add([field], 'Must not exceed 2048 characters.');
+    for (const field of ['address','channel','username']) {
+      const value = get(field);
+      if (typeof value === 'string' && value.length > 2048) add([field], 'Must not exceed 2048 characters.');
+    }
   }
   const duration = context.kind === 'Provider' ? 'timeout' : 'interval';
-  if (context.kind !== 'Alert' && get(duration) && !(context.kind === 'Provider' ? /^([0-9]+(\.[0-9]+)?(ms|s|m))+$/ : durationPattern).test(String(get(duration)))) add([duration], 'Enter a duration with supported units.');
+  const durationValue = get(duration);
+  if (context.kind !== 'Alert' && durationValue && (typeof durationValue !== 'string' || !(context.kind === 'Provider' ? /^([0-9]+(\.[0-9]+)?(ms|s|m))+$/ : durationPattern).test(durationValue))) add([duration], 'Enter a duration with supported units.');
   if (context.kind !== 'Provider') {
     const field = context.kind === 'Alert' ? 'eventSources' : 'resources';
     const rows = get(field);

@@ -1,22 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { ResourceEditorFormProps, ResourceEditorPath, ResourceEditorPatch } from '@omniviewdev/runtime';
-import { EditorChoice, EditorField, EditorHelp, EditorSection, ReferencePicker, useFieldValidity } from '../../editor-controls';
+import { EditorChoice, ExactValueField, EditorHelp, EditorSection, ReferencePicker, useFieldValidity } from '../../editor-controls';
 import { endpointError, eventTypes, readOnly } from './model';
 
-function TextField({ form, path, label, endpoint = false, help, report }: { form: ResourceEditorFormProps; path: ResourceEditorPath; label: string; endpoint?: boolean; help?: string; report?: (field: string, error: string | null) => void }) {
+function TextField({ form, path, label, endpoint = false, help, report }: { form: ResourceEditorFormProps; path: ResourceEditorPath; label: string; endpoint?: boolean; help?: string; report?: (this: void, field: string, error: string | null) => void }) {
   const value = form.draft.get(path);
-  const source = typeof value === 'string' ? value : '';
-  const [text, setText] = useState(source);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => { setText(source); setError(null); }, [source, form.draft.sessionID]);
-  useEffect(() => { report?.(label, error); return () => report?.(label, null); }, [error, label, report]);
-  return <EditorField label={label} value={text} type={endpoint ? 'password' : 'text'} help={help} error={error} disabled={form.disabled || readOnly(form.draft, form.context)} onChange={next => {
-    setText(next);
+  return <ExactValueField label={label} value={typeof value === 'string' ? value : ''} identity={`${form.draft.sessionID}/${JSON.stringify(path)}`} type={endpoint ? 'password' : 'text'} help={help} disabled={form.disabled || readOnly(form.draft, form.context)} parse={next => {
     const invalid = endpoint ? endpointError(next) : null;
-    if (invalid) { setError(invalid); return; }
+    return invalid ? { valid: false, error: invalid } : { valid: true, value: next };
+  }} onCommit={next => {
     const result = form.patch({ sessionID: form.draft.sessionID, expectedRevision: form.draft.revision, operations: [next ? { op: 'set', path, value: next } : { op: 'remove', path }] });
-    setError(result.status === 'accepted' ? null : 'Change could not be applied. Refresh this field.');
-  }} />;
+    return result.status === 'accepted' ? null : 'Change could not be applied. Refresh this field.';
+  }} onValidityChange={error => report?.(label, error)} />;
 }
 
 export default function CloudEventEditor(form: ResourceEditorFormProps) {
@@ -37,15 +32,17 @@ export default function CloudEventEditor(form: ResourceEditorFormProps) {
   const overlaps = Array.isArray(included) && Array.isArray(excluded) && included.some(event => excluded.includes(event));
   if (form.section === 'observed') {
     const conditions = draft.get(['status', 'conditions']);
-    return <EditorSection title="Observed conditions">{Array.isArray(conditions) && conditions.length ? conditions.map((condition, index) => {
-      const item = condition as Record<string, unknown>;
-      return <div key={index}>{typeof item.type === 'string' ? item.type : 'Condition'}: {['True', 'False', 'Unknown'].includes(String(item.status)) ? String(item.status) : 'Unknown'}</div>;
+    const rows: readonly unknown[] = Array.isArray(conditions) ? conditions : [];
+    return <EditorSection title="Observed conditions">{rows.length ? rows.map((condition, index) => {
+      const type = condition !== null && typeof condition === 'object' && 'type' in condition && typeof condition.type === 'string' ? condition.type : 'Condition';
+      const status = condition !== null && typeof condition === 'object' && 'status' in condition && (condition.status === 'True' || condition.status === 'False') ? condition.status : 'Unknown';
+      return <div key={index}>{type}: {status}</div>;
     }) : <div role="status">No observed conditions available.</div>}</EditorSection>;
   }
   if (form.section === 'filters') return <EditorSection title="Event filters"><EditorHelp label="Event filters">Include limits delivery to selected types. Exclude suppresses selected types. Empty lists leave filtering to KEDA.</EditorHelp>{(['includedEventTypes', 'excludedEventTypes'] as const).map(field => {
     const path = ['spec', 'eventSubscription', field];
     const raw = draft.get(path);
-    const selected: string[] = Array.isArray(raw) ? raw : [];
+    const selected: readonly unknown[] = Array.isArray(raw) ? raw : [];
     return <fieldset key={field} disabled={locked}><legend>{field === 'includedEventTypes' ? 'Include events' : 'Exclude events'}</legend>{eventTypes.map(event => <label key={event} style={{ display: 'flex', gap: 8, overflowWrap: 'anywhere', paddingBlock: 4 }}><input type="checkbox" checked={selected.includes(event)} onChange={e => {
       const index = selected.indexOf(event);
       if (e.target.checked) patch([draft.has(path) ? { op: 'insert', path, index: selected.length, value: event } : { op: 'set', path, value: [event] }]);

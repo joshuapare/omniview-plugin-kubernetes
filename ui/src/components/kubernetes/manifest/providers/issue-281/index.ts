@@ -1,5 +1,6 @@
-import { lazy } from 'react';
 import type { ResourceEditorContribution } from '@omniviewdev/runtime';
+import { lazy } from 'react';
+
 import { coordinationShapeError, leaseOwnedPaths, leaseWriteBoundary, validateLease } from './coordination';
 
 const LeaseEditor = lazy(() => import('./LeaseEditor'));

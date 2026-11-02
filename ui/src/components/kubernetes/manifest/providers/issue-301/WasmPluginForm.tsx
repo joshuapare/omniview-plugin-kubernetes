@@ -6,11 +6,11 @@ import { EditorChoice, EditorField, EditorHelp, EditorSection, ExactValueField, 
 export default function WasmPluginForm(form: ResourceEditorFormProps) {
   const report = useFieldValidity(form);
   const text = (path: ResourceEditorPath) => scalarText(form.draft.get(path));
-  const commit = (path: ResourceEditorPath, value: unknown) => patchError(value === '' ? removeDraftField(form, path) : setDraftField(form, path, value));
+  const commit = (path: ResourceEditorPath, value: Parameters<typeof setDraftField>[2]) => patchError(value === '' ? removeDraftField(form, path) : setDraftField(form, path, value));
   const apply = (operations: ResourceEditorPatch[]) => report('patch', patchError(form.patch({ sessionID: form.draft.sessionID, expectedRevision: form.draft.revision, operations })));
   const field = (key: string, label: string, help?: string) => <ExactValueField key={key} label={label} help={help} type={key === 'url' ? 'password' : 'text'} value={text(['spec', key])} identity={`${form.draft.sessionID}:${key}`} disabled={form.disabled} parse={value => ({ valid: true, value })} onCommit={value => commit(['spec', key], value)} onValidityChange={error => report(key, error)} />;
   const choice = (path: ResourceEditorPath, label: string, values: string[]) => <EditorChoice label={label} value={text(path)} disabled={form.disabled} options={['', ...values].map(value => ({ value, label: value || 'Not specified' }))} onChange={value => report(label, commit(path, value))} />;
-  const list = (path: ResourceEditorPath) => { const value = form.draft.get(path); return Array.isArray(value) ? value : []; };
+  const list = (path: ResourceEditorPath): readonly unknown[] => { const value = form.draft.get(path); return Array.isArray(value) ? value : []; };
   const add = (path: ResourceEditorPath, value: unknown) => apply(form.draft.has(path) ? [{ op: 'insert', path, index: list(path).length, value }] : [{ op: 'set', path, value: [value] }]);
   const remove = (path: ResourceEditorPath) => apply([{ op: 'remove', path }]);
   const rowField = (path: ResourceEditorPath, label: string, sensitive = false) => <ExactValueField label={label} value={sensitive ? '' : text(path)} type={sensitive ? 'password' : 'text'} placeholder={sensitive && form.draft.has(path) ? 'Stored value unchanged' : undefined} identity={`${form.draft.sessionID}:${JSON.stringify(path)}`} disabled={form.disabled} parse={value => ({ valid: true, value })} onCommit={value => commit(path, value)} onValidityChange={error => report(JSON.stringify(path), error)} />;
@@ -57,6 +57,6 @@ function Configuration({ form }: { form: ResourceEditorFormProps }) {
     let parsed: unknown;
     try { parsed = JSON.parse(value, (_key, item: unknown) => { if (typeof item === 'number' && (!Number.isFinite(item) || (Number.isInteger(item) && !Number.isSafeInteger(item)))) throw new Error('Unsafe number'); return item; }); } catch { setError('Enter a valid JSON object with safe numeric values.'); report('config', 'Invalid configuration JSON.'); return; }
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) { setError('Enter a JSON object.'); report('config', 'Configuration must be an object.'); return; }
-    const failure = patchError(setDraftField(form, ['spec', 'pluginConfig'], parsed)); setError(failure); report('config', failure); if (!failure) setValue('');
+    const failure = patchError(form.patch({ sessionID: form.draft.sessionID, expectedRevision: form.draft.revision, operations: [{ op: 'set', path: ['spec', 'pluginConfig'], value: parsed }] })); setError(failure); report('config', failure); if (!failure) setValue('');
   }}>Replace configuration</Button></div>;
 }

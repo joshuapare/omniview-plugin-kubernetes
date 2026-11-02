@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
 import { Button } from '@omniviewdev/base-ui';
 import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
+import { useEffect, useState } from 'react';
+
 import { EditorChoice, EditorField, EditorHelp, EditorSection, ExactValueField, KeyValueFields, parseExactInteger, useFieldValidity } from '../../editor-controls';
+
 import { choices, designs, isBoolean, isInteger, isList, isReadOnly, pathOf } from './domain';
 import { parseCiliumInteger } from './validation';
 const labelOf = (name: string) => name.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/^./, c => c.toUpperCase());
@@ -63,15 +65,16 @@ function DomainField(props: PathProps) {
   setFailure(error); report(key,error); return error;
  };
  const common = {label:labelOf(name),disabled:props.disabled || readOnly,help:key,error:failure};
- if (readOnly && current !== null && typeof current === 'object') return <EditorSection title={labelOf(name)}><Observation value={current} /></EditorSection>;
- if (path[path.length-2] === 'matchLabels') return <EditorSection title={labelOf(String(path[path.length-3]))}><KeyValueFields form={{...props,disabled:props.disabled || readOnly,onValidityChange:error=>report(key,error)}} path={path.slice(0,-1)} label="Match label" /></EditorSection>;
+ if (path[path.length-2] === 'matchLabels') return <EditorSection title={labelOf(String(path[path.length-3]))}>{readOnly ? <Observation value={draft.get(path.slice(0,-1))} /> : <KeyValueFields form={{...props,onValidityChange:error=>report(key,error)}} path={path.slice(0,-1)} label="Match label" />}</EditorSection>;
  if (isList(name)) return <EditorSection title={labelOf(name)}>
-  {Array.isArray(current) && current.map((value,i) => <div key={i} style={{display:'flex',gap:8}}><EditorField {...common} label={`${labelOf(name)} ${i+1}`} value={text(value)} onChange={next => {
+  {Array.isArray(current) && current.map((value: unknown,i) => <div key={[...path,i].join('.')} style={{display:'flex',gap:8}}><EditorField {...common} disabled={common.disabled || typeof value !== 'string'} label={`${labelOf(name)} ${i+1}`} value={text(value)} onChange={next => {
    const result=props.patch({sessionID:draft.sessionID,expectedRevision:draft.revision,operations:[{op:'set',path:[...path,i],value:next}]}); report(key,result.status === 'accepted' ? null : result.message);
-  }}/>{!readOnly && <Button size="sm" disabled={props.disabled} onClick={() => { const result=props.patch({sessionID:draft.sessionID,expectedRevision:draft.revision,operations:[{op:'remove',path:[...path,i]}]}); report(key,result.status === 'accepted' ? null : result.message); }}>Remove</Button>}</div>)}
+  }}/>{!readOnly && typeof value === 'string' && <Button size="sm" disabled={props.disabled} onClick={() => { const result=props.patch({sessionID:draft.sessionID,expectedRevision:draft.revision,operations:[{op:'remove',path:[...path,i]}]}); report(key,result.status === 'accepted' ? null : result.message); }}>Remove</Button>}</div>)}
   {!readOnly && <Button size="sm" disabled={props.disabled} onClick={() => { const result=props.patch({sessionID:draft.sessionID,expectedRevision:draft.revision,operations: current === undefined ? [{op:'set',path,value:['']}] : [{op:'insert',path,index:Array.isArray(current)?current.length:0,value:''}]}); report(key,result.status === 'accepted'?null:result.message); }}>Add {labelOf(name)}</Button>}
  </EditorSection>;
- if (isBoolean(name)) return <EditorChoice {...common} value={current === undefined ? '' : String(current)} options={[{value:'',label:'Not specified'},{value:'true',label:'Enabled'},{value:'false',label:'Disabled'}]} onChange={value => {
+ if (current !== null && typeof current === 'object') return <EditorSection title={labelOf(name)}><Observation value={current} /></EditorSection>;
+ if (isBoolean(name) && current !== undefined && typeof current !== 'boolean') return <span role="note">{labelOf(name)} has an unsupported scalar type. Preserve source.</span>;
+ if (isBoolean(name)) return <EditorChoice {...common} value={typeof current === 'boolean' ? (current ? 'true' : 'false') : ''} options={[{value:'',label:'Not specified'},{value:'true',label:'Enabled'},{value:'false',label:'Disabled'}]} onChange={value => {
   if (value !== '') { commit(value === 'true'); return; }
   const result=props.patch({sessionID:draft.sessionID,expectedRevision:draft.revision,operations:[{op:'remove',path}]});
   report(key,result.status==='accepted'?null:result.message);
@@ -83,5 +86,8 @@ function DomainField(props: PathProps) {
 function Observation({value}: {value:unknown}) {
  if (value === undefined || value === null) return <span>Not reported</span>;
  if (typeof value !== 'object') return <span>{text(value)}</span>;
- return <dl>{Object.entries(value).map(([key,child]) => <div key={key}><dt>{labelOf(key)}</dt><dd>{typeof child === 'object' && child !== null ? <Observation value={child}/> : text(child)}</dd></div>)}</dl>;
+ return <dl>{Object.keys(value).map(key => {
+  const child: unknown = Reflect.get(value,key);
+  return <div key={key}><dt>{labelOf(key)}</dt><dd>{typeof child === 'object' && child !== null ? <Observation value={child}/> : text(child)}</dd></div>;
+ })}</dl>;
 }

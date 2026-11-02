@@ -1,27 +1,31 @@
-import { useEffect, useId, useRef, useState } from 'react';
 import type { ResourceEditorFormProps, ResourceEditorReferenceRequest, ResourceEditorReferenceResult } from '@omniviewdev/runtime';
+import { useEffect, useId, useMemo, useState } from 'react';
+
 import { EditorField, type EditorFieldProps } from './fields';
 
 export type ReferenceQuery = Pick<ResourceEditorReferenceRequest, 'group' | 'version' | 'resource' | 'namespace' | 'projection'>;
 export type ReferenceState = ResourceEditorReferenceResult | { status: 'loading' };
 
+let nextGeneration = 0;
+
 /** Revision, service identity and query changes cancel prior lookup generations. */
 export function useEditorReferences(form: ResourceEditorFormProps, query: ReferenceQuery): ReferenceState {
-  const [state, setState] = useState<ReferenceState>({ status: 'loading' });
-  const generation = useRef(0);
   const { group, version, resource, namespace, projection } = query;
+  const { references, patch, draft } = form;
+  const request = useMemo(() => ({ group, version, resource, namespace, projection, sessionID: draft.sessionID, revision: draft.revision, references, patch }),
+    [group, version, resource, namespace, projection, draft.sessionID, draft.revision, references, patch]);
+  const [completed, setCompleted] = useState<{ request: typeof request; result: ResourceEditorReferenceResult } | null>(null);
   useEffect(() => {
     const controller = new AbortController();
-    const current = ++generation.current;
-    setState({ status: 'loading' });
-    void form.references.list({ group, version, resource, namespace, projection, sessionID: form.draft.sessionID, generation: current, signal: controller.signal }).then(result => {
-      if (!controller.signal.aborted && current === generation.current) setState(result);
+    const generation = ++nextGeneration;
+    void request.references.list({ group: request.group, version: request.version, resource: request.resource, namespace: request.namespace, projection: request.projection, sessionID: request.sessionID, generation, signal: controller.signal }).then(result => {
+      if (!controller.signal.aborted) setCompleted({ request, result });
     }, () => {
-      if (!controller.signal.aborted && current === generation.current) setState({ status: 'unavailable', message: 'Reference lookup unavailable.' });
+      if (!controller.signal.aborted) setCompleted({ request, result: { status: 'unavailable', message: 'Reference lookup unavailable.' } });
     });
     return () => controller.abort();
-  }, [form.references, form.draft.sessionID, form.draft.revision, form.patch, group, version, resource, namespace, projection]);
-  return state;
+  }, [request]);
+  return completed?.request === request ? completed.result : { status: 'loading' };
 }
 
 export interface ReferencePickerProps extends Omit<EditorFieldProps, 'list'> {

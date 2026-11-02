@@ -9,6 +9,15 @@ export const definitions = [
   ['CompositionRevision','v1','compositionrevisions'],
   ['ManagedResourceDefinition','v1alpha1','managedresourcedefinitions'],
 ] as const;
+/** Admit only fresh JSON schema objects whose numeric tokens remain exact in the draft. */
+export function parseSchemaFragment(input: string): { valid: true; value: object } | { valid: false; error: string } {
+  let value: unknown;
+  try { value = JSON.parse(input); } catch { return { valid: false, error: 'Enter valid JSON.' }; }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { valid: false, error: 'Schema must be an object.' };
+  const numericTokens = input.replace(/"(?:\\.|[^"\\])*"/g, '""').match(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g) ?? [];
+  if (numericTokens.some(token => !/^-?\d+$/.test(token) || !Number.isSafeInteger(Number(token)))) return { valid: false, error: 'Use safe whole-number JSON values; edit other numeric values in source.' };
+  return { valid: true, value };
+}
 export const generated = (kind: string) => kind === 'CompositionRevision' || kind === 'ManagedResourceDefinition';
 export function validateDomain(draft: ResourceEditorDraft, kind: string): ResourceEditorFieldIssue[] {
   const issues: ResourceEditorFieldIssue[] = [];

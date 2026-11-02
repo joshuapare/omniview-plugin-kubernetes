@@ -1,5 +1,6 @@
-import { lazy } from 'react';
 import type { ResourceEditorContribution } from '@omniviewdev/runtime';
+import { lazy } from 'react';
+
 import { readOnly, target, unavailable, validate } from './model';
 
 export const resourceEditors: readonly ResourceEditorContribution[] = [{

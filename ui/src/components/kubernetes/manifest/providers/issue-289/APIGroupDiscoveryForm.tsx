@@ -1,9 +1,11 @@
-import { useState } from 'react';
 import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
+import { useState } from 'react';
+
 import { EditorChoice, EditorField, EditorHelp, EditorSection, patchError, patchFields } from '../../editor-controls';
-import { discoveryAccept, filterDiscovery, inspectDiscovery, kindLabel, type DiscoveryResource } from './discovery';
-import { discoveryQuery, validateDiscoveryQuery } from './request';
+
+import { discoveryAccept, filterDiscovery, inspectDiscovery, kindLabel, type DiscoveryResource, type DiscoveryResponse } from './discovery';
 import styles from './discovery.module.css';
+import { discoveryQuery, validateDiscoveryQuery } from './request';
 
 function ResourceDetails({ resource }: { resource: DiscoveryResource }) {
   return <details className={styles.resource}>
@@ -16,11 +18,11 @@ function ResourceDetails({ resource }: { resource: DiscoveryResource }) {
       <dt>Advertised verbs</dt><dd>{resource.verbs.join(' · ') || 'None advertised'}</dd>
     </dl>
     {resource.subresources.length > 0 && <section aria-label={`${resource.resource} subresources`} className={styles.subresources}>
-      {resource.subresources.map((subresource, index) => <div className={styles.subresource} key={`${subresource.subresource}-${index}`}>
+      {resource.subresources.map(subresource => <div className={styles.subresource} key={subresource.subresource}>
         <strong>/{subresource.subresource}</strong>
         <dl className={styles.facts}>
           <dt>Returned type</dt><dd>{kindLabel(subresource.responseKind)}</dd>
-          <dt>Accepted types</dt><dd>{subresource.acceptedTypes.map((type, index) => <div key={index}>{kindLabel(type)}</div>)}{!subresource.acceptedTypes.length && 'None advertised'}</dd>
+          <dt>Accepted types</dt><dd>{subresource.acceptedTypes.map(type => <div key={`${type.group}/${type.version}/${type.kind}`}>{kindLabel(type)}</div>)}{!subresource.acceptedTypes.length && 'None advertised'}</dd>
           <dt>Advertised verbs</dt><dd>{subresource.verbs.join(' · ') || 'None advertised'}</dd>
         </dl>
       </div>)}
@@ -29,13 +31,21 @@ function ResourceDetails({ resource }: { resource: DiscoveryResource }) {
 }
 
 export default function APIGroupDiscoveryForm(form: ResourceEditorFormProps) {
+  return <DiscoverySession key={form.draft.sessionID} {...form} />;
+}
+
+function DiscoverySession(form: ResourceEditorFormProps) {
   const { draft, context, section, requestResult } = form;
   const [query, setQuery] = useState('');
+  const [previous, setPrevious] = useState<{ request: ResourceEditorFormProps['requestResult']; response: DiscoveryResponse } | null>(null);
   const queryConfig = discoveryQuery(draft, context);
   const queryIssues = validateDiscoveryQuery(draft);
   const action = context.intent === 'action';
-  const hasOutput = requestResult?.status === 'ready' && !requestResult.sensitive;
-  const response = inspectDiscovery(hasOutput ? requestResult.output : {
+  const received = requestResult?.status === 'ready' && !requestResult.sensitive ? requestResult : null;
+  const incoming = received ? inspectDiscovery(received.output) : null;
+  if (received && incoming?.valid && previous?.request !== received) setPrevious({ request: received, response: incoming });
+  const hasOutput = incoming !== null || previous !== null;
+  const response = incoming ?? previous?.response ?? inspectDiscovery({
     apiVersion: draft.get(['apiVersion']), kind: draft.get(['kind']),
     metadata: { name: draft.get(['metadata', 'name']) },
     versions: draft.get(['versions']), items: draft.get(['items']),
@@ -62,8 +72,8 @@ export default function APIGroupDiscoveryForm(form: ResourceEditorFormProps) {
     <dl className={styles.facts}><dt>Destination</dt><dd>{context.connectionID}</dd><dt>Method</dt><dd>GET {queryConfig.endpoint}</dd><dt>Accept</dt><dd><code>{discoveryAccept(queryConfig.version)}</code></dd><dt>Mutation</dt><dd>None</dd></dl>
     {queryConfig.version === 'v2beta1' && <div role="note" className={styles.notice}>Compatibility request may be unsupported (HTTP 406).</div>}
     {!action && <div role="note" className={styles.notice}>Captured response · inspection only</div>}
-    {failed && <div role="status" className={styles.notice}>Discovery request: {requestStatus}.</div>}
-    {requestResult?.status === 'ready' && <div role="status">{requestResult.sensitive ? 'Sensitive response hidden.' : 'Discovery response received. Inspect capabilities for advertised resources.'}</div>}
+    {failed && <div role="status" aria-label="Discovery request" className={styles.notice}>Discovery request: {requestStatus}.</div>}
+    {requestResult?.status === 'ready' && <div role="status" aria-label="Discovery request">{requestResult.sensitive ? 'Sensitive response hidden.' : 'Discovery response received. Inspect capabilities for advertised resources.'}</div>}
   </EditorSection>;
 
   if (section === 'representation') return <EditorSection title="Protocol & source">
@@ -75,19 +85,19 @@ export default function APIGroupDiscoveryForm(form: ResourceEditorFormProps) {
   return <EditorSection title="Advertised capabilities">
     <div className={styles.heading}><span className={styles.muted}>Server-owned · no resource mutations</span><EditorHelp label="Advertised capabilities">Verbs are advertised protocol capabilities, not RBAC decisions or controller health. Stale or unknown freshness must not authorize operations. Expand a resource to inspect aliases, accepted types, and subresource verbs.</EditorHelp></div>
     <EditorField label="Filter resources" value={query} onChange={setQuery} placeholder="Resource, kind, alias, group or subresource" />
-    {failed && <div role="status" className={styles.notice}>Discovery request: {requestStatus}. Previous response retained.</div>}
+    {failed && <div role="status" aria-label="Discovery request" className={styles.notice}>Discovery request: {requestStatus}. Previous response retained.</div>}
     {requestResult?.status === 'ready' && requestResult.sensitive && <div role="alert" className={styles.notice}>Sensitive response hidden. Previous discovery response retained.</div>}
     {!response.valid && <div role="alert" className={styles.notice}>{hasOutput ? 'Returned discovery response has an unsupported shape. Existing draft source remains unchanged.' : response.message}</div>}
     {response.valid && !response.groups.length && <div role="status">No API groups returned.</div>}
     {response.valid && response.groups.length > 0 && !filtered.length && <div role="status">No resources match this filter.</div>}
-    {filtered.map((group, groupIndex) => <section key={`${group.name}-${groupIndex}`} className={styles.group} aria-label={`${group.name || 'Core'} discovery group`}>
+    {filtered.map(group => <section key={group.name} className={styles.group} aria-label={`${group.name || 'Core'} discovery group`}>
       <h4>{group.name || 'Core group'}</h4>
       {!group.versions.length && <div role="status">No versions advertised.</div>}
-      {group.versions.map((version, versionIndex) => <section key={`${version.version}-${versionIndex}`} className={styles.version}>
+      {group.versions.map(version => <section key={version.version} className={styles.version}>
         <div className={styles.heading}><strong>{version.version}</strong>{response.valid && response.groups.find(original => original.name === group.name)?.versions[0]?.version === version.version && <span className={styles.badge}>Preferred</span>}<span className={styles.badge}>{version.freshness === 'Current' ? 'Current' : version.freshness === 'Stale' ? 'Stale' : 'Freshness unknown'}</span></div>
         {version.freshness !== 'Current' && <div role="note" className={styles.notice}>{version.freshness === 'Stale' ? 'Stale response. Refresh before relying on these capabilities.' : 'Freshness not established. Do not assume these capabilities are current.'}</div>}
         {!version.resources.length && <div role="status">No resources advertised.</div>}
-        {version.resources.map((resource, index) => <ResourceDetails key={`${resource.resource}-${index}`} resource={resource} />)}
+        {version.resources.map(resource => <ResourceDetails key={resource.resource} resource={resource} />)}
       </section>)}
     </section>)}
   </EditorSection>;

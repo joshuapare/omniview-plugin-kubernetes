@@ -40,15 +40,15 @@ export function metricResponse(version: MetricVersion = 'v1beta2', window?: unkn
 }
 export type FixtureState = 'ready' | 'empty' | 'denied' | 'absent' | 'unavailable' | 'unsupported' | 'sensitive';
 export function fixtureMetricsTransport(state: FixtureState = 'ready'): ResourceEditorActionService {
-  return { execute: async request => {
-    if (request.signal.aborted) return { status: 'cancelled', message: 'Fixture request cancelled.' };
-    if (request.protocol !== PROTOCOL) return { status: 'unavailable', message: 'No fixture protocol configured.' };
-    if (state === 'denied' || state === 'absent' || state === 'unavailable') return { status: state, message: 'Fixture-only availability state.' };
+  return { execute: request => {
+    if (request.signal.aborted) return Promise.resolve({ status: 'cancelled', message: 'Fixture request cancelled.' });
+    if (request.protocol !== PROTOCOL) return Promise.resolve({ status: 'unavailable', message: 'No fixture protocol configured.' });
+    if (state === 'denied' || state === 'absent' || state === 'unavailable') return Promise.resolve({ status: state, message: 'Fixture-only availability state.' });
     const input = record(request.input);
     const version = input?.version === 'v1beta1' ? 'v1beta1' : 'v1beta2';
-    if (input?.operation === 'discover') return { status: 'ready', output: { groupVersion: `${GROUP}/${version}`, resources: fixtureDiscoveryResources } };
-    if (state === 'sensitive') return { status: 'ready', sensitive: true, output: {} };
-    if (state === 'unsupported') return { status: 'ready', output: { apiVersion: `${GROUP}/${version}`, kind: 'UnknownMetricEnvelope' } };
-    return { status: 'ready', output: { ...metricResponse(version), ...(state === 'empty' ? { items: [] } : {}) } };
+    if (input?.operation === 'discover') return Promise.resolve({ status: 'ready', output: { groupVersion: `${GROUP}/${version}`, resources: fixtureDiscoveryResources } });
+    if (state === 'sensitive') return Promise.resolve({ status: 'ready', sensitive: true, output: {} });
+    if (state === 'unsupported') return Promise.resolve({ status: 'ready', output: { apiVersion: `${GROUP}/${version}`, kind: 'UnknownMetricEnvelope' } });
+    return Promise.resolve({ status: 'ready', output: { ...metricResponse(version), ...(state === 'empty' ? { items: [] } : {}) } });
   } };
 }

@@ -21,7 +21,7 @@ function APIServiceSession(props: ResourceEditorFormProps) {
   const [importing, setImporting] = useState(false);
   const [fileReady, setFileReady] = useState(false);
   const latest = useRef(props);
-  latest.current = props;
+  useEffect(() => { latest.current = props; }, [props]);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const ownership = ownershipReason(draft) ?? (context.ownership?.status === 'controller' || context.ownership?.status === 'system' ? 'Managed registration. Inspect only; change its owning configuration.' : null);

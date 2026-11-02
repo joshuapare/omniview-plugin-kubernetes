@@ -46,7 +46,7 @@ export default function PolicyReport({ context, draft, section }: ResourceEditor
     <Button size="sm" variant="outline" onClick={() => { setSearch(''); setProducer(''); setOutcome(''); }}>Clear filters</Button>
     {!results.length && <p>No reported results. Compliance is unknown.</p>}
     {!!results.length && !visible.length && <p role="status">No matching results.</p>}
-    <div style={{ minWidth: 0, overflow: 'auto' }}>{visible.map(({ value, index }) => <details key={`${draft.sessionID}:${index}`} style={{ borderBottom: '1px solid var(--ov-border-default)', padding: '8px 0' }}>
+    <div style={{ minWidth: 0, overflow: 'auto' }}>{visible.map(({ value, index }) => <details key={`${draft.sessionID}:${index}`} style={{ borderBottom: '1px solid var(--ov-color-border-default)', padding: '8px 0' }}>
       <summary>{text(value.result)} · {text(value.policy)} / {text(value.rule)} · {text(value.source)}</summary>
       <dl>{['severity', 'category', 'scored'].map(key => <div key={key}><dt>{key}</dt><dd>{text(value[key])}</dd></div>)}<div><dt>Timestamp seconds</dt><dd>{text(record(value.timestamp).seconds)}</dd></div><div><dt>Timestamp nanos</dt><dd>{text(record(value.timestamp).nanos)}</dd></div></dl>
       {value.message !== undefined && <p>Result message hidden for privacy.</p>}

@@ -52,7 +52,7 @@ export function summarizeAdmissionReview(draft: ResourceEditorDraft) {
   const presence = (path: ResourceEditorPath) => draft.has(path) ? 'Withheld' : 'Not supplied';
   return {
     supported, request, response, correlated, issues,
-    version: supported ? version as string : 'Unsupported envelope',
+    version: supported ? version : 'Unsupported envelope',
     operation: typeof operation === 'string' && Object.hasOwn(operations, operation) ? operation : 'Unsupported operation',
     requestUID: text(['request', 'uid']), responseUID: text(['response', 'uid']),
     targetKind: qualified(['request', 'kind'], 'kind'), targetResource: qualified(['request', 'resource'], 'resource'),
