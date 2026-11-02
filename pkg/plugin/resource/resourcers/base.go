@@ -357,11 +357,9 @@ func (s *KubernetesResourcerBase[T]) Watch(ctx context.Context, client *clients.
 			continue
 		}
 		synced++
-		items := item.lease.Informer.GetStore().List()
-		count += len(items)
-		for _, object := range items {
-			handler.OnAdd(object, true)
-		}
+		// The registration's HasSynced includes delivery of its initial events.
+		// Replaying the store here duplicates ADDs and can race newer changes.
+		count += len(item.lease.Informer.GetStore().List())
 	}
 	if synced == 0 {
 		state := resource.WatchStateForbidden
