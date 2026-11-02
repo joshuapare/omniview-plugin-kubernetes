@@ -18,7 +18,7 @@ describe('legacy preference reporting', () => {
         status: 'warning', details: key, showOnce: true,
       }));
     });
-    expect(log).toHaveBeenCalledWith('Kubernetes legacy column preferences could not be migrated:', key);
+    expect(log).toHaveBeenCalledWith('Kubernetes legacy preferences could not be migrated:', key);
     expect(localStorage.getItem(legacyBackupPrefix + key)).toBe('{}');
     log.mockRestore();
   });
@@ -61,6 +61,27 @@ describe('legacy preference reporting', () => {
       expect(localStorage.getItem('kubernetes-prod-example-k8s:/pods-column-visibility')).toBeNull();
       expect(localStorage.getItem(key)).toBe('original');
       expect(localStorage.getItem(legacyBackupPrefix + key)).toBe('original');
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('reports unknown sidebar resources through the existing preference gate', async () => {
+    const key = 'kubernetes-sidebar-order';
+    const original = '{"items":["example.io_v1_Widget"],"children":{}}';
+    const details = `${key}: example.io_v1_Widget`;
+    localStorage.setItem(key, original);
+    const log = vi.spyOn(console, 'warn').mockImplementation(vi.fn());
+    try {
+      renderHook(() => useLegacyColumnMigration(['prod']));
+      await waitFor(() => {
+        expect(showSnackbar).toHaveBeenCalledWith(expect.objectContaining({
+          status: 'warning', details, showOnce: true,
+        }));
+      });
+      expect(log).toHaveBeenCalledWith('Kubernetes legacy preferences could not be migrated:', details);
+      expect(localStorage.getItem(key)).toBe(original);
+      expect(localStorage.getItem(legacyBackupPrefix + key)).toBe(original);
     } finally {
       log.mockRestore();
     }

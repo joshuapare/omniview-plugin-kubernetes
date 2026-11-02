@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { legacyBackupPrefix, migrateColumnPreferences, migratePagePath } from './legacyMigration';
+import { legacyBackupPrefix, migrateColumnPreferences, migratePagePath, migrateSidebarOrder } from './legacyMigration';
 
 const prefix = '/_plugin/kubernetes/cluster/prod/resources/';
 
@@ -11,6 +11,9 @@ describe('legacy Kubernetes page paths', () => {
     ['helm_v1_Release', 'helm:releases'],
     ['apps::v1::Deployment', 'k8s:apps/deployments'],
     ['networking.k8s.io::v1::Ingress', 'k8s:networking.k8s.io/ingresses'],
+    ['events_v1_Event', 'k8s:events.k8s.io/events'],
+    ['events::v1::Event', 'k8s:events.k8s.io/events'],
+    ['events.k8s.io::v1::Event', 'k8s:events.k8s.io/events'],
   ])('converts %s without losing suffix', (legacy, canonical) => {
     expect(migratePagePath(`${prefix}${encodeURIComponent(legacy)}?search=api#result`)).toEqual({
       kind: 'migrated', path: `${prefix}${encodeURIComponent(canonical)}?search=api#result`,
@@ -62,6 +65,15 @@ describe('legacy column preferences', () => {
     localStorage.setItem('kubernetes-networking::v1::Ingress-label-cols', '{"team":true}');
     expect(migrateColumnPreferences(localStorage, [])).toEqual([]);
     expect(localStorage.getItem('kubernetes-k8s:networking.k8s.io/ingresses-label-cols')).toBe('{"team":true}');
+  });
+  it.each(['events', 'events.k8s.io'])('migrates the registered %s Events preferences', group => {
+    const old = `kubernetes-prod-${group}::v1::Event-column-visibility`;
+    const value = '{"reason":false}';
+    localStorage.setItem(old, value);
+    expect(migrateColumnPreferences(localStorage, ['prod'])).toEqual([]);
+    expect(localStorage.getItem('kubernetes-prod-k8s:events.k8s.io/events-column-visibility')).toBe(value);
+    expect(localStorage.getItem(old)).toBe(value);
+    expect(localStorage.getItem(legacyBackupPrefix + old)).toBe(value);
   });
   it('migrates only the selected host profile and keeps its backup in that profile', () => {
     const profile = 'omniview:instance:v1:dev%2Fone:';
@@ -115,5 +127,104 @@ describe('legacy column preferences', () => {
     expect(migrateColumnPreferences(localStorage, ['prod'])).toEqual([]);
     expect(localStorage.getItem(key)).toBe('current');
     expect(localStorage.length).toBe(1);
+  });
+});
+
+describe('legacy sidebar order', () => {
+  const key = 'kubernetes-sidebar-order';
+  const toID = encodeURIComponent;
+  beforeEach(() => localStorage.clear());
+
+  it('converts built-in items, children and parent IDs while preserving group IDs', () => {
+    const original = JSON.stringify({
+      items: ['events_v1_Event', 'workload', 'core_v1_Node', 'example.io'],
+      children: {
+        workload: ['apps_v1_Deployment', 'core_v1_Pod'],
+        core_v1_Node: ['core_v1_Pod'],
+        'example.io': [],
+      },
+    });
+    localStorage.setItem(key, original);
+    expect(migrateSidebarOrder(localStorage)).toEqual([]);
+    expect(JSON.parse(localStorage.getItem(key)!)).toEqual({
+      items: [toID('k8s:events.k8s.io/events'), 'workload', toID('k8s:/nodes'), 'example.io'],
+      children: {
+        workload: [toID('k8s:apps/deployments'), toID('k8s:/pods')],
+        [toID('k8s:/nodes')]: [toID('k8s:/pods')],
+        'example.io': [],
+      },
+    });
+    expect(localStorage.getItem(legacyBackupPrefix + key)).toBe(original);
+  });
+
+  it('keeps canonical choices and canonical child orders when legacy aliases collide', () => {
+    const pod = toID('k8s:/pods');
+    const node = toID('k8s:/nodes');
+    const opaque = toID('k8s:opaque::v1::Pod');
+    const original = JSON.stringify({
+      items: ['core_v1_Pod', opaque, pod],
+      children: { core_v1_Node: ['core_v1_Pod'], [node]: [opaque, pod] },
+    });
+    localStorage.setItem(key, original);
+    expect(migrateSidebarOrder(localStorage)).toEqual([]);
+    expect(JSON.parse(localStorage.getItem(key)!)).toEqual({
+      items: [opaque, pod], children: { [node]: [opaque, pod] },
+    });
+    expect(localStorage.getItem(legacyBackupPrefix + key)).toBe(original);
+  });
+
+  it('retains and reports unknown resource IDs without changing arbitrary group IDs', () => {
+    const original = JSON.stringify({
+      items: ['example.io', 'example.io_v1_Widget', 'events_v1_Event'],
+      children: { 'example.io': ['example.io_v1_Widget', 'apps_v9_Deployment'] },
+    });
+    localStorage.setItem(key, original);
+    expect(migrateSidebarOrder(localStorage)).toEqual([
+      `${key}: example.io_v1_Widget`, `${key}: apps_v9_Deployment`,
+    ]);
+    expect(JSON.parse(localStorage.getItem(key)!)).toEqual({
+      items: ['example.io', 'example.io_v1_Widget', toID('k8s:events.k8s.io/events')],
+      children: { 'example.io': ['example.io_v1_Widget', 'apps_v9_Deployment'] },
+    });
+    expect(localStorage.getItem(legacyBackupPrefix + key)).toBe(original);
+  });
+
+  it('does not replace the first backup or a later canonical order on reload', () => {
+    const original = '{"items":["events_v1_Event","core_v1_Node"],"children":{}}';
+    localStorage.setItem(key, original);
+    migrateSidebarOrder(localStorage);
+    const current = JSON.stringify({ items: [toID('k8s:/nodes'), toID('k8s:events.k8s.io/events')], children: {} });
+    localStorage.setItem(key, current);
+    expect(migrateSidebarOrder(localStorage)).toEqual([]);
+    expect(localStorage.getItem(key)).toBe(current);
+    expect(localStorage.getItem(legacyBackupPrefix + key)).toBe(original);
+  });
+
+  it('does not rewrite or back up an already canonical order', () => {
+    const current = ` { "items": ["${toID('k8s:/nodes')}", "workload"], "children": {} } `;
+    localStorage.setItem(key, current);
+    expect(migrateSidebarOrder(localStorage)).toEqual([]);
+    expect(localStorage.getItem(key)).toBe(current);
+    expect(localStorage.getItem(legacyBackupPrefix + key)).toBeNull();
+  });
+
+  it('isolates the selected host profile and its original order backup', () => {
+    const prefix = 'omniview:instance:v1:selected:';
+    const other = 'omniview:instance:v1:other:';
+    const original = '{"items":["events_v1_Event"],"children":{}}';
+    localStorage.setItem(prefix + key, original);
+    localStorage.setItem(other + key, original);
+    expect(migrateSidebarOrder(localStorage, prefix)).toEqual([]);
+    expect(JSON.parse(localStorage.getItem(prefix + key)!).items).toEqual([toID('k8s:events.k8s.io/events')]);
+    expect(localStorage.getItem(prefix + legacyBackupPrefix + key)).toBe(original);
+    expect(localStorage.getItem(other + key)).toBe(original);
+    expect(localStorage.getItem(other + legacyBackupPrefix + key)).toBeNull();
+  });
+
+  it.each(['{', '{"items":["core_v1_Node"],"children":{"workload":"invalid"}}'])('preserves and reports an unreadable order %s', original => {
+    localStorage.setItem(key, original);
+    expect(migrateSidebarOrder(localStorage)).toEqual([key]);
+    expect(localStorage.getItem(key)).toBe(original);
+    expect(localStorage.getItem(legacyBackupPrefix + key)).toBe(original);
   });
 });

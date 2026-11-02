@@ -186,6 +186,14 @@ Tables and navigation use canonical references, routes, target membership, and h
 
 Legacy built-in Kubernetes resource page paths and table column preferences migrate using an explicit provider-owned mapping. Preference migration uses configured connection IDs and explicit plugin-wide keys, never a guessed connection/type boundary. Unknown types, missing connections, and ambiguous connection prefixes are reported and retained. Column and toolbar preference originals remain in place and are also copied under the `kubernetes-legacy-preference-backup:` prefix within their existing storage namespace; existing canonical preferences are never overwritten. Both plugin-local preferences and active host-profile table preferences migrate independently. Resource tables wait for connection discovery and migration before reading their initial choices. Reloading does not replace either backup or canonical values.
 
+Historical `events_v1_Event` routes and `events::v1::Event` preferences use the
+registered `k8s:events.k8s.io/events` binding. Saved `kubernetes-sidebar-order`
+items and nested child IDs migrate before sidebar state initializes. Group IDs
+and current canonical choices stay intact. Unknown resource IDs are reported and
+retained; the first complete order is backed up under
+`kubernetes-legacy-preference-backup:kubernetes-sidebar-order` before any rewrite.
+Later drag saves and reloads do not replace that original backup.
+
 Native and Helm resource sidebars and drawer factories register through `extensionRegistrations` at `omniview/resource/sidebar/infopanel` and `omniview/resource/drawer`. Exact `{pluginId, resourceKey}` metadata selects each opaque logical Type without parsing its spelling. Standard views and shared actions are identical for table and linked-resource drawers; the supported default drawer factory remains available for CRDs and other dynamically discovered resources without a dedicated sidebar.
 
 Standard resource YAML drawers submit through the resource-v2 mutation hook using the original contextual route, reference, known incarnation, and observed revision. The editor requires catalog-advertised `mutationUpdate` support for the exact scope; the catalog's `update` capability describes advisory watch updates, not writes. Missing identity, unavailable catalog metadata, and non-mutating resources cannot submit. YAML integers retain their exact values through tagged Value conversion. Pending writes reject duplicate submits, parse and native failures retain the draft, and only a successful native mutation replaces the dirty baseline with the returned record. Target/reference changes retire the old editor state, so late results cannot overwrite another resource. Successful writes use the runtime's canonical resource-query invalidation.

@@ -17,9 +17,13 @@ vi.mock('./components/helm/charts/ChartSidebar/ChartReadmeTab', () => ({
 }));
 
 describe('native specialized route registrations', () => {
-  it('registers the provider path migration hook', () => {
-    expect(plugin.migratePagePath('/_plugin/kubernetes/cluster/prod/resources/core::v1::Pod'))
-      .toEqual({ kind: 'migrated', path: '/_plugin/kubernetes/cluster/prod/resources/k8s%3A%2Fpods' });
+  it.each([
+    ['core::v1::Pod', 'k8s:/pods'],
+    ['events_v1_Event', 'k8s:events.k8s.io/events'],
+    ['events::v1::Event', 'k8s:events.k8s.io/events'],
+  ])('migrates restored built-in %s through the registered provider hook', (legacy, canonical) => {
+    expect(plugin.migratePagePath(`/_plugin/kubernetes/cluster/prod/resources/${legacy}`))
+      .toEqual({ kind: 'migrated', path: `/_plugin/kubernetes/cluster/prod/resources/${encodeURIComponent(canonical)}` });
   });
 
   it.each([
@@ -29,6 +33,7 @@ describe('native specialized route registrations', () => {
     ['helm:releases', HelmReleaseTable],
     ['helm:repositories', HelmRepoTable],
     ['helm:charts', HelmChartTable],
+    ['k8s:events.k8s.io/events', DefaultTable],
   ] as const)('matches encoded canonical Type %s using installed React Router', (type, component) => {
     const matches = matchRoutes(routes, `/cluster/prod/resources/${encodeURIComponent(type)}`);
     expect(matches?.at(-1)?.route.Component).toBe(component);

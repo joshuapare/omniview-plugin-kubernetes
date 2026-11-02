@@ -17,6 +17,7 @@ export const manifestResourceTypes: Readonly<Record<string, string>> = {
 export const builtinResourceTypes: Readonly<Record<string, string>> = {
   ...manifestResourceTypes,
   '/Pod': 'k8s:/pods', '/Node': 'k8s:/nodes', '/Endpoints': 'k8s:/endpoints', '/Event': 'k8s:/events',
+  'events.k8s.io/Event': 'k8s:events.k8s.io/events',
   '/PersistentVolume': 'k8s:/persistentvolumes', '/ResourceQuota': 'k8s:/resourcequotas',
   '/LimitRange': 'k8s:/limitranges', '/ReplicationController': 'k8s:/replicationcontrollers',
   '/ComponentStatus': 'k8s:/componentstatuses', 'apps/ReplicaSet': 'k8s:apps/replicasets',

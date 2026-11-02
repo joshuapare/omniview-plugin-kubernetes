@@ -1,3 +1,5 @@
+import type { SidebarOrder } from '../hooks/useSidebarOrder';
+
 import { builtinResourceTypes } from './builtinResourceTypes';
 
 // Only historically registered built-ins and versions are safe without discovery.
@@ -12,6 +14,7 @@ const shortGroups: Record<string, string> = {
   'discovery.k8s.io': 'discovery', 'node.k8s.io': 'node',
   'scheduling.k8s.io': 'scheduling', 'flowcontrol.apiserver.k8s.io': 'flowcontrol',
   'admissionregistration.k8s.io': 'admissionregistration',
+  'events.k8s.io': 'events',
 };
 for (const [binding, canonical] of Object.entries(builtinResourceTypes)) {
   const [group, kind] = binding.split('/');
@@ -104,4 +107,101 @@ export function migrateColumnPreferences(storage: Storage, connectionIDs: readon
   }
 
   return unknown;
+}
+
+/** Preserve the first order before replacing historical resource IDs in-place. */
+export function migrateSidebarOrder(storage: Storage, profilePrefix = ''): string[] {
+  const key = profilePrefix + 'kubernetes-sidebar-order';
+  const value = storage.getItem(key);
+  if (value === null) {
+    return [];
+  }
+
+  const backup = profilePrefix + legacyBackupPrefix + 'kubernetes-sidebar-order';
+  const preserve = () => {
+    if (storage.getItem(backup) === null) {
+      storage.setItem(backup, value);
+    }
+  };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    preserve();
+    return [key];
+  }
+
+  const order = parsed as SidebarOrder | null;
+  if (order === null || typeof order !== 'object' || !Array.isArray(order.items)
+    || !order.items.every(id => typeof id === 'string')
+    || order.children === null || typeof order.children !== 'object' || Array.isArray(order.children)
+    || !Object.values(order.children).every(ids => Array.isArray(ids) && ids.every(id => typeof id === 'string'))) {
+    preserve();
+    return [key];
+  }
+
+  const issues = new Set<string>();
+  let changed = false;
+  const convert = (id: string): string => {
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(id);
+    } catch {
+      issues.add(`${key}: ${id}`);
+      return id;
+    }
+
+    if (decoded.startsWith('k8s:') || decoded.startsWith('helm:')) {
+      return id;
+    }
+
+    const legacy = legacyType(decoded);
+    if (legacy && Object.hasOwn(builtins, legacy)) {
+      return encodeURIComponent(builtins[legacy]);
+    }
+
+    if (legacy || /::|_v[0-9]/.test(decoded)) {
+      issues.add(`${key}: ${id}`);
+    }
+    return id;
+  };
+  const convertOrder = (ids: string[]): string[] => {
+    const originalIDs = new Set(ids);
+    const convertedIDs = new Set<string>();
+    const next: string[] = [];
+    for (const id of ids) {
+      const converted = convert(id);
+      if (converted !== id) {
+        changed = true;
+        // A current canonical choice wins over an older spelling of that choice.
+        if (originalIDs.has(converted) || convertedIDs.has(converted)) {
+          continue;
+        }
+      }
+      convertedIDs.add(converted);
+      next.push(converted);
+    }
+    return next;
+  };
+  const items = convertOrder(order.items);
+  const children = new Map<string, string[]>();
+  for (const [id, ids] of Object.entries(order.children)) {
+    const converted = convert(id);
+    const convertedOrder = convertOrder(ids);
+    if (converted !== id) {
+      changed = true;
+      if (Object.hasOwn(order.children, converted) || children.has(converted)) {
+        continue;
+      }
+    }
+    children.set(converted, convertedOrder);
+  }
+
+  if (changed || issues.size > 0) {
+    preserve();
+    if (changed) {
+      storage.setItem(key, JSON.stringify({ ...order, items, children: Object.fromEntries(children) }));
+    }
+  }
+  return [...issues];
 }
