@@ -1,0 +1,58 @@
+Flux notification resource editors
+
+Source: notification-controller v1.7.0, a0a2f73784b6e90776e19048eb49370e4ca4fbaf.
+https://github.com/fluxcd/notification-controller/tree/v1.7.0/config/crd/bases
+https://github.com/fluxcd/notification-controller/tree/v1.7.0/api/v1beta3
+https://github.com/fluxcd/notification-controller/tree/v1.7.0/api/v1
+
+Exact targets: notification.toolkit.fluxcd.io/v1beta3 Alert alerts Namespaced;
+notification.toolkit.fluxcd.io/v1beta3 Provider providers Namespaced;
+notification.toolkit.fluxcd.io/v1 Receiver receivers Namespaced.
+Deprecated v1beta2 targets deliberately retain source fallback rather than receiving a newer-version editor.
+All three describe user-authored desired state. Descriptor ownershipPolicy is declarative, not permission.
+Host owns exact discovery, schema, capabilities, identity, canonical AST, review and submission.
+Controller/GitOps-owned and unknown existing ownership remain read-only. No spec immutable markers occur in pinned sources.
+
+Field -> control -> owned path (identity remains host-owned):
+Alert provider -> exact namespaced Provider reference -> spec.providerRef.name
+Alert severity -> info/error choice -> spec.eventSeverity (info means all severities)
+Alert source rows -> kind choice/name/namespace/API version + label map -> spec.eventSources[i].{kind,name,namespace,apiVersion,matchLabels}
+Alert inclusion/exclusion -> repeatable Go regex strings -> spec.inclusionList[i], spec.exclusionList[i]
+Alert event metadata -> string key/value rows -> spec.eventMetadata[key]
+Alert deprecated summary -> text -> spec.summary
+Provider type -> all 29 pinned enum choices -> spec.type
+Provider destination -> masked text -> spec.address
+Provider channel -> text -> spec.channel
+Provider authentication/proxy/TLS -> metadata-only Secret references -> spec.{secretRef,proxySecretRef,certSecretRef}.name
+Provider timeout -> locally validated exact duration -> spec.timeout (ms/s/m)
+Provider workload identity -> conditional text -> spec.serviceAccountName; three eligible types, gate evidence required, static credential conflict rejected
+Provider commit status -> conditional CEL text -> spec.commitStatusExpr; six eligible Git types
+Receiver sender -> all 12 pinned enum choices -> spec.type
+Receiver validation -> metadata-only Secret reference -> spec.secretRef.name
+Receiver events -> repeatable strings -> spec.events[i]
+Receiver target rows -> kind/name/namespace/API version + label map -> spec.resources[i].{kind,name,namespace,apiVersion,matchLabels}
+Receiver interval -> locally validated exact duration -> spec.interval (ms/s/m/h)
+Receiver filter -> CEL text -> spec.resourceFilter
+All kinds suspension -> active/suspended choice -> spec.suspend
+Receiver readiness -> observational condition type/status only -> status.conditions (never owned)
+Receiver webhook path -> masked, never rendered -> status.webhookPath (never owned)
+
+All edits issue session/revision-scoped atomic patches. Target siblings and unknown fields are never reconstructed.
+Reference suggestions allow unresolved manual names and distinguish empty/denied/absent/unavailable.
+No Secret body reads, credential resolution, delivery tests, webhook execution, implicit resources or fabricated controller success.
+Provider address/proxy/username and Receiver webhook path declare sensitive host paths.
+Provider deprecated interval/proxy and posting username remain source-only and unchanged.
+Go regex and CEL compilation remain server/controller validation; client never claims matching semantics.
+Advanced sections isolate optional fields. Shared base-ui-backed EditorField/EditorChoice/ReferencePicker/ExactValueField/KeyValueFields supply help, input and row semantics.
+Unsupported scalar/container shapes use source fallback; unknown siblings remain canonical AST nodes.
+
+Behavior regressions: model.test.ts covers workload/static credential conflict, gate uncertainty, exact duration units,
+wildcard/label rules, immutable source observation, GitOps ownership, missing Receiver Secret and unsupported commit CEL.
+No checks executed by this worker; integration owner runs coherent suite.
+
+Actual production harness: .local/resource-editor-implementation/issue-312/{Harness.tsx,main.tsx,index.html,vite.config.mjs}.
+Canonical ResourceEditorHarness uses real AST/controller/frame; fixture references only, no live mutations.
+Cases: all three kinds; create/edit, controller ownership, denied update, absent discovery;
+reference ready/empty/denied/absent/unavailable. All field, add/remove, help and advanced controls are production components.
+Port 15312, own browser profile issue-312/chrome-profile for final capture wave.
+Screenshots not captured yet; parent-coordinated final capture wave required at 1440x900@1.25 and narrow fit.

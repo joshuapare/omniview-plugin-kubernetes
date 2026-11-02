@@ -1,0 +1,73 @@
+Storage version migration editor — issue 287
+
+Coverage: StorageVersionMigration privileged create and immutable existing-request inspection.
+Exact target: storagemigration.k8s.io/v1beta1, StorageVersionMigration,
+resource storageversionmigrations, Cluster scope. No v1alpha1 registration.
+Native Kubernetes provider. No namespace field. Identity belongs to production host.
+Ownership policy: conditional. Explicit manual create may author a request; existing
+requests remain inspection-only. Controller/system evidence never grants permission.
+
+Control / manifest mapping
+- Host Name: metadata.name; host owns create identity, existing identity locked.
+- Discover targets: real kubernetes.discovery.v1 read-only /api and /apis requests,
+  negotiated apidiscovery.k8s.io/v2 APIGroupDiscoveryList. Current advertised
+  list/update-capable base resources only; duplicate versions collapse to exact
+  GroupResource. No kind-to-plural conversion. No version is authored in spec.
+- Discovered target: one atomic pair of leaf sets to spec.resource.group and
+  spec.resource.resource. No projected container or unknown sibling replacement.
+- API group: spec.resource.group; string, optional DNS1123 subdomain; empty is core.
+- Plural resource: spec.resource.resource; required DNS1035 label, maximum 63.
+- Progress: status.conditions[].type/status/reason; controller-owned, read-only.
+- Observation details: status.conditions[].lastTransitionTime/observedGeneration;
+  exact integer/string display, no rounding, no fabricated percentage.
+- Controller message: status.conditions[].message; declared sensitive wildcard path,
+  always hidden in guided views. Only presence is shown, never raw error text.
+- Observed resource version: status.resourceVersion; opaque exact string, separate
+  from metadata.resourceVersion. Missing observations stay Not reported.
+- Availability and ownership: derived context only. API discovery does not establish
+  migrator controller health, user RBAC permission, or storage-backed target support.
+
+Mutation and fallback
+Full spec is immutable after create. Edit/inspect contribution is read-only even
+when update permission exists. Generic metadata updates are outside this provider.
+Status clears on create and is preserved on normal update by Kubernetes strategy.
+No /status editor, retry, pause, rollback, companion object, or chosen storage version.
+Creation uses normal admitted resource-create routing, not an invented action protocol.
+A visible consequence states cross-namespace storage rewrites and API/storage load.
+Creation requires served target discovery, available schema and actual create capability.
+Feature state explicitly absent/denied blocks creation; unknown controller state never
+becomes healthy. Beta StorageVersionMigrator defaults off at pinned 1.35 snapshot.
+Invalid partial target strings stay local and block review; canonical source stays old.
+External revisions reset stale local state; own accepted sibling patches keep invalid
+local input. Source with unsupported target scalar/container shapes remains unchanged.
+Unknown siblings, comments, scalar types and wide integers stay in canonical host AST.
+
+Primary source refresh: Kubernetes v1.35.0 / k8s.io v0.35.0
+https://github.com/kubernetes/api/blob/v0.35.0/storagemigration/v1beta1/types.go
+https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/registry/storagemigration/rest/storage_storagemigration.go
+https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/registry/storagemigration/storagemigration/strategy.go
+https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/apis/storagemigration/validation/validation.go
+https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/features/kube_features.go
+https://github.com/kubernetes/api/blob/v0.35.0/apidiscovery/v2/types.go
+Source refreshed directly; actual installed availability remains host-discovered.
+
+Regression sources (not executed by this worker)
+StorageVersionMigrationForm.test.tsx: invalid local input; sibling-patch preservation;
+unknown wide integer/comment retention; core target; immutable edits; denied/unknown/
+unavailable create capability; unsupported source; exact version/generation display;
+missing conditions remain unknown; message privacy; exact DNS distinction.
+discovery.test.ts: exact plural/version deduplication; omitted core group; stale,
+subresource and read-only exclusion; empty versus unsupported result distinction.
+TargetDiscovery.test.tsx: real discovery input and session identity; denied/absent/
+unavailable lookup results keep manual targets; late response discarded after revision.
+Choices from a previous connection clear without pretending a new lookup succeeded.
+
+Composition: shared EditorField, EditorChoice, EditorHelp and EditorSection; actual
+base-ui Input, Select, Button. Resource-specific semantics stay within this directory.
+No new shared primitive, duplicate draft, registry, backend, persistence or preferences.
+
+Isolated production capture entry and transport:
+.local/resource-editor-implementation/issue-287/Harness.tsx
+Canonical fixture manifests: fixtures.ts; unknown sibling fixture is preservation-only,
+not an assertion that current admission permits unknown fields.
+No cluster mutations. Capture wave belongs to parent after coherent integration.

@@ -1,0 +1,13 @@
+.resource-editor-field { display: grid; gap: 4px; min-width: 0; font-size: 13px; }
+.resource-editor-label { display: flex; align-items: center; gap: 6px; }
+.resource-editor-field input { min-height: 32px; width: 100%; }
+.resource-editor-error { color: var(--ov-danger-default, #dc6060); font-size: 12px; }
+.resource-editor-help { position: relative; font-size: 12px; }
+.resource-editor-help summary { cursor: pointer; border: 1px solid currentColor; border-radius: 50%; width: 16px; height: 16px; text-align: center; list-style: none; }
+.resource-editor-help > div { position: absolute; z-index: 20; top: 22px; left: 0; width: min(260px, 65vw); padding: 8px; border: 1px solid var(--ov-border-default, #555); border-radius: 4px; background: var(--ov-bg-surface, #252525); box-shadow: 0 4px 12px #0004; }
+.resource-editor-section { display: grid; gap: 10px; min-width: 0; }
+.resource-editor-section h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.resource-editor-map { display: grid; gap: 8px; }
+.resource-editor-map-row { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(100px, 2fr) auto; align-items: end; gap: 8px; }
+.resource-editor-reference-state { font-size: 12px; color: var(--ov-fg-muted, #999); }
+@media (max-width: 540px) { .resource-editor-map-row { grid-template-columns: minmax(0, 1fr) auto; } .resource-editor-map-row > :first-child { grid-column: 1 / -1; } }

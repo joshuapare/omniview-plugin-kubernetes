@@ -1,0 +1,169 @@
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ResourceEditorFormProps, ResourceEditorReferenceResult } from '@omniviewdev/runtime';
+import { EditorField, EditorHelp, ExactValueField, KeyValueFields, ReferencePicker, parseExactInteger, renameDraftKey, setDraftField, useFieldValidity } from './index';
+
+afterEach(cleanup);
+function form(values: Record<string, unknown> = {}): ResourceEditorFormProps {
+  const get = (path: readonly (string | number)[]) => path.reduce<unknown>((value, key) => value && typeof value === 'object' ? (value as Record<string | number, unknown>)[key] : undefined, values);
+  return {
+    context: { group: '', version: 'v1', kind: 'ConfigMap', resource: 'configmaps', scope: 'Namespaced', connectionID: 'fixture', intent: 'edit', capabilities: { create: 'available', update: 'available', delete: 'available', get: 'available', list: 'available', actions: {} }, discovery: { status: 'available', features: {} }, schema: { status: 'available' } },
+    draft: { sessionID: 'session', revision: 4, get, has: path => get(path) !== undefined }, section: 'test', disabled: false,
+    patch: vi.fn(() => ({ status: 'accepted' as const, revision: 5 })), onValidityChange: vi.fn(),
+    references: { list: vi.fn(async () => ({ status: 'ready' as const, items: [] })) },
+    actions: { execute: vi.fn(async () => ({ status: 'unavailable' as const, message: 'Fixture only' })) },
+  };
+}
+
+describe('exact local drafts', () => {
+  it('retains partial input, uses bigint and preserves partials across sibling revisions', () => {
+    const commit = vi.fn(() => null);
+    const validity = vi.fn();
+    const props = { label: 'Count', value: '2', identity: 'session:count', parse: parseExactInteger, onCommit: commit, onValidityChange: validity };
+    const view = render(<ExactValueField {...props} />);
+    fireEvent.change(screen.getByLabelText('Count'), { target: { value: '-' } });
+    expect(commit).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert').textContent).toContain('whole number');
+    view.rerender(<ExactValueField {...props} onCommit={commit} />);
+    expect((screen.getByLabelText('Count') as HTMLInputElement).value).toBe('-');
+    fireEvent.change(screen.getByLabelText('Count'), { target: { value: '900719925474099312345' } });
+    expect(commit).toHaveBeenCalledWith(900719925474099312345n);
+    expect(validity).toHaveBeenLastCalledWith(null);
+  });
+  it('lets quantity adapters preserve exact text and retain incomplete units', () => {
+    const commit = vi.fn(() => null);
+    render(<ExactValueField label="Storage" identity="session:storage" value="1Gi" parse={text => /^\d+Gi$/.test(text) ? { valid: true, value: text } : { valid: false, error: 'Complete the quantity.' }} onCommit={commit} onValidityChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Storage'), { target: { value: '9007199254740993G' } });
+    expect(commit).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Storage'), { target: { value: '9007199254740993Gi' } });
+    expect(commit).toHaveBeenCalledWith('9007199254740993Gi');
+  });
+  it('resets local input for another session and links visible errors', () => {
+    const props = { label: 'Count', value: '2', identity: 'first', parse: parseExactInteger, onCommit: () => null, onValidityChange: vi.fn() };
+    const view = render(<ExactValueField {...props} />);
+    fireEvent.change(screen.getByLabelText('Count'), { target: { value: '-' } });
+    expect(screen.getByLabelText('Count').getAttribute('aria-describedby')).toBe(screen.getByRole('alert').id);
+    view.rerender(<ExactValueField {...props} identity="second" value="7" />);
+    expect((screen.getByLabelText('Count') as HTMLInputElement).value).toBe('7');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('leaf map operations', () => {
+  it('renames atomically and never replaces a projected map or opaque sibling', () => {
+    const props = form({ labels: { app: 'api', unrelated: 'keep', hidden: Object.freeze({ opaque: true }) } });
+    render(<KeyValueFields form={props} path={['labels']} label="Label" />);
+    fireEvent.change(screen.getByLabelText('Key app'), { target: { value: 'component' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Rename' })[0]);
+    expect(props.patch).toHaveBeenCalledWith({ sessionID: 'session', expectedRevision: 4, operations: [{ op: 'set', path: ['labels', 'component'], value: 'api' }, { op: 'remove', path: ['labels', 'app'] }] });
+    expect(screen.queryByLabelText('Value hidden')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove unrelated' }));
+    expect(props.patch).toHaveBeenLastCalledWith({ sessionID: 'session', expectedRevision: 4, operations: [{ op: 'remove', path: ['labels', 'unrelated'] }] });
+    expect(document.activeElement).toBe(screen.getByLabelText('New Label key'));
+  });
+  it('blocks duplicate adds and invalid values without changing source', () => {
+    const props = form({ labels: { app: 'api' } });
+    render(<KeyValueFields form={props} path={['labels']} label="Label" validateValue={value => value.includes(' ') ? 'No spaces.' : null} />);
+    fireEvent.change(screen.getByLabelText('New Label key'), { target: { value: 'app' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add Label' }));
+    expect(props.patch).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Value app'), { target: { value: 'invalid value' } });
+    expect(props.patch).not.toHaveBeenCalled();
+    expect((screen.getByLabelText('Value app') as HTMLInputElement).value).toBe('invalid value');
+  });
+  it('rejects disabled, opaque, unsafe numeric and duplicate renames', () => {
+    const props = form({ labels: { app: 'api', other: 'keep' } });
+    expect(renameDraftKey(props, ['labels'], 'app', 'other').status).toBe('invalid');
+    expect(setDraftField(props, ['n'], Number.MAX_SAFE_INTEGER + 1).status).toBe('unsafe');
+    expect(setDraftField(props, ['n'], { opaque: true } as never).status).toBe('unsafe');
+    expect(setDraftField({ ...props, disabled: true }, ['n'], 'new').status).toBe('forbidden');
+    expect(props.patch).not.toHaveBeenCalled();
+  });
+});
+
+describe('reference lookup state and cancellation', () => {
+  it.each(['denied', 'absent', 'unavailable'] as const)('keeps manual names during %s', async status => {
+    const props = form();
+    props.references.list = vi.fn(async () => ({ status, message: 'safe' }));
+    const onChange = vi.fn();
+    render(<ReferencePicker form={props} query={{ group: '', version: 'v1', resource: 'services' }} label="Service" value="unresolved" onChange={onChange} />);
+    await screen.findByText(status === 'denied' ? /access denied/ : status === 'absent' ? /API is absent/ : /lookup unavailable/);
+    expect((screen.getByLabelText('Service') as HTMLInputElement).value).toBe('unresolved');
+    fireEvent.change(screen.getByLabelText('Service'), { target: { value: 'manual' } });
+    expect(onChange).toHaveBeenCalledWith('manual');
+  });
+  it('distinguishes loading, empty and unresolved; aborts obsolete query results', async () => {
+    const props = form();
+    const { promise: first, resolve } = Promise.withResolvers<ResourceEditorReferenceResult>();
+    const list = vi.fn().mockReturnValueOnce(first).mockResolvedValue({ status: 'ready', items: [] });
+    props.references.list = list;
+    const field = { form: props, label: 'Reference', value: 'manual', onChange: vi.fn() };
+    const view = render(<ReferencePicker {...field} query={{ group: '', version: 'v1', resource: 'services' }} />);
+    expect(screen.getByRole('status').textContent).toContain('Loading');
+    view.rerender(<ReferencePicker {...field} query={{ group: '', version: 'v1', resource: 'secrets' }} />);
+    await screen.findByText(/No references found/);
+    expect(list.mock.calls[0][0].signal.aborted).toBe(true);
+    await act(async () => { resolve({ status: 'ready', items: [{ name: 'obsolete' }] }); await first; });
+    expect(screen.queryByDisplayValue('obsolete')).toBeNull();
+    expect(screen.getByRole('status').getAttribute('data-state')).toBe('empty');
+  });
+});
+
+it('does not let valid sibling fields clear another field error', () => {
+  const props = form();
+  function Fields() {
+    const validity = useFieldValidity(props);
+    return <><EditorField label="First" value="" onChange={() => validity('first', 'First invalid')} /><EditorField label="Second" value="" onChange={() => validity('second', null)} /></>;
+  }
+  render(<Fields />);
+  fireEvent.change(screen.getByLabelText('First'), { target: { value: 'x' } });
+  fireEvent.change(screen.getByLabelText('Second'), { target: { value: 'x' } });
+  expect(props.onValidityChange).toHaveBeenLastCalledWith('First invalid');
+});
+
+it('provides click and keyboard focusable help without changing form data', () => {
+  render(<EditorHelp label="Budget">Budget semantics</EditorHelp>);
+  const trigger = screen.getByText('?');
+  expect(trigger.getAttribute('aria-label')).toBe('Help: Budget');
+  const details = trigger.closest('details')!;
+  fireEvent.pointerEnter(details);
+  expect(details.open).toBe(true);
+  fireEvent.pointerLeave(details);
+  expect(details.open).toBe(false);
+  fireEvent.click(trigger);
+  expect(details.open).toBe(true);
+  act(() => trigger.focus());
+  fireEvent.keyDown(trigger, { key: 'Escape' });
+  expect(details.open).toBe(false);
+  expect(document.activeElement).toBe(trigger);
+});
+
+it('aggregates independent child hooks and removes only the unmounted child bucket', () => {
+  const props = form();
+  function Child({ name }: { name: string }) {
+    const validity = useFieldValidity(props);
+    return <EditorField label={name} value="" onChange={value => validity(name, value === 'valid' ? null : `${name} invalid`)} />;
+  }
+  const view = render(<><Child name="First" /><Child name="Second" /></>);
+  fireEvent.change(screen.getByLabelText('First'), { target: { value: 'bad' } });
+  fireEvent.change(screen.getByLabelText('Second'), { target: { value: 'valid' } });
+  expect(props.onValidityChange).toHaveBeenLastCalledWith('First invalid');
+  fireEvent.change(screen.getByLabelText('Second'), { target: { value: 'bad' } });
+  view.rerender(<><Child name="First" /></>);
+  expect(props.onValidityChange).toHaveBeenLastCalledWith('First invalid');
+  fireEvent.change(screen.getByLabelText('First'), { target: { value: 'valid' } });
+  expect(props.onValidityChange).toHaveBeenLastCalledWith(null);
+});
+
+it('does not share validity between distinct host callbacks', () => {
+  const first = form();
+  const second = form();
+  function Child({ props, label }: { props: ResourceEditorFormProps; label: string }) {
+    const validity = useFieldValidity(props);
+    return <EditorField label={label} value="" onChange={() => validity('same-path', `${label} invalid`)} />;
+  }
+  render(<><Child props={first} label="First editor" /><Child props={second} label="Second editor" /></>);
+  fireEvent.change(screen.getByLabelText('First editor'), { target: { value: 'bad' } });
+  expect(first.onValidityChange).toHaveBeenLastCalledWith('First editor invalid');
+  expect(second.onValidityChange).toHaveBeenLastCalledWith(null);
+});

@@ -51,7 +51,7 @@ type NativeLinkProps = {
 type Props = NativeLinkProps | {
   connectionID: string;
   namespace?: string;
-  ownerReference: OwnerReference;
+  ownerReference: Pick<OwnerReference, 'apiVersion' | 'kind' | 'name'> & Partial<Pick<OwnerReference, 'uid'>>;
   resourceName?: string;
 } | { target: GraphNode; resourceName?: string };
 

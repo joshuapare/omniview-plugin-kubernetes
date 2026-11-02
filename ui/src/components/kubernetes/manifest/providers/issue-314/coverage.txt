@@ -1,0 +1,14 @@
+ArtifactGenerator — source.extensions.fluxcd.io/v1beta1, artifactgenerators, Namespaced.
+Pinned source-watcher v2.0.1 commit 0ca4059e6bf06c71d92e9bd229a4df31c00aeb88; Flux 2.7.0 optional source-watcher component.
+Primary API: https://github.com/fluxcd/source-watcher/blob/0ca4059e6bf06c71d92e9bd229a4df31c00aeb88/api/v1beta1/artifactgenerator_types.go
+Primary CRD: https://github.com/fluxcd/source-watcher/blob/0ca4059e6bf06c71d92e9bd229a4df31c00aeb88/config/crd/bases/source.extensions.fluxcd.io_artifactgenerators.yaml
+
+Host owns identity, source, scalar preservation, review/submission, discovery/schema/verbs and lifecycle. No immutable spec field exists in this snapshot. Declarative authoring policy grants no permission. Controller ownership and unknown ownership remain restricted. Optional component discovery does not establish controller health.
+
+Sources section: spec.sources[].alias (buffered unique identifier), kind (three-kind choice), name (real v1 source-controller metadata picker, manual names retained), namespace (optional, blank omitted). Add/remove uses atomic array insert/remove, never projected row replacement.
+Outputs section: spec.artifacts[].name (buffered identifier), revision (digest omission or @alias), originRevision (advanced omit/@alias), copy[].from (@alias/glob), to (@artifact/path), strategy (omitted default/Overwrite/Helm values Merge), exclude[] (advanced repeatable glob rows). Copy order remains manifest order. Name/remove consequences stay visible. Sources/outputs enforce 1–1000, exclusion lists at most 100. Unknown fields remain unowned siblings.
+Composition section: ordered derived copy mapping only; no glob, merge or output-byte prediction. status.inventory[].name/namespace/digest/filename is inspection-only. No implicit source, ExternalArtifact, controller, credentials or workload is created. Source references resolve independently with loading/empty/denied/absent/unavailable states.
+Unsafe array/object/scalar shape retains canonical YAML fallback. Invalid partial text remains buffered and blocks validity without replacing prior source. Atomic patches carry session identity and expected revision. Credentials are neither fetched nor displayed.
+
+Regression coverage: domain.test.ts checks alias collisions, dangling references, revision/destination validation, unsupported shape retention, omitted default behavior and exact unknown scalar preservation. Tests not run by group worker.
+Fixture harness and full machine mapping: .local/resource-editor-implementation/issue-314/. Uses actual ResourceEditorHarness and canonical controller. Fixture-only references; no live effects. Prepared for parent-coordinated screenshot wave; no screenshots or browser results claimed.

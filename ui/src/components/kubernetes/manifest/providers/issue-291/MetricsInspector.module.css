@@ -1,0 +1,15 @@
+.inspector { min-width: 0; font-size: 13px; }
+.heading { display: flex; align-items: center; gap: 8px; }
+.muted { color: var(--ov-color-fg-muted); font-size: 12px; }
+.sample { min-width: 0; padding-top: 12px; border-top: 1px solid var(--ov-color-border-default); }
+.sample h4 { margin: 0 0 12px; font-size: 13px; overflow-wrap: anywhere; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px 16px; margin: 0 0 12px; }
+.facts div { min-width: 0; }
+.facts dt { margin-bottom: 4px; font-size: 12px; color: var(--ov-color-fg-muted); }
+.facts dd { display: flex; align-items: center; gap: 6px; margin: 0; overflow-wrap: anywhere; }
+.tableScroll { max-width: 100%; overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+.table th, .table td { padding: 8px; border-bottom: 1px solid var(--ov-color-border-default); overflow-wrap: anywhere; }
+.table thead th { color: var(--ov-color-fg-muted); font-size: 12px; font-weight: 500; }
+.table tbody th { font-weight: 500; }
+.table td { font-family: var(--ov-font-family-mono, monospace); font-variant-numeric: tabular-nums; }

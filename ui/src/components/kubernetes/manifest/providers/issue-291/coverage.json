@@ -1,0 +1,63 @@
+{
+  "issue": 291,
+  "group": "metrics.k8s.io",
+  "baseline": "k8s.io/metrics v0.35.0",
+  "sources": [
+    "https://github.com/kubernetes/metrics/blob/v0.35.0/pkg/apis/metrics/v1beta1/register.go",
+    "https://github.com/kubernetes/metrics/blob/v0.35.0/pkg/apis/metrics/v1beta1/types.go",
+    "https://github.com/kubernetes/metrics/blob/v0.35.0/pkg/client/clientset/versioned/typed/metrics/v1beta1/nodemetrics.go",
+    "https://github.com/kubernetes/metrics/blob/v0.35.0/pkg/client/clientset/versioned/typed/metrics/v1beta1/podmetrics.go"
+  ],
+  "prerequisites": [
+    "Optional aggregated metrics API must actually be served; metrics-server is not assumed installed.",
+    "Host discovers exact GVR, scope, schema and verbs, and separately checks query permission and availability.",
+    "Only v1beta1 has a tailored provider. Unknown versions retain host read-only fallback.",
+    "No ordinary create, edit, delete, status edit, installation or companion workload operation exists."
+  ],
+  "mutationOwnedPaths": [],
+  "ownershipPolicy": "system",
+  "ownershipPolicyMeaning": "Generated read-only measurements regardless of actual producer; policy never grants discovery, verbs, authorization, or service availability.",
+  "sensitivePaths": [["metadata", "annotations"]],
+  "sourcePolicy": "Host retains canonical source unchanged. Read-only source preview masks sensitive metadata. No projection is submitted. Filter state stays local and does not persist.",
+  "query": {
+    "protocol": "kubernetes.metrics.v1",
+    "input": {},
+    "output": "Exact NodeMetricsList or PodMetricsList from host-scoped transport; list item TypeMeta omission is supported.",
+    "resultPolicy": "Host owns execution, cancellation, session generation and requestResult. Query result is explicitly separate from unchanged source snapshot. Error, sensitive, malformed and unsupported results never become zero usage."
+  },
+  "resources": [
+    {
+      "kind": "NodeMetrics", "version": "v1beta1", "resource": "nodes", "scope": "Cluster",
+      "component": "NodeMetricsInspector.tsx", "intent": "inspect", "readOnly": true,
+      "fields": [
+        {"paths": ["apiVersion", "kind"], "control": "Host destination and read-only source context"},
+        {"paths": ["metadata.name"], "control": "Read-only node sample heading and row"},
+        {"paths": ["timestamp", "window"], "control": "Exact collection timestamp and duration facts, collection-interval help"},
+        {"paths": ["usage.cpu"], "control": "Exact CPU quantity table cell; no floating-point conversion"},
+        {"paths": ["usage.memory"], "control": "Exact working-set quantity table cell; no percentage inferred"},
+        {"paths": ["usage.*", "unknown fields"], "control": "Retained canonical source only; never reconstructed or mutated"}
+      ],
+      "fixtures": ["nodeMetricsFixture", "nodeMetricsListFixture", "nodeMetricsSource"]
+    },
+    {
+      "kind": "PodMetrics", "version": "v1beta1", "resource": "pods", "scope": "Namespaced",
+      "component": "PodMetricsInspector.tsx", "intent": "inspect", "readOnly": true,
+      "fields": [
+        {"paths": ["apiVersion", "kind"], "control": "Host destination and read-only source context"},
+        {"paths": ["metadata.name", "metadata.namespace"], "control": "Read-only pod sample heading and namespace context"},
+        {"paths": ["timestamp", "window"], "control": "Shared exact collection timestamp and window facts, interval help"},
+        {"paths": ["containers[i].name"], "control": "Container row header and non-mutating local filter"},
+        {"paths": ["containers[i].usage.cpu"], "control": "Exact per-container CPU quantity table cell"},
+        {"paths": ["containers[i].usage.memory"], "control": "Exact per-container memory working-set cell"},
+        {"paths": ["containers[i].usage.*", "unknown fields"], "control": "Retained canonical source only; no normalization, row addition, or row removal"}
+      ],
+      "fixtures": ["podMetricsFixture", "podMetricsListFixture", "podMetricsSource"]
+    }
+  ],
+  "composition": ["EditorSection", "EditorField using base-ui Input", "EditorHelp", "Semantic read-only table and description list", "Production ResourceManifestEditor and ResourceEditorController"],
+  "regressions": {
+    "path": "MetricsInspector.test.tsx",
+    "behaviors": ["Exact wide quantities", "Read-only boundary", "Non-mutating container filtering", "Empty is not zero", "Safe distinct errors", "Sensitive action output withheld", "Unsupported projection fallback", "Missing quantity is not zero", "Unknown permission stays unknown", "List item TypeMeta omission", "Exact named namespace filtering"]
+  },
+  "authoringStates": {"create": "Not applicable: generated read-only API", "edit": "Not applicable: generated read-only API", "submissionReview": "Read-only query only; no mutation review", "addRemove": "Not applicable: measured containers are not editable"}
+}

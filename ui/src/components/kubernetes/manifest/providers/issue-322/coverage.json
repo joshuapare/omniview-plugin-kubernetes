@@ -1,0 +1,34 @@
+{
+  "issue": 322,
+  "api": {"group": "ops.crossplane.io", "version": "v1alpha1", "scope": "Cluster", "snapshot": "Crossplane v2.0.0", "commit": "b639502e2f93680ff83417a0f517ec459ce079cc"},
+  "sources": ["https://github.com/crossplane/crossplane/blob/b639502e2f93680ff83417a0f517ec459ce079cc/apis/ops/v1alpha1/operation_types.go", "https://github.com/crossplane/crossplane/blob/b639502e2f93680ff83417a0f517ec459ce079cc/apis/ops/v1alpha1/cronoperation_types.go", "https://github.com/crossplane/crossplane/blob/b639502e2f93680ff83417a0f517ec459ce079cc/apis/ops/v1alpha1/watchoperation_types.go"],
+  "prerequisites": ["Served v1alpha1 CRDs", "Operations feature enabled in Crossplane controller", "Compatible installed Functions", "Real discovery and create/update verbs", "Controller resource access; API presence does not prove execution readiness"],
+  "components": [
+    {"kind": "CronOperation", "plural": "cronoperations", "policy": "declarative", "interface": "Create/edit future-run schedule and template; inspect observed history"},
+    {"kind": "WatchOperation", "plural": "watchoperations", "policy": "declarative", "interface": "Create/edit future-run watch and template; watched apiVersion/kind locked after creation"},
+    {"kind": "Operation", "plural": "operations", "policy": "conditional", "interface": "Deliberate one-shot create; functions may change resources"},
+    {"kind": "Operation", "plural": "operations", "policy": "controller or existing execution", "interface": "Inspect-only for all existing runs, including apparently pending runs; no arbitrary edits, retries or invented completed-run mutation"}
+  ],
+  "mapping": [
+    {"kinds": "all", "path": "metadata.name", "control": "Canonical host identity; locked edit"},
+    {"kinds": "CronOperation", "path": "spec.schedule", "control": "Cron input with five-field local validation; admission validates full syntax"},
+    {"kinds": "CronOperation", "path": "spec.startingDeadlineSeconds", "control": "Optional exact nonnegative int64 seconds"},
+    {"kinds": "CronOperation,WatchOperation", "path": "spec.concurrencyPolicy", "control": "Omitted/Allow/Forbid/Replace select; Replace interruption warning"},
+    {"kinds": "CronOperation,WatchOperation", "path": "spec.successfulHistoryLimit,spec.failedHistoryLimit", "control": "Optional exact nonnegative int32; clear omits field"},
+    {"kinds": "WatchOperation", "path": "spec.watch.apiVersion,spec.watch.kind", "control": "Required text, create only; immutable edit"},
+    {"kinds": "WatchOperation", "path": "spec.watch.namespace", "control": "Watched namespace; empty broadening warning; never destination namespace"},
+    {"kinds": "WatchOperation", "path": "spec.watch.matchLabels[key]", "control": "Structured add/rename/remove equality rows; empty selector broadening warning"},
+    {"kinds": "all", "path": "P.mode", "control": "Read-only Pipeline mode; omitted uses API default"},
+    {"kinds": "all", "path": "P.pipeline[i].step,P.pipeline[i].functionRef.name", "control": "Ordered repeatable steps; add/remove scoped AST operations; real pkg.crossplane.io/v1/functions metadata references with manual unresolved values"},
+    {"kinds": "all", "path": "P.retryLimit", "control": "Optional exact nonnegative int64"},
+    {"kinds": "all", "path": "P.pipeline[i].input,P.pipeline[i].credentials", "control": "Protected source-only; arbitrary payload and credentials never rendered or projected back into source"},
+    {"kinds": "all", "path": "P.pipeline[i].requirements.requiredResources", "control": "Source-only advanced schema; preserved during leaf edits"},
+    {"kinds": "CronOperation,WatchOperation", "path": "spec.operationTemplate.metadata.labels[key]", "control": "Advanced structured labels, distinct from parent metadata"},
+    {"kinds": "CronOperation,WatchOperation", "path": "spec.operationTemplate.metadata.annotations", "control": "Protected source-only"},
+    {"kinds": "all", "path": "metadata.ownerReferences,status.conditions,status.pipeline,status.appliedResourceRefs,status.runningOperationRefs,status.lastScheduleTime,status.lastSuccessfulTime,status.watchingResources,status.failures", "control": "Read-only safe status summary; condition messages and pipeline outputs protected; actual owner navigation host-owned"}
+  ],
+  "prefix": "P=spec for Operation; P=spec.operationTemplate.spec for parent kinds",
+  "source": "Host canonical AST owns source and review. Scoped leaf patches preserve unknown fields, comments, scalar types and exact integers. Unsupported modes and malformed step shapes retain source fallback.",
+  "regressions": "model.test.ts: exact ranges, existing-run and both generated-owner boundaries, duplicate names, required Function/GVK, canonical source comment/opaque-input preservation and stale revision rejection",
+  "visual": {"harness": ".local/resource-editor-implementation/issue-322/harness.tsx", "transport": "Fixture-only real canonical host/controller; no live requests", "screenshots": [], "captureStatus": "Deferred by EditorHost until canonical create frame settles; parent coordinates final capture wave", "viewport": "1440x900@1.25 and narrow", "serverPort": 15322, "profile": ".local/resource-editor-implementation/issue-322/chrome-profile"}
+}

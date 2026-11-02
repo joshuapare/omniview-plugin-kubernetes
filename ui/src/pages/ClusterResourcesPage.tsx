@@ -13,6 +13,7 @@ import { Outlet, useParams } from 'react-router';
 
 import { PLUGIN_ID } from '@/pluginId';
 import ResourceNavTree from '../components/kubernetes/sidebar/ResourceNavTree';
+import ResourceRequestLauncher from '../components/kubernetes/manifest/ResourceRequestLauncher';
 import { SidebarWatchStateProvider } from '../components/kubernetes/sidebar/SidebarWatchBadge';
 import SimpleTooltip from '../components/shared/SimpleTooltip';
 import SyncProgressDialog from '../components/shared/SyncProgressDialog';
@@ -332,6 +333,7 @@ function ClusterResourcesSession({ id }: { id: string }): React.ReactElement {
               </Link>
             </Stack>
           </div>
+          <ResourceRequestLauncher connectionID={id} />
           <SidebarWatchStateProvider states={summary.data?.resources}>
             <ResourceNavTree
               sections={layout}
