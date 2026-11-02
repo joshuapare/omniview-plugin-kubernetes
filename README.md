@@ -516,7 +516,7 @@ Expansion stays connection-specific. Sidebar order and edit mode remain global p
 
 New API groups and resource kinds appear as the catalog changes. Watch-state badges update independently of the navigation structure; errors take precedence over syncing indicators. Empty categories and unavailable primary resources do not become invalid navigation destinations. Global command search continues to reuse the same destinations.
 
-Omniview 0.17.0 shares base-ui 0.10.0 with `TreeList.onAction` support. This plugin pins the matching published runtime and Vite plugin 0.17.0, base-ui 0.10.0, and editors 6.1.3. Update Omniview before updating the Kubernetes plugin: a plugin dependency alone does not replace the host's shared component singleton.
+The plugin supports base-ui 0.10.x and 0.11.x, plus editors 6.1.3 and 6.1.4. Standalone installs retain published runtime and Vite plugin 0.19.0. Source workspaces use the selected host runtime. Keep the host's shared base-ui version within this range; plugin dependencies do not replace the host singleton.
 
 ### Scoped Command Search
 
