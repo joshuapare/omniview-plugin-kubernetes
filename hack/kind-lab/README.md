@@ -48,6 +48,23 @@ The baseline cluster already exists after initial setup. Do not rerun `create` a
 
 Kubeconfig is `hack/kind-lab/.state/kubeconfig`; context is `kind-omniview-load-lab`. All lab mutations explicitly select both. Creation never modifies `~/.kube/config`. The API binds loopback, and no application ports are published to the host. State is ignored by Git and contains cluster administrator credentials; do not share it.
 
+If the cluster exists but this checkout has no private kubeconfig, recover it
+without merging the default kubeconfig or recreating the cluster:
+
+```sh
+install -d -m 700 hack/kind-lab/.state
+kind export kubeconfig --name omniview-load-lab \
+  --kubeconfig "$PWD/hack/kind-lab/.state/kubeconfig"
+chmod 600 hack/kind-lab/.state/kubeconfig
+```
+
+Check cluster ownership before mutation. The fixed name alone is not deletion
+authority. A successful seed waits for Deployment Available, not a settled
+rollout: verify actual desired/current/ready Pods and deleting Pods before
+benchmarking. Reseeding after churn or source changes can replace Pods and
+generate many additional controller Events. Count total Events separately from
+the 900 baseline seed Events; presets do not prune a previous larger inventory.
+
 To connect Omniview later, select this kubeconfig explicitly in the Kubernetes plugin. Workspace profiles do not isolate HOME or kubeconfig automatically. No production configuration was merged or replaced.
 
 ## Activity scenarios

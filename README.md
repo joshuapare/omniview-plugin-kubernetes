@@ -786,6 +786,23 @@ The plugin automatically discovers clusters from your `~/.kube/config` file. You
 - Set namespace restrictions per connection
 - Configure node shell image and command overrides
 
+Connection discovery and OpenAPI acquisition use up to four concurrent requests
+per stage, while retaining client-go throttling and server retry handling.
+OpenAPI decoding and retained-budget admission remain ordered, with at most four
+documents staged for one provider-wide acquisition. The existing 16 MiB schema
+document and 32 MiB retained-schema limits remain; concurrent staging increases
+transient memory, including the transport's separate response buffers.
+EKS token refresh remains serialized, but cached-token HTTP requests do not hold
+the token mutex while waiting on the server.
+
+**Connection acquisition timeout (seconds)** configures the shared SDK policy
+`connection_acquisition_timeout_seconds`: 1-300 whole seconds, default 10.
+Changes apply to the next connection acquisition or catalog refresh without a
+restart; they do not extend an operation already running, retained client
+lifetimes, or watches. An earlier caller deadline still wins. Kubernetes discovery
+and schema logic remain in this plugin; the SDK helper is provider-neutral and
+requires explicit registration and adoption by other providers.
+
 ### Debug templates and defaults
 
 Open **Templates & defaults** from the Pod's secondary Debug options. Shell
@@ -840,10 +857,10 @@ the host shares React 19 and `@omniviewdev/base-ui`, not MUI, Emotion, or the
 legacy `@omniviewdev/ui` package.
 
 Settings validation uses the SDK's single structured
-`Validator func(interface{}) settings.ValidationResult` callback. Kubernetes
-currently registers no custom validators; host-managed settings use the SDK's
-standard validation and draft-validation RPC. Do not add an error-returning
-validator or a separate `ValidateValue` callback.
+`Validator func(interface{}) settings.ValidationResult` callback. The shared
+connection-acquisition timeout setting supplies its bounded integer validator;
+host-managed settings use the same validation and draft-validation RPC.
+Do not add an error-returning validator or a separate `ValidateValue` callback.
 
 The host owns persisted SDK settings and hydrates them when the plugin starts.
 Changing the `kubeconfigs` path list requires restarting the Kubernetes plugin:

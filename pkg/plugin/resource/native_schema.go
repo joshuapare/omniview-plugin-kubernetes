@@ -29,8 +29,12 @@ const maxNativeSchemaBytes = 16 << 20
 const maxNativeRetainedSchemaBytes = 32 << 20
 
 // nativeSchemaBudget bounds retained document bytes across every connection on
-// one provider. Fetches serialize staging, so only one bounded document is
-// decoded at a time. The zero value uses the production limit.
+// one provider. Its staging gate admits one acquisition, with at most four
+// documents being fetched, buffered, or decoded, rather than the previous one.
+// Each schema read retains its 16 MiB cap. The resource response transport can
+// also buffer up to its separate 32 MiB wire cap and copy those bytes, so this
+// document count does not imply a whole-stack memory cap.
+// The zero value uses the production retained limit.
 type nativeSchemaBudget struct {
 	// Accounting never holds mu during network reads or decoding.
 	mu        sync.Mutex
@@ -154,7 +158,46 @@ func fetchNativeSchemas(ctx context.Context, client rest.Interface, bindings map
 		groups = append(groups, gv)
 	}
 	sort.Slice(groups, func(i, j int) bool { return groups[i].String() < groups[j].String() })
-	for _, gv := range groups {
+	type fetchedSchema struct {
+		data []byte
+		err  error
+	}
+	workerCount := min(nativeCatalogRequestConcurrency, len(groups))
+	jobs := make(chan int, workerCount)
+	prefetched := make([]chan fetchedSchema, workerCount)
+	var workers sync.WaitGroup
+	for i := range prefetched {
+		prefetched[i] = make(chan fetchedSchema, 1)
+	}
+	for range workerCount {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for index := range jobs {
+				if ctx.Err() != nil {
+					return
+				}
+				gv := groups[index]
+				path := "/openapi/v3/apis/" + gv.Group + "/" + gv.Version
+				if gv.Group == "" {
+					path = "/openapi/v3/api/" + gv.Version
+				}
+				data, err := readNativeSchema(ctx, client, path)
+				// Each slot receives only one job until its prior document has
+				// been decoded. A canceled consumer can leave one result per
+				// slot without blocking workers or retaining further documents.
+				prefetched[index%workerCount] <- fetchedSchema{data: data, err: err}
+			}
+		}()
+	}
+	defer func() {
+		close(jobs)
+		workers.Wait()
+	}()
+	for index := range workerCount {
+		jobs <- index
+	}
+	for index, gv := range groups {
 		tokens := byGroup[gv]
 		if err := ctx.Err(); err != nil {
 			for _, token := range tokens {
@@ -162,11 +205,19 @@ func fetchNativeSchemas(ctx context.Context, client rest.Interface, bindings map
 			}
 			continue
 		}
-		path := "/openapi/v3/apis/" + gv.Group + "/" + gv.Version
-		if gv.Group == "" {
-			path = "/openapi/v3/api/" + gv.Version
+		// Refill only after the previous iteration finishes decoding and
+		// retaining its document. The rolling window includes that document,
+		// not just network requests, and retention stays in sorted GV order.
+		if next := index + workerCount - 1; index > 0 && next < len(groups) {
+			jobs <- next
 		}
-		data, err := readNativeSchema(ctx, client, path)
+		var fetched fetchedSchema
+		select {
+		case fetched = <-prefetched[index%workerCount]:
+		case <-ctx.Done():
+			fetched.err = ctx.Err()
+		}
+		data, err := fetched.data, fetched.err
 		if err != nil {
 			for _, token := range tokens {
 				failures[token] = err
