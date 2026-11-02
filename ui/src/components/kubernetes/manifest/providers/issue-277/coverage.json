@@ -1,0 +1,62 @@
+{
+  "issue": 277,
+  "baseline": "Kubernetes v1.35.0 / k8s.io/api v0.35.0",
+  "owner": "native Kubernetes built-in provider",
+  "sources": [
+    "https://github.com/kubernetes/api/blob/v0.35.0/certificates/v1/types.go",
+    "https://github.com/kubernetes/api/blob/v0.35.0/certificates/v1beta1/types.go",
+    "https://github.com/kubernetes/api/blob/v0.35.0/certificates/v1alpha1/types.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/apis/certificates/validation/validation.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/apis/core/validation/names.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/features/kube_features.go"
+  ],
+  "resources": [
+    {
+      "kind": "CertificateSigningRequest", "versions": ["v1"], "resource": "certificatesigningrequests", "scope": "Cluster",
+      "interface": "Create then inspect; existing spec immutable; explicit approval action review",
+      "fields": {
+        "metadata.name": "Host identity field; fixed after create",
+        "spec.signerName": "Qualified signer input; v1 legacy-unknown rejected",
+        "spec.request": "Masked file import; PEM PKCS#10 structural checks; Base64 leaf patch; API verifies signature",
+        "spec.usages[]": "Exact usage choice; explicit add/remove atomic rows; no defaults or duplicates",
+        "spec.expirationSeconds": "Optional integer seconds; local partial input; 600..2147483647",
+        "spec.username,uid,groups,extra": "Server-owned; no editable path; extra redacted",
+        "status.conditions": "Read-only known condition/status; messages hidden",
+        "status.certificate": "Present/absent only; material hidden",
+        "certificatesigningrequests/approval": "Review Approve/Deny then real kubernetes.csr-approval.v1; terminal transitions blocked; UID/RV target transport; unknown access disabled"
+      },
+      "fixtures": ["csr-create-empty", "csr-create-populated", "csr-inspect-pending", "csr-edit-locked", "csr-approved", "csr-action-denied", "csr-create-unknown", "csr-create-denied", "csr-create-unavailable", "csr-create-absent", "csr-unsupported-shape"]
+    },
+    {
+      "kind": "ClusterTrustBundle", "versions": ["v1beta1", "v1alpha1"], "resource": "clustertrustbundles", "scope": "Cluster",
+      "interface": "Conditional administrator create/edit; controller/system ownership inspect-only",
+      "prerequisites": "Default-off ClusterTrustBundle gate and exact served discovery/schema. Alpha deprecated since 1.34; only exact discovered alpha target. Pod projection separate; no implicit mount.",
+      "fields": {
+        "metadata.name": "Host identity; DNS suffix and translated signer prefix validation; fixed on edit",
+        "spec.signerName": "Optional qualified signer; immutable after create; exact signer attest access shown unknown unless supplied by trusted capability context",
+        "spec.trustBundle": "Masked attach/replace; unique PEM CA blocks; no headers, private keys or extra text; DER structure and CA basic constraints; API validates full X.509 semantics",
+        "metadata.annotations": "Host-owned redacted source; no projection writeback"
+      },
+      "consequences": "Trust replacement can break consumers; no claim of distribution, rollout or attest permission",
+      "fixtures": ["trust-create-empty", "trust-create-populated", "trust-edit", "trust-controller-owned", "trust-alpha-discovered", "trust-schema-unavailable"]
+    },
+    {
+      "kind": "PodCertificateRequest", "versions": ["v1beta1"], "resource": "podcertificaterequests", "scope": "Namespaced",
+      "interface": "Kubelet-owned immutable inspection only; no Create/Edit/Approve/Retry-Issue",
+      "prerequisites": "Beta/default-off PodCertificateRequest in 1.35; served discovery and schema required; node authorization gate dependency belongs installation",
+      "fields": {
+        "spec.signerName,podName,podUID,serviceAccountName,serviceAccountUID,nodeName,nodeUID,maxExpirationSeconds": "Read-only binding and lifetime detail rows; no defaults inferred",
+        "spec.pkixPublicKey,proofOfPossession,unverifiedUserAnnotations": "Presence only; contents hidden",
+        "status.conditions": "Known lifecycle and status only; messages hidden",
+        "status.certificateChain": "Presence only; contents hidden",
+        "status.notBefore,notAfter,beginRefreshAt": "Read-only ISO timestamps; refresh remains kubelet-owned"
+      },
+      "fixtures": ["pod-pending", "pod-issued"]
+    }
+  ],
+  "regressions": "certificates.test.tsx: policy bounds, signer naming, immutable specs, canonical comment/exact-value preservation, local invalid retention across sibling edits, externally changed valid field synchronization, minimized reviewed approval, terminal contradiction prevention, approval abort/late-result suppression on revision changes, stale file/replaced callback cancellation, masked trust and kubelet inspection, PEM boundaries. Public-only PEM fixtures load through Node filesystem in tests, never through Vite's denied certificate asset imports.",
+  "privacy": "No raw material, condition messages, proof, signer annotations or metadata annotations rendered. No draft persistence. Errors constant; file names not rendered.",
+  "composition": ["base-ui Button", "shared EditorField", "shared EditorChoice", "shared EditorHelp", "shared EditorSection", "host canonical controller", "scoped leaf patch and array insert/remove"],
+  "harness": ".local/resource-editor-implementation/issue-277/harness.tsx",
+  "verification": "No repository checks run. Parent owns coherent integration and browser capture wave."
+}

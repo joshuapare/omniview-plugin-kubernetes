@@ -1,0 +1,65 @@
+{
+  "issue": 274,
+  "sourceSnapshot": {
+    "kubernetes": "v1.35.0",
+    "apiModule": "v0.35.0",
+    "sources": [
+      "https://github.com/kubernetes/api/blob/v0.35.0/scheduling/v1/types.go",
+      "https://github.com/kubernetes/api/blob/v0.35.0/scheduling/v1alpha1/types.go",
+      "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/apis/scheduling/validation/validation.go",
+      "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/registry/scheduling/rest/storage_scheduling.go",
+      "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/registry/scheduling/workload/strategy.go",
+      "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/features/kube_features.go"
+    ],
+    "refreshed": true
+  },
+  "provider": "Native Kubernetes builtin; exact versions only",
+  "resources": [
+    {
+      "group": "scheduling.k8s.io", "version": "v1", "kind": "PriorityClass", "resource": "priorityclasses", "scope": "Cluster",
+      "component": "PriorityClassForm.tsx",
+      "intents": ["create", "edit", "inspect"],
+      "ownershipPolicy": "declarative; trusted controller/system evidence overrides",
+      "controls": [
+        { "path": "value", "control": "Buffered signed integer input", "validation": "int32, user range -2147483648..1000000000", "immutable": "edit" },
+        { "path": "preemptionPolicy", "control": "Default/PreemptLowerPriority/Never choice", "immutable": "edit", "omission": "API default is PreemptLowerPriority; omission remains distinct" },
+        { "path": "globalDefault", "control": "Default-for-new-classless-Pods checkbox", "mutable": true, "consequence": "Future classless Pod priorities; existing Pods unchanged" },
+        { "path": "description", "control": "Multiline text area with on-demand help", "mutable": true },
+        { "path": "metadata.name", "control": "Host identity control only", "ownership": "host" }
+      ],
+      "ownershipVariants": ["Application-owned create/edit", "system- prefix inspection", "Trusted controller ownership inspection", "Existing unknown ownership inspection"],
+      "fixtures": ["priority-create", "priority-edit", "priority-system", "priority-unsupported"],
+      "unsupported": "Non-native scalar types or unknown preemption values retain source without coercion"
+    },
+    {
+      "group": "scheduling.k8s.io", "version": "v1alpha1", "kind": "Workload", "resource": "workloads", "scope": "Namespaced",
+      "component": "WorkloadForm.tsx",
+      "intents": ["create", "edit", "inspect"],
+      "ownershipPolicy": "conditional; explicit manual create allowed, existing unknown remains inspection",
+      "prerequisites": ["Discovered exact Workload API and verbs; at pinned1.35 this proves GenericWorkload server registration", "Gang policy API fields are not server-gated in Workload strategy", "Unknown GangScheduling scheduler support warns without blocking authoring; confirmed-disabled support restricts new gang choice", "Both gates default off at pinned release; GangScheduling depends on GenericWorkload", "API/schema discovery does not prove scheduler or controller support"],
+      "controls": [
+        { "path": "spec.controllerRef.apiGroup", "control": "Optional API-group text input; empty means core", "immutable": "Once baseline controllerRef exists" },
+        { "path": "spec.controllerRef.kind", "control": "Required path-segment kind input in optional advanced controller section", "immutable": "Once baseline controllerRef exists" },
+        { "path": "spec.controllerRef.name", "control": "Same-namespace metadata-only reference picker for exact known GVRs; arbitrary manual path-segment names otherwise", "immutable": "Once baseline controllerRef exists", "lookupStates": ["loading", "ready", "empty", "unresolved", "denied", "absent", "unavailable"] },
+        { "path": "spec.podGroups", "control": "One to eight add/remove embedded rows; new rows remain local until valid", "immutable": "edit" },
+        { "path": "spec.podGroups[i].name", "control": "Buffered unique DNS label input", "immutable": "edit" },
+        { "path": "spec.podGroups[i].policy.basic", "control": "Basic policy choice; empty object branch", "immutable": "edit" },
+        { "path": "spec.podGroups[i].policy.gang.minCount", "control": "Conditional buffered minimum-Pods int32 input; 1..2147483647", "immutable": "edit", "branchBehavior": "Atomic branch changes preserve inactive valid gang minimum in session UI state" },
+        { "path": "metadata.name", "control": "Host identity control only", "ownership": "host" },
+        { "path": "metadata.namespace", "control": "Host destination control only", "ownership": "host" }
+      ],
+      "ownershipVariants": ["Application-owned create", "Application-owned edit with immutable groups", "Add controller reference once to existing Workload with no baseline reference", "Controller-owned inspection", "Unknown existing ownership inspection"],
+      "fixtures": ["workload-create", "workload-edit", "workload-set-controller-once", "workload-owned", "workload-ownership-unknown", "workload-api-absent", "workload-denied", "workload-discovery-unknown", "workload-gang-off", "workload-gang-unknown", "workload-lookup-empty", "workload-lookup-denied", "workload-lookup-unavailable", "workload-unsupported"],
+      "unsupported": "Unknown policy branch/children, malformed projected container or scalar retains canonical source; no policy projection replacement",
+      "notResources": ["Embedded PodGroup", "BasicSchedulingPolicy", "GangSchedulingPolicy", "TypedLocalObjectReference"]
+    }
+  ],
+  "sourceSafety": ["Only canonical host patch API", "Atomic leaf set/remove and sequence insert", "Unknown sibling preservation", "Exact integer parsing before bounded Number conversion", "Partial invalid text remains local and blocks validity", "No localStorage or separate source state", "No status editor", "No implicit companion objects", "No ordinary mutation action"],
+  "uiComposition": ["base-ui Checkbox", "base-ui TextArea", "base-ui Button", "EditorField", "EditorChoice", "EditorHelp", "EditorSection", "ReferencePicker"],
+  "regressions": "scheduling.test.tsx",
+  "regressionCoverage": ["System identity and trusted controller policy reject canonical mutation", "Controller ownerReferences reject canonical mutation", "Unknown identity scalar stays read-only without object stringification", "Sibling edits and earlier-row deletion retain local invalid buffers", "Canonical field changes reset only the corresponding buffer without effect-driven state resets"],
+  "supportingFiles": ["model.ts", "formState.tsx", "useSchedulingForm.ts"],
+  "canonicalFixtures": "fixtures.ts",
+  "visualHarness": ".local/resource-editor-implementation/issue-274/FixtureApp.tsx",
+  "verification": { "checksRun": false, "capturesTaken": false, "captureOwner": "Parent coherent integration wave; do not treat prior HTML images as production proof" }
+}

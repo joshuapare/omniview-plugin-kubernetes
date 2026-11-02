@@ -23,6 +23,7 @@ type nativeType struct {
 	Descriptor resourcev2.ResourceType
 	Served     map[string]nativeServedType
 	Actions    []resourcev2.ActionDescriptor
+	Subresources map[string]metav1.APIResource
 }
 
 type nativeServedType struct {
@@ -159,6 +160,18 @@ func discoverNativeTypes(ctx context.Context, client discovery.DiscoveryInterfac
 				result[token] = binding
 			}
 		}
+	}
+	for token, binding := range result {
+		binding.Subresources = make(map[string]metav1.APIResource)
+		for _, list := range lists {
+			if list == nil || list.GroupVersion != binding.GVR.GroupVersion().String() { continue }
+			for _, api := range list.APIResources {
+				if strings.HasPrefix(api.Name, binding.GVR.Resource+"/") {
+					binding.Subresources[strings.TrimPrefix(api.Name,binding.GVR.Resource+"/")] = api
+				}
+			}
+		}
+		result[token] = binding
 	}
 	return result, coverage, nil
 }

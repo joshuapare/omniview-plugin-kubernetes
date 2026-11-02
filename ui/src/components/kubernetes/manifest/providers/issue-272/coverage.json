@@ -1,0 +1,84 @@
+{
+  "issue": 272,
+  "apiGroup": "storage.k8s.io",
+  "sourceSnapshot": "Kubernetes v1.35.0 / k8s.io v0.35.0",
+  "sources": [
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/staging/src/k8s.io/api/storage/v1/types.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/apis/storage/validation/validation.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/registry/storage/rest/storage_storage.go"
+  ],
+  "common": {
+    "identity": "Host owns metadata.name and metadata.namespace, exact GVK/GVR/scope, baseline and canonical YAML AST.",
+    "patches": "Revision-scoped atomic leaf set/remove and array insert. No projected collection writeback. Existing unknown siblings, comments and exact scalars remain host-owned.",
+    "privacy": "All annotation values protected. All parameter values protected and masked, including newly typed strings. No resolved credential reads or captures. Attachment output and inline volume source protected.",
+    "availability": "Discovery, schema and real create/update capability required for authoring. Missing/empty/denied/absent/unavailable reference states remain distinct. Manual unresolved driver identifiers remain valid.",
+    "ownershipPolicy": "StorageClass and VolumeAttributesClass are declarative; CSIDriver is conditional; CSINode, CSIStorageCapacity and VolumeAttachment are controller-owned. Trusted controller/system or installer evidence overrides authoring. Policy never grants RBAC permission.",
+    "validationBoundary": "Parameter count, keys, fresh-value UTF-8 bounds, exact duration bounds and qualified identifiers validate locally. Existing masked parameter byte lengths remain unavailable; combined canonical size, string-map shape and driver semantics require authoritative schema/API validation.",
+    "unsupported": "Unsupported guided scalar or collection shapes retain source and return a safe host fallback reason. Unknown sibling fields are not projected into mutation containers.",
+    "localDrafts": "Invalid and partial text plus pending row builders stay local across section changes. Local errors block submission without erasing old canonical source.",
+    "composition": "Actual base-ui Input, Select and Button through shared EditorField, EditorChoice, EditorHelp, EditorSection and ReferencePicker. No new shared primitive or per-group persistence.",
+    "fixtureSource": "fixtures.ts",
+    "regressions": "storage.test.tsx",
+    "integrationFixes": "Exact fixture schema declares wildcard map leaves and collection items, without broad-parent admission. Session-keyed form state has no derived-state reset effects. Stable row IDs and path rebasing retain invalid sibling drafts during removal. Integer shape guards never stringify objects. Added guard, row-removal and session-reset regressions; checks remain parent-owned.",
+    "checksRunByWorker": false,
+    "screenshotsCapturedByWorker": false,
+    "captureReason": "EditorHost instructed groups to defer capture until Main completes coherent integration. Isolated actual production harness supplied under .local/resource-editor-implementation/issue-272/."
+  },
+  "resources": [
+    {
+      "kind": "StorageClass", "versions": ["v1"], "resource": "storageclasses", "scope": "Cluster", "component": "StorageClassForm.tsx",
+      "interface": "Create/edit; inspect locks mutation. No dynamic provisioning is an explicit choice, never a default.",
+      "fields": {
+        "provisioner": "Discovered CSI reference suggestions plus exact manual/unresolved identifier; immutable on edit.",
+        "parameters.*": "Masked exact string values, add/remove leaf controls, <=512 entries and <=256KiB UTF-8 validation; immutable on edit. Hidden values cannot be renamed/copied.",
+        "reclaimPolicy": "Omitted/Delete/Retain choice; immutable on edit. Omission defaults server-side to Delete; visible data-deletion consequence.",
+        "volumeBindingMode": "Omitted/Immediate/WaitForFirstConsumer choice; immutable on edit.",
+        "allowVolumeExpansion": "Omitted/enabled/disabled choice; class permission does not prove driver expansion support.",
+        "mountOptions[]": "Exact option-per-row text controls and add/remove; commas inside options preserved; mount failure consequence in help.",
+        "allowedTopologies[].matchLabelExpressions[].key": "Exact required topology key; nested OR term/AND requirement add/remove.",
+        "allowedTopologies[].matchLabelExpressions[].values[]": "Structured requirement value list; commas separate Kubernetes topology label values only. Unknown term/expression siblings survive leaf edits."
+      },
+      "boundary": "No implicit PV/PVC, default-class annotation or existing PV mutation. CSI schema discovery is not controller success."
+    },
+    {
+      "kind": "VolumeAttributesClass", "versions": ["v1", "v1beta1"], "resource": "volumeattributesclasses", "scope": "Cluster", "component": "VolumeAttributesClassForm.tsx",
+      "interface": "Create; edit/inspect show immutable domain values. No v1alpha1 target.",
+      "fields": { "driverName": "CSI reference/manual driver identifier; immutable.", "parameters.*": "Required nonempty map of masked driver-specific string attributes, <=512 entries and <=256KiB UTF-8; immutable." },
+      "boundary": "Requires actual served version and CSI support. A new class plus a separate authorized PVC reference change applies different attributes. No PVC mutation here."
+    },
+    {
+      "kind": "CSIDriver", "versions": ["v1"], "resource": "csidrivers", "scope": "Cluster", "component": "CSIDriverForm.tsx",
+      "interface": "Create/edit only with trusted application ownership. Installer labels, owner references, Helm/Argo/Flux ownership signals or unknown ownership force inspection.",
+      "fields": {
+        "metadata.name": "Host identity must equal CSI GetPluginName(). No duplicate driver-name field.",
+        "spec.attachRequired": "Omitted/enabled/disabled; immutable on edit.",
+        "spec.volumeLifecycleModes[]": "Explicit server-default/Persistent/Ephemeral/both choices; immutable on edit.",
+        "spec.podInfoOnMount": "Omitted/enabled/disabled; mutable on baseline.",
+        "spec.fsGroupPolicy": "Omitted/ReadWriteOnceWithFSType/File/None choice; mutable on baseline.",
+        "spec.storageCapacity": "Omitted/enabled/disabled; no implicit capacity report; scheduling consequence in help.",
+        "spec.requiresRepublish": "Omitted/enabled/disabled.",
+        "spec.seLinuxMount": "Omitted/enabled/disabled; requires confirmed SELinuxMountReadWriteOncePod feature and exact schema path.",
+        "spec.tokenRequests[].audience": "Exact text, including one optional empty audience; uniqueness validation. Embedded policy only, not a resource/token request.",
+        "spec.tokenRequests[].expirationSeconds": "Optional exact integer seconds, 600 through 4294967296; local invalid buffer.",
+        "spec.serviceAccountTokenInSecrets": "Omitted/enabled/disabled; requires token requests, confirmed CSIServiceAccountTokenSecrets and exact schema path. Last-request removal atomically clears dependent delivery setting.",
+        "spec.nodeAllocatableUpdatePeriodSeconds": "Optional exact int64 seconds >=10; requires confirmed MutableCSINodeAllocatableCount and exact schema path."
+      },
+      "boundary": "Settings do not install a CSI driver or prove runtime capability. No service-account tokens are requested, displayed or persisted."
+    },
+    {
+      "kind": "CSINode", "versions": ["v1"], "resource": "csinodes", "scope": "Cluster", "component": "InspectionForms.tsx#CSINodeForm", "interface": "Read-only for every routed intent; no Create/Edit/Save/action.",
+      "fields": { "metadata.name": "Node identity", "spec.drivers[].name": "Registered CSI driver", "spec.drivers[].nodeID": "Exact driver node ID", "spec.drivers[].allocatable.count": "Volume limit, not free capacity; omission not zero", "spec.drivers[].topologyKeys[]": "Reported topology keys", "metadata.ownerReferences[]": "Read-only owner kind/name" },
+      "boundary": "Kubelet and node-driver-registrar own registration. Missing data is not invented installation failure."
+    },
+    {
+      "kind": "CSIStorageCapacity", "versions": ["v1"], "resource": "csistoragecapacities", "scope": "Namespaced", "component": "InspectionForms.tsx#CSIStorageCapacityForm", "interface": "Provisioner-owned read-only report for every routed intent.",
+      "fields": { "storageClassName": "Reported class", "capacity": "Exact reported quantity; missing shown unknown, not zero", "maximumVolumeSize": "Exact reported maximum or not reported", "nodeTopology.matchLabels": "Read-only exact selector labels", "nodeTopology.matchExpressions[].key/operator/values": "Read-only exact selector requirements", "nodeTopology": "Omitted/null means no nodes; empty selector means all nodes", "metadata.namespace": "Namespaced destination, never cluster scope" },
+      "boundary": "No reservation, provisioning guarantee, report creation or mutation. Unset capacity blocks suitable scheduling checks rather than implying zero bytes."
+    },
+    {
+      "kind": "VolumeAttachment", "versions": ["v1"], "resource": "volumeattachments", "scope": "Cluster", "component": "InspectionForms.tsx#VolumeAttachmentForm", "interface": "Kubernetes intent/external-attacher status inspection for every routed intent.",
+      "fields": { "spec.attacher": "Driver", "spec.nodeName": "Node", "spec.source.persistentVolumeName": "PV reference", "spec.source.inlineVolumeSpec": "Protected migration-source boundary, never projected", "status.attached": "Reported boolean or unknown; never invented success", "status.attachError/time/errorCode": "Error presence plus safe timestamp/gRPC code; driver message hidden", "status.detachError/time/errorCode": "Error presence plus safe timestamp/gRPC code; driver message hidden", "status.attachmentMetadata": "Protected opaque controller data" },
+      "boundary": "No manual attach/detach, status updates or ordinary creation."
+    }
+  ]
+}

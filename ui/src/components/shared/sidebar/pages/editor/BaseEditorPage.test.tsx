@@ -5,6 +5,8 @@ import type { DrawerContext } from '@omniviewdev/runtime';
 import { parse, stringify } from 'yaml';
 import type { KubernetesResourceObject } from '../../../../../types/resource';
 import BaseEditorPage from './BaseEditorPage';
+import type { ResourceManifestEditorProps } from '../../../../kubernetes/manifest/ResourceManifestEditor';
+import { validateEditorSource, type ResourceEditorPreparedSubmission } from '../../../../kubernetes/manifest/resourceEditorSubmission';
 
 const mocks = vi.hoisted(() => ({
   mutate: vi.fn(),
@@ -14,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@omniviewdev/runtime', () => ({
   useResourceMutations: () => ({ mutate: mocks.mutate }),
   useResourceEditorModelPath: () => undefined,
-  useResourceTypes: () => ({ resourceTypes: { data: [{ type: 'k8s:/pods', capabilities: mocks.capabilities }] } }),
+  useResourceTypes: () => ({ resourceTypes: { data: [{ type: 'k8s:/pods', capabilities: mocks.capabilities, identityDimensions: [{ name: 'namespace' }], representations: [{ id: 'kubernetes.object.v1/v1', schema: { state: 'absent' } }] }] } }),
   jsonToValue: mocks.encode,
   valueToJSON: (value: unknown) => value,
   parseAppError: (error: Error) => ({ detail: error.message }),
@@ -23,9 +25,14 @@ vi.mock('@omniviewdev/base-ui', () => ({
   Stack: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   Button: ({ children, disabled, onClick }: React.PropsWithChildren<{ disabled?: boolean; onClick?: () => void }>) => <button disabled={disabled} onClick={onClick}>{children}</button>,
 }));
-vi.mock('../../../../kubernetes/manifest/ResourceManifestEditor', () => ({ default: ({ value, baseline, disabled, onChange }: { value: string; baseline: string; disabled: boolean; onChange: (next: string) => void }) => (
-  <><textarea aria-label="Resource YAML" value={value} readOnly={disabled} onChange={(event) => onChange(event.target.value)} /><pre data-testid="baseline">{baseline}</pre></>
-) }));
+vi.mock('../../../../kubernetes/manifest/ResourceManifestEditor', () => ({ default: function Editor({ value, baseline, disabled, onChange, submissionRef, editorContext }: ResourceManifestEditorProps) {
+  const current = React.useRef(value); current.current = value;
+  React.useImperativeHandle(submissionRef, () => ({ prepare: async (signal: AbortSignal): Promise<ResourceEditorPreparedSubmission> => {
+    const error = validateEditorSource(value, editorContext!, baseline);
+    return error ? { status: 'invalid', message: error } : { status: 'ready', source: value, sessionID: 'fixture', revision: 0, isCurrent: () => !signal.aborted && current.current === value };
+  } }), [value, baseline, editorContext]);
+  return <><textarea aria-label="Resource YAML" value={value} readOnly={disabled} onChange={(event) => onChange(event.target.value)} /><pre data-testid="baseline">{baseline}</pre></>;
+} }));
 
 const original = { apiVersion: 'v1', kind: 'Pod', metadata: { name: 'pod', namespace: 'original', uid: 'native-uid' }, spec: { containers: [{ name: 'main', image: 'nginx:1.27' }], marker: 'original' } };
 function context(connection = 'cluster', data: KubernetesResourceObject = original): DrawerContext<KubernetesResourceObject> {
@@ -57,7 +64,7 @@ describe('contextual resource editor', () => {
     render(<BaseEditorPage ctx={ctx} />);
     fireEvent.change(draft(), { target: { value: stringify(edited) } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
-    expect(mocks.encode).toHaveBeenCalledWith(edited);
+    await waitFor(() => expect(mocks.encode).toHaveBeenCalledWith(edited));
     expect(mocks.mutate).toHaveBeenCalledWith({
       route: ctx.resource!.route, reference: ctx.resource!.reference,
       operation: 'update', input: edited, expectedRevision: 'revision-1',
@@ -73,12 +80,12 @@ describe('contextual resource editor', () => {
     await waitFor(() => expect(mocks.mutate).toHaveBeenLastCalledWith(expect.objectContaining({ expectedRevision: 'revision-2' })));
   });
 
-  it('rejects identity changes without encoding or mutating and keeps the draft recoverable', () => {
+  it('rejects identity changes without encoding or mutating and keeps the draft recoverable', async () => {
     render(<BaseEditorPage ctx={context()} />);
     const edited = stringify({ ...original, metadata: { ...original.metadata, name: 'other', namespace: 'elsewhere' } });
     fireEvent.change(draft(), { target: { value: edited } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('Resource name and namespace cannot change');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Resource identity and revision cannot change');
     expect(mocks.encode).not.toHaveBeenCalled();
     expect(mocks.mutate).not.toHaveBeenCalled();
     expect(draft().value).toBe(edited);
@@ -103,12 +110,12 @@ describe('contextual resource editor', () => {
     render(<BaseEditorPage ctx={context()} />);
     fireEvent.change(draft(), { target: { value: 'spec: [' } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
-    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(mocks.mutate).not.toHaveBeenCalled();
     const edited = stringify({ ...original, spec: { ...original.spec, marker: 'unsaved' } });
     fireEvent.change(draft(), { target: { value: edited } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
-    await screen.findByText('Revision conflict');
+    await screen.findByText('Resource update failed. Check connection, permissions and server policy.');
     expect(draft().value).toBe(edited);
     expect(screen.getByRole('button', { name: 'Submit' })).not.toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }));

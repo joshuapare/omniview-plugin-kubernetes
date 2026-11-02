@@ -393,6 +393,12 @@ export function validateManifest(source: string, resourceKey?: string, editing =
   const meta = object(root.metadata);
   if (typeof meta.name !== 'string' || !meta.name.trim()) return 'metadata.name is required.';
   if (meta.namespace !== undefined && meta.namespace !== '' && !isDnsLabel(meta.namespace)) return 'metadata.namespace must be a valid DNS label (up to 63 characters).';
+  const baseline = editing && baselineSource ? inspectManifest(baselineSource, resourceKey) : undefined;
+  if (baseline?.document && (readManifestValue(baseline, ['apiVersion']) !== root.apiVersion
+    || readManifestValue(baseline, ['kind']) !== root.kind
+    || ['name', 'namespace', 'uid', 'resourceVersion'].some((key) => readManifestValue(baseline, ['metadata', key]) !== meta[key]))) {
+    return 'Resource identity and revision cannot change during edit.';
+  }
   if (!draft.kind) return null;
   if (typeof meta.namespace !== 'string' || !meta.namespace) return 'metadata.namespace is required.';
   if (!isDnsName(meta.name)) return 'metadata.name must be a valid DNS subdomain (up to 253 characters).';
@@ -403,9 +409,6 @@ export function validateManifest(source: string, resourceKey?: string, editing =
   // Validate resolved values rather than requiring a form-compatible representation.
   const shapeError = checkResolvedShape(root, ownedShape(draft.kind), []);
   if (shapeError) return shapeError;
-  const baseline = editing && baselineSource ? inspectManifest(baselineSource, resourceKey) : undefined;
-  if (baseline?.document && (readManifestValue(baseline, ['metadata', 'name']) !== meta.name
-    || readManifestValue(baseline, ['metadata', 'namespace']) !== meta.namespace)) return 'Resource name and namespace cannot change during edit.';
   if (draft.kind === 'Service' || draft.kind === 'Ingress') return validateNetworkManifest(draft, editing, baseline);
   if (draft.kind === 'ConfigMap' || draft.kind === 'Secret') return validateDataManifest(draft, editing, baseline);
   if (draft.kind === 'PersistentVolumeClaim') return validatePVCManifest(draft, editing, baseline);

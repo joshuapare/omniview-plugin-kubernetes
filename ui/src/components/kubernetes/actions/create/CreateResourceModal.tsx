@@ -1,23 +1,26 @@
 import { Button, Dialog } from '@omniviewdev/base-ui';
 import React from 'react';
+import type { ResourceEditorContext } from '@omniviewdev/runtime';
 import { LuPlus } from 'react-icons/lu';
 
-import ResourceManifestEditor from '../../manifest/ResourceManifestEditor';
-import { validateManifest } from '../../manifest/manifestDraft';
+import ResourceManifestEditor, { type ResourceManifestEditorProps } from '../../manifest/ResourceManifestEditor';
 import { ResourcePortalContext } from '../../manifest/ResourcePortalContext';
 import styles from './CreateResourceModal.module.css';
+import type { ResourceEditorSubmissionHandle } from '../../manifest/resourceEditorSubmission';
 
-interface Props {
+interface Props extends Pick<ResourceManifestEditorProps, 'contribution' | 'references' | 'actions'> {
   open: boolean;
   onClose: () => void;
   resourceKey: string;
   resourceName: string;
   template: string;
-  onCreate: (yaml: string) => Promise<void>;
+  onCreate: (yaml: string, isCurrent: () => boolean) => Promise<void>;
   isCreating?: boolean;
   context?: string;
   connectionID?: string;
   editorPath?: string;
+  editorContext?: ResourceEditorContext;
+  resolveContext?: (source: string) => ResourceEditorContext;
 }
 
 const CreateResourceModal: React.FC<Props> = (props) =>
@@ -25,40 +28,47 @@ const CreateResourceModal: React.FC<Props> = (props) =>
 
 // Each open owns its draft and completion lifetime, including while a request is pending.
 const CreateResourceForm: React.FC<Props> = ({
-  onClose, resourceKey, resourceName, template, onCreate, isCreating, context, connectionID, editorPath,
+  onClose, resourceKey, resourceName, template, onCreate, isCreating, context, connectionID, editorPath, editorContext, resolveContext, contribution, references, actions,
 }) => {
   const [value, setValue] = React.useState(template);
   const [error, setError] = React.useState<string | null>(null);
   const [formError, setFormError] = React.useState<string | null>(null);
+  const [readOnly, setReadOnly] = React.useState(false);
   const [pending, setPending] = React.useState(false);
   const activeRef = React.useRef(false);
   const busyRef = React.useRef(false);
   const dialogRef = React.useRef<HTMLDivElement>(null);
   const openerRef = React.useRef(document.activeElement);
+  const submission = React.useRef<ResourceEditorSubmissionHandle | null>(null);
+  const preparation = React.useRef<AbortController | null>(null);
+  const admittedContext = resolveContext?.(value) ?? editorContext;
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     activeRef.current = true;
     const opener = openerRef.current;
     return () => {
       activeRef.current = false;
+      preparation.current?.abort();
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
     };
   }, []);
 
   const handleSubmit = async () => {
-    if (busyRef.current || isCreating || formError) return;
-    const validationError = validateManifest(value, resourceKey);
-    setError(validationError);
-    if (validationError) return;
+    if (busyRef.current || isCreating || formError || readOnly) return;
+    setError(null);
     busyRef.current = true;
     setPending(true);
+    const preparing = new AbortController(); preparation.current = preparing;
     try {
-      await onCreate(value);
+      const prepared = await submission.current?.prepare(preparing.signal);
+      if (!prepared || prepared.status !== 'ready') { if (activeRef.current) setError(prepared?.message ?? 'Editor is not ready for submission.'); return; }
+      if (!prepared.isCurrent()) { if (activeRef.current) setError('Editor changed during submission preparation.'); return; }
+      await onCreate(prepared.source, prepared.isCurrent);
       if (activeRef.current) onClose();
-    } catch (cause) {
+    } catch {
       if (activeRef.current) setError(resourceKey === 'k8s:/secrets'
         ? 'Secret creation failed. Credential values are hidden; check permissions and server policy.'
-        : cause instanceof Error ? cause.message : 'Failed to create resource');
+        : 'Resource creation failed. Check connection, permissions and server policy.');
     } finally {
       busyRef.current = false;
       if (activeRef.current) setPending(false);
@@ -95,6 +105,12 @@ const CreateResourceForm: React.FC<Props> = ({
           path={editorPath}
           context={context}
           connectionID={connectionID}
+          editorContext={admittedContext}
+          submissionRef={submission}
+          onAdmissionChange={setReadOnly}
+          contribution={contribution}
+          references={references}
+          actions={actions}
           onValidityChange={setFormError}
           disabled={pending || isCreating}
         />
@@ -102,7 +118,7 @@ const CreateResourceForm: React.FC<Props> = ({
       {error && <div className={styles.Error} role="alert">{error}</div>}
       <Dialog.Footer className={styles.Footer}>
         <Button size="sm" variant="ghost" color="neutral" onClick={onClose}>Cancel</Button>
-        <Button size="sm" variant="solid" color="brand" disabled={pending || isCreating || !!formError} onClick={() => void handleSubmit()}>
+        <Button size="sm" variant="solid" color="brand" disabled={pending || isCreating || !!formError || readOnly} onClick={() => void handleSubmit()}>
           {pending || isCreating ? 'Creating...' : 'Create'}
         </Button>
       </Dialog.Footer>

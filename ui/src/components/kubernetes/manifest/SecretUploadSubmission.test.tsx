@@ -1,20 +1,22 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DrawerContext } from '@omniviewdev/runtime';
+import type { DrawerContext, ResourceEditorContext } from '@omniviewdev/runtime';
 import BaseEditorPage from '../../shared/sidebar/pages/editor/BaseEditorPage';
 import type { KubernetesResourceObject } from '../../../types/resource';
 import { setManifestMode } from './useManifestMode';
 
 const mocks = vi.hoisted(() => ({ mutate: vi.fn() }));
-vi.mock('@omniviewdev/runtime', () => ({
+vi.mock('@omniviewdev/runtime', async (importOriginal) => ({
+  ...await importOriginal<Record<string, unknown>>(),
   useResourceMutations: () => ({ mutate: mocks.mutate }),
   useResourceEditorModelPath: () => undefined,
-  useResourceTypes: () => ({ resourceTypes: { data: [{ type: 'k8s:/secrets', capabilities: [{ operation: 'mutationUpdate', scope: [] }] }] } }),
+  useResourceTypes: () => ({ resourceTypes: { data: [{ type: 'k8s:/secrets', identityDimensions: [{ name: 'namespace' }], representations: [{ id: 'kubernetes.object.v1/v1', schema: { state: 'absent' } }], capabilities: [{ operation: 'mutationUpdate', scope: [] }] }] } }),
   jsonToValue: (value: unknown) => value,
   valueToJSON: (value: unknown) => value,
   parseAppError: () => ({ detail: 'Update failed.' }),
 }));
 vi.mock('../../shared/CodeEditor', () => ({ default: () => <div aria-label="Read-only YAML preview" /> }));
+vi.mock('./useEditorEvidence', () => ({ useEditorEvidence: (context: ResourceEditorContext) => context }));
 
 const original = { apiVersion: 'v1', kind: 'Secret', metadata: { name: 'credentials', namespace: 'team', uid: 'native-uid' }, type: 'kubernetes.io/tls', data: { 'tls.crt': 'b2xk', 'tls.key': 'a2V5' } };
 function context(): DrawerContext<KubernetesResourceObject> {
@@ -53,7 +55,7 @@ describe('Secret upload submission safety', () => {
     await act(async () => { newest.resolve(new TextEncoder().encode('KEY').buffer); await newest.promise; });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Submit', exact: true })).not.toBeDisabled());
     fireEvent.click(screen.getByRole('button', { name: 'Submit', exact: true }));
-    expect(mocks.mutate).toHaveBeenCalledWith(expect.objectContaining({ operation: 'update', expectedRevision: 'revision-1', input: { ...original, data: { 'tls.crt': 'Q0VSVA==', 'tls.key': 'S0VZ' } } }));
+    await waitFor(() => expect(mocks.mutate).toHaveBeenCalledWith(expect.objectContaining({ operation: 'update', expectedRevision: 'revision-1', input: { ...original, data: { 'tls.crt': 'Q0VSVA==', 'tls.key': 'S0VZ' } } })));
   });
 
   it('clears pending reads on cancellation and clears a prior read failure when a new selection succeeds', async () => {
@@ -79,6 +81,6 @@ describe('Secret upload submission safety', () => {
     await act(async () => { recovered.resolve(new TextEncoder().encode('KEY').buffer); await recovered.promise; });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Submit', exact: true })).not.toBeDisabled());
     fireEvent.click(screen.getByRole('button', { name: 'Submit', exact: true }));
-    expect(mocks.mutate).toHaveBeenCalledWith(expect.objectContaining({ input: { ...original, data: { 'tls.crt': 'Q0VSVA==', 'tls.key': 'S0VZ' } } }));
+    await waitFor(() => expect(mocks.mutate).toHaveBeenCalledWith(expect.objectContaining({ input: { ...original, data: { 'tls.crt': 'Q0VSVA==', 'tls.key': 'S0VZ' } } })));
   });
 });

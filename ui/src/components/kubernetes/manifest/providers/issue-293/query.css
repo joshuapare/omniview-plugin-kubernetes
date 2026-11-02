@@ -1,0 +1,10 @@
+.external-metrics-series { display: grid; gap: 12px; min-width: 0; }
+.external-metrics-series article { border: 1px solid var(--ov-color-border-default); border-radius: 6px; padding: 12px; min-width: 0; }
+.external-metrics-series h4 { margin: 0 0 8px; font-size: 13px; }
+.external-metrics-series dl { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(0, 2fr); gap: 6px 12px; margin: 0; }
+.external-metrics-series dl > div { display: contents; }
+.external-metrics-series dd { margin: 0; overflow-wrap: anywhere; }
+.external-metrics-filter { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; padding-block: 6px; }
+.external-metrics-filter > div { flex: 1 1 160px; min-width: 0; }
+.external-metrics-destination { display: block; overflow-wrap: anywhere; padding-block: 8px; }
+@media (max-width: 560px) { .external-metrics-series dl { grid-template-columns: 1fr; } }

@@ -1,5 +1,5 @@
 id: kubernetes
-version: 0.13.0
+version: 0.14.0
 name: Kubernetes
 icon: SiKubernetes
 description: Kubernetes is an open-source system for automating deployment, scaling, and management of containerized applications.
@@ -26,6 +26,15 @@ capabilities:
     - networker
     - log
     - metric
+exports:
+    connections:
+        operations: [catalog, get, enumerate, update]
+        resource_types:
+            - "k8s:kustomize.toolkit.fluxcd.io/*"
+            - "k8s:helm.toolkit.fluxcd.io/*"
+            - "k8s:source.toolkit.fluxcd.io/*"
+            - "k8s:notification.toolkit.fluxcd.io/*"
+            - "k8s:image.toolkit.fluxcd.io/*"
 theme:
     colors:
         primary: '#326CE5'

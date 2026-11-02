@@ -1,0 +1,9 @@
+.endpoint-slice-form { display: flex; flex-direction: column; gap: 16px; min-width: 0; font-size: 13px; }
+.endpoint-slice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px 16px; min-width: 0; }
+.endpoint-slice-row { display: flex; flex-direction: column; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--ov-color-border-default); min-width: 0; }
+.endpoint-slice-row-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.endpoint-slice-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0 0 12px; }
+.endpoint-slice-facts dd { margin: 0; overflow-wrap: anywhere; }
+.endpoint-slice-notice { margin: 0; padding: 8px 10px; border: 1px solid var(--ov-color-border-default); border-radius: 4px; color: var(--ov-color-fg-muted); }
+.endpoint-slice-form details > summary { cursor: pointer; padding: 6px 0; }
+.endpoint-slice-form [role='status'] { color: var(--ov-color-fg-muted); font-size: 12px; }

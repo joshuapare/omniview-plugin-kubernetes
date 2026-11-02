@@ -48,9 +48,10 @@ func (p *kubernetesProvider) assembleNativeCatalog(ctx context.Context, connecti
 				return nil, err
 			}
 			binding.Actions = descriptors
-			if len(descriptors) != 0 {
-				binding.Descriptor.Capabilities = append(binding.Descriptor.Capabilities, resourcev2.Capability{Operation: resourcev2.OperationAction, Scope: nativeTypeScope(binding)})
-			}
+		}
+		binding.Actions = append(binding.Actions, editorActionDescriptors(binding)...)
+		if len(binding.Actions) != 0 {
+			binding.Descriptor.Capabilities = append(binding.Descriptor.Capabilities, resourcev2.Capability{Operation: resourcev2.OperationAction, Scope: nativeTypeScope(binding)})
 		}
 		binding.Descriptor.DefaultRepresentation = nativeRepresentationVersion + "/" + binding.GVR.GroupVersion().String()
 		binding.Descriptor.ModelRepresentation = nativeModelRepresentationVersion + "/" + binding.GVR.GroupVersion().String()
@@ -74,6 +75,7 @@ func (p *kubernetesProvider) assembleNativeCatalog(ctx context.Context, connecti
 	catalog := resourcev2.Catalog{Provider: "kubernetes", Types: sortedNativeTypes(bindings), Coverage: coverage}
 	catalog.Types = append(catalog.Types, p.helmTypes...)
 	catalog.Types = append(catalog.Types, auditResourceType())
+	catalog.Types = append(catalog.Types, editorQueryResourceType())
 	for index := range catalog.Types {
 		if catalog.Types[index].Type == "helm:releases" {
 			catalog.Types[index].NativeAuthorityHint = identityHint

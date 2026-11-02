@@ -1,0 +1,1045 @@
+{
+  "notation": "Paths are exact segment arrays. * denotes repeated array index or arbitrary map key; dotted Kubernetes resource keys remain one segment.",
+  "identity": "Name/namespace belong to canonical host. Status and ownership metadata never authored.",
+  "ownershipPolicy": {
+    "Namespace": "declarative",
+    "ServiceAccount": "declarative",
+    "ResourceQuota": "declarative",
+    "LimitRange": "declarative",
+    "PodTemplate": "declarative",
+    "PersistentVolume": "conditional",
+    "ReplicationController": "conditional",
+    "Endpoints": "conditional",
+    "Node": "system",
+    "Event": "controller",
+    "ComponentStatus": "system"
+  },
+  "fieldControls": {
+    "Namespace": [
+      {
+        "path": [
+          "metadata",
+          "labels",
+          "pod-security.kubernetes.io/enforce"
+        ],
+        "control": "choice privileged/baseline/restricted",
+        "label": "Pod security enforce"
+      },
+      {
+        "path": [
+          "metadata",
+          "labels",
+          "pod-security.kubernetes.io/enforce-version"
+        ],
+        "control": "validated optional version text",
+        "label": "enforce policy version"
+      },
+      {
+        "path": [
+          "metadata",
+          "labels",
+          "pod-security.kubernetes.io/warn"
+        ],
+        "control": "choice privileged/baseline/restricted",
+        "label": "Pod security warn"
+      },
+      {
+        "path": [
+          "metadata",
+          "labels",
+          "pod-security.kubernetes.io/warn-version"
+        ],
+        "control": "validated optional version text",
+        "label": "warn policy version"
+      },
+      {
+        "path": [
+          "metadata",
+          "labels",
+          "pod-security.kubernetes.io/audit"
+        ],
+        "control": "choice privileged/baseline/restricted",
+        "label": "Pod security audit"
+      },
+      {
+        "path": [
+          "metadata",
+          "labels",
+          "pod-security.kubernetes.io/audit-version"
+        ],
+        "control": "validated optional version text",
+        "label": "audit policy version"
+      },
+      {
+        "path": [
+          "metadata",
+          "labels",
+          "environment"
+        ],
+        "control": "optional label text",
+        "label": "Environment label"
+      }
+    ],
+    "ServiceAccount": [
+      {
+        "path": [
+          "automountServiceAccountToken"
+        ],
+        "control": "three-state boolean choice",
+        "label": "Mount API credentials"
+      },
+      {
+        "path": [
+          "imagePullSecrets"
+        ],
+        "control": "add/remove reference rows"
+      },
+      {
+        "path": [
+          "imagePullSecrets",
+          "*",
+          "name"
+        ],
+        "control": "secretType-projected Secret reference picker",
+        "label": "Secret name {index}"
+      }
+    ],
+    "ResourceQuota": [
+      {
+        "path": [
+          "spec",
+          "hard",
+          "*"
+        ],
+        "control": "exact Kubernetes quantity fields; advanced custom key/value rows",
+        "label": "Quota resource key",
+        "scalar": "string; dotted resource names remain literal map keys"
+      },
+      {
+        "path": [
+          "spec",
+          "scopes",
+          "*"
+        ],
+        "control": "quota-scope choice and add/remove rows",
+        "label": "Scope {index}"
+      },
+      {
+        "path": [
+          "spec",
+          "scopeSelector",
+          "matchExpressions",
+          "*",
+          "scopeName"
+        ],
+        "control": "quota-scope choice",
+        "label": "Scope name {index}"
+      },
+      {
+        "path": [
+          "spec",
+          "scopeSelector",
+          "matchExpressions",
+          "*",
+          "operator"
+        ],
+        "control": "In/NotIn/Exists/DoesNotExist choice",
+        "label": "Scope operator {index}"
+      },
+      {
+        "path": [
+          "spec",
+          "scopeSelector",
+          "matchExpressions",
+          "*",
+          "values",
+          "*"
+        ],
+        "control": "add/remove required text values",
+        "label": "Value {index}",
+        "conditional": "Values required for In/NotIn; existing values remain visible for explicit removal when operator excludes values."
+      }
+    ],
+    "LimitRange": [
+      {
+        "path": [
+          "spec",
+          "limits"
+        ],
+        "control": "add/remove limit-policy rows"
+      },
+      {
+        "path": [
+          "spec",
+          "limits",
+          "*",
+          "type"
+        ],
+        "control": "Container/Pod/PersistentVolumeClaim choice",
+        "label": "Applies to {index}"
+      },
+      {
+        "path": [
+          "spec",
+          "limits",
+          "*",
+          "min",
+          "*"
+        ],
+        "control": "exact quantity fields",
+        "label": "min {resource} {index}",
+        "conditional": "CPU/memory/ephemeral-storage for Pod/Container; storage for PVC; existing custom keys preserved."
+      },
+      {
+        "path": [
+          "spec",
+          "limits",
+          "*",
+          "max",
+          "*"
+        ],
+        "control": "exact quantity fields",
+        "label": "max {resource} {index}",
+        "conditional": "CPU/memory/ephemeral-storage for Pod/Container; storage for PVC; existing custom keys preserved."
+      },
+      {
+        "path": [
+          "spec",
+          "limits",
+          "*",
+          "defaultRequest",
+          "*"
+        ],
+        "control": "exact quantity fields",
+        "label": "defaultRequest {resource} {index}",
+        "conditional": "Container-only; incompatible existing defaults stay visible for removal."
+      },
+      {
+        "path": [
+          "spec",
+          "limits",
+          "*",
+          "default",
+          "*"
+        ],
+        "control": "exact quantity fields",
+        "label": "default {resource} {index}",
+        "conditional": "Container-only; incompatible existing defaults stay visible for removal."
+      },
+      {
+        "path": [
+          "spec",
+          "limits",
+          "*",
+          "maxLimitRequestRatio",
+          "*"
+        ],
+        "control": "exact quantity fields",
+        "label": "maxLimitRequestRatio {resource} {index}",
+        "conditional": "CPU/memory/ephemeral-storage for Pod/Container; storage for PVC; existing custom keys preserved."
+      }
+    ],
+    "PodTemplate": [
+      {
+        "path": [
+          "template",
+          "metadata",
+          "labels",
+          "*"
+        ],
+        "control": "key/value leaf edits and atomic rename",
+        "label": "Pod template labels"
+      },
+      {
+        "path": [
+          "template",
+          "spec",
+          "containers"
+        ],
+        "control": "add/remove containers"
+      },
+      {
+        "path": [
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "name"
+        ],
+        "control": "required DNS-label text",
+        "label": "Container name {index}"
+      },
+      {
+        "path": [
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "image"
+        ],
+        "control": "required image text",
+        "label": "Container image {index}"
+      },
+      {
+        "path": [
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "imagePullPolicy"
+        ],
+        "control": "Always/IfNotPresent/Never choice",
+        "label": "Image pull policy {index}"
+      },
+      {
+        "path": [
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "resources",
+          "requests",
+          "cpu"
+        ],
+        "control": "exact Kubernetes quantity",
+        "label": "requests cpu {index}"
+      },
+      {
+        "path": [
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "resources",
+          "requests",
+          "memory"
+        ],
+        "control": "exact Kubernetes quantity",
+        "label": "requests memory {index}"
+      },
+      {
+        "path": [
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "resources",
+          "requests",
+          "ephemeral-storage"
+        ],
+        "control": "exact Kubernetes quantity",
+        "label": "requests ephemeral-storage {index}"
+      },
+      {
+        "path": [
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "resources",
+          "limits",
+          "cpu"
+        ],
+        "control": "exact Kubernetes quantity",
+        "label": "limits cpu {index}"
+      },
+      {
+        "path": [
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "resources",
+          "limits",
+          "memory"
+        ],
+        "control": "exact Kubernetes quantity",
+        "label": "limits memory {index}"
+      },
+      {
+        "path": [
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "resources",
+          "limits",
+          "ephemeral-storage"
+        ],
+        "control": "exact Kubernetes quantity",
+        "label": "limits ephemeral-storage {index}"
+      },
+      {
+        "path": [
+          "template",
+          "spec",
+          "serviceAccountName"
+        ],
+        "control": "optional same-namespace ServiceAccount reference picker",
+        "label": "Service account"
+      },
+      {
+        "path": [
+          "template",
+          "spec",
+          "nodeSelector",
+          "*"
+        ],
+        "control": "key/value leaf edits and atomic rename",
+        "label": "Node selector"
+      },
+      {
+        "path": [
+          "template",
+          "spec",
+          "automountServiceAccountToken"
+        ],
+        "control": "three-state boolean choice",
+        "label": "Mount API credentials"
+      }
+    ],
+    "PersistentVolume": [
+      {
+        "path": [
+          "spec",
+          "capacity",
+          "storage"
+        ],
+        "control": "positive exact quantity; edit requires real baseline and cannot decrease",
+        "label": "Capacity"
+      },
+      {
+        "path": [
+          "spec",
+          "storageClassName"
+        ],
+        "control": "optional storageClass-projected reference picker",
+        "label": "Storage class"
+      },
+      {
+        "path": [
+          "spec",
+          "accessModes",
+          "*"
+        ],
+        "control": "access-mode choice with add/remove rows",
+        "label": "Access mode {index}"
+      },
+      {
+        "path": [
+          "spec",
+          "volumeMode"
+        ],
+        "control": "Filesystem choice; edit locked",
+        "label": "Volume mode"
+      },
+      {
+        "path": [
+          "spec",
+          "persistentVolumeReclaimPolicy"
+        ],
+        "control": "Retain/Delete choice; destructive consequence visible",
+        "label": "Reclaim policy"
+      },
+      {
+        "path": [
+          "spec",
+          "nfs",
+          "server"
+        ],
+        "control": "required text; edit locked",
+        "label": "NFS server"
+      },
+      {
+        "path": [
+          "spec",
+          "nfs",
+          "path"
+        ],
+        "control": "required absolute path; edit locked",
+        "label": "Export path"
+      },
+      {
+        "path": [
+          "spec",
+          "nfs",
+          "readOnly"
+        ],
+        "control": "three-state boolean choice; edit locked",
+        "label": "Read only"
+      },
+      {
+        "path": [
+          "spec",
+          "mountOptions",
+          "*"
+        ],
+        "control": "masked fresh replacement/add/remove",
+        "label": "Mount option {index}",
+        "privacy": "Stored values are opaque; password input masks fresh text. No projected array writeback."
+      }
+    ],
+    "ReplicationController": [
+      {
+        "path": [
+          "spec",
+          "replicas"
+        ],
+        "control": "bounded whole-number local buffer",
+        "label": "Replicas",
+        "scalar": "integer 0..2147483647"
+      },
+      {
+        "path": [
+          "spec",
+          "selector",
+          "*"
+        ],
+        "control": "selector key/value leaf edits; must match template labels",
+        "label": "Pod selector"
+      },
+      {
+        "path": [
+          "spec",
+          "template",
+          "metadata",
+          "labels",
+          "*"
+        ],
+        "control": "key/value leaf edits and atomic rename",
+        "label": "Pod template labels"
+      },
+      {
+        "path": [
+          "spec",
+          "template",
+          "spec",
+          "containers"
+        ],
+        "control": "add/remove containers"
+      },
+      {
+        "path": [
+          "spec",
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "name"
+        ],
+        "control": "required DNS-label text",
+        "label": "Container name {index}"
+      },
+      {
+        "path": [
+          "spec",
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "image"
+        ],
+        "control": "required image text",
+        "label": "Container image {index}"
+      },
+      {
+        "path": [
+          "spec",
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "imagePullPolicy"
+        ],
+        "control": "Always/IfNotPresent/Never choice",
+        "label": "Image pull policy {index}"
+      },
+      {
+        "path": [
+          "spec",
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "resources",
+          "requests",
+          "cpu"
+        ],
+        "control": "exact Kubernetes quantity",
+        "label": "requests cpu {index}"
+      },
+      {
+        "path": [
+          "spec",
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "resources",
+          "requests",
+          "memory"
+        ],
+        "control": "exact Kubernetes quantity",
+        "label": "requests memory {index}"
+      },
+      {
+        "path": [
+          "spec",
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "resources",
+          "requests",
+          "ephemeral-storage"
+        ],
+        "control": "exact Kubernetes quantity",
+        "label": "requests ephemeral-storage {index}"
+      },
+      {
+        "path": [
+          "spec",
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "resources",
+          "limits",
+          "cpu"
+        ],
+        "control": "exact Kubernetes quantity",
+        "label": "limits cpu {index}"
+      },
+      {
+        "path": [
+          "spec",
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "resources",
+          "limits",
+          "memory"
+        ],
+        "control": "exact Kubernetes quantity",
+        "label": "limits memory {index}"
+      },
+      {
+        "path": [
+          "spec",
+          "template",
+          "spec",
+          "containers",
+          "*",
+          "resources",
+          "limits",
+          "ephemeral-storage"
+        ],
+        "control": "exact Kubernetes quantity",
+        "label": "limits ephemeral-storage {index}"
+      },
+      {
+        "path": [
+          "spec",
+          "template",
+          "spec",
+          "serviceAccountName"
+        ],
+        "control": "optional same-namespace ServiceAccount reference picker",
+        "label": "Service account"
+      },
+      {
+        "path": [
+          "spec",
+          "template",
+          "spec",
+          "nodeSelector",
+          "*"
+        ],
+        "control": "key/value leaf edits and atomic rename",
+        "label": "Node selector"
+      },
+      {
+        "path": [
+          "spec",
+          "template",
+          "spec",
+          "automountServiceAccountToken"
+        ],
+        "control": "three-state boolean choice",
+        "label": "Mount API credentials"
+      }
+    ],
+    "Endpoints": [
+      {
+        "path": [
+          "subsets",
+          "*",
+          "addresses",
+          "*",
+          "ip"
+        ],
+        "control": "required unicast IP with local validation",
+        "label": "Ready IP {index}",
+        "conditional": "Live same-name Service must report selector none; controller ownership locks edits."
+      },
+      {
+        "path": [
+          "subsets",
+          "*",
+          "addresses",
+          "*",
+          "hostname"
+        ],
+        "control": "optional text",
+        "label": "Hostname {index}",
+        "conditional": "Live same-name Service must report selector none; controller ownership locks edits."
+      },
+      {
+        "path": [
+          "subsets",
+          "*",
+          "addresses",
+          "*",
+          "nodeName"
+        ],
+        "control": "optional text",
+        "label": "Node name {index}",
+        "conditional": "Live same-name Service must report selector none; controller ownership locks edits."
+      },
+      {
+        "path": [
+          "subsets",
+          "*",
+          "notReadyAddresses",
+          "*",
+          "ip"
+        ],
+        "control": "required unicast IP with local validation",
+        "label": "Not-ready IP {index}",
+        "conditional": "Live same-name Service must report selector none; controller ownership locks edits."
+      },
+      {
+        "path": [
+          "subsets",
+          "*",
+          "notReadyAddresses",
+          "*",
+          "hostname"
+        ],
+        "control": "optional text",
+        "label": "Hostname {index}",
+        "conditional": "Live same-name Service must report selector none; controller ownership locks edits."
+      },
+      {
+        "path": [
+          "subsets",
+          "*",
+          "notReadyAddresses",
+          "*",
+          "nodeName"
+        ],
+        "control": "optional text",
+        "label": "Node name {index}",
+        "conditional": "Live same-name Service must report selector none; controller ownership locks edits."
+      },
+      {
+        "path": [
+          "subsets",
+          "*",
+          "ports",
+          "*",
+          "name"
+        ],
+        "control": "optional text",
+        "label": "Port name {index}"
+      },
+      {
+        "path": [
+          "subsets",
+          "*",
+          "ports",
+          "*",
+          "port"
+        ],
+        "control": "integer 1..65535",
+        "label": "Port port {index}"
+      },
+      {
+        "path": [
+          "subsets",
+          "*",
+          "ports",
+          "*",
+          "protocol"
+        ],
+        "control": "TCP/UDP/SCTP choice",
+        "label": "Port protocol {index}"
+      }
+    ],
+    "Node": [
+      {
+        "path": [
+          "spec",
+          "unschedulable"
+        ],
+        "control": "read-only facts or condition table"
+      },
+      {
+        "path": [
+          "spec",
+          "podCIDR"
+        ],
+        "control": "read-only facts or condition table"
+      },
+      {
+        "path": [
+          "spec",
+          "providerID"
+        ],
+        "control": "read-only facts or condition table"
+      },
+      {
+        "path": [
+          "spec",
+          "taints",
+          "*",
+          "key"
+        ],
+        "control": "read-only facts or condition table"
+      },
+      {
+        "path": [
+          "spec",
+          "taints",
+          "*",
+          "value"
+        ],
+        "control": "read-only facts or condition table"
+      },
+      {
+        "path": [
+          "spec",
+          "taints",
+          "*",
+          "effect"
+        ],
+        "control": "read-only facts or condition table"
+      },
+      {
+        "path": [
+          "spec",
+          "taints",
+          "*",
+          "timeAdded"
+        ],
+        "control": "read-only facts or condition table"
+      },
+      {
+        "path": [
+          "status",
+          "conditions",
+          "*",
+          "type"
+        ],
+        "control": "read-only facts or condition table"
+      },
+      {
+        "path": [
+          "status",
+          "conditions",
+          "*",
+          "status"
+        ],
+        "control": "read-only facts or condition table"
+      },
+      {
+        "path": [
+          "status",
+          "conditions",
+          "*",
+          "reason"
+        ],
+        "control": "read-only facts or condition table"
+      },
+      {
+        "path": [
+          "status",
+          "conditions",
+          "*",
+          "lastTransitionTime"
+        ],
+        "control": "read-only facts or condition table"
+      },
+      {
+        "path": [
+          "status",
+          "nodeInfo",
+          "kubeletVersion"
+        ],
+        "control": "read-only facts or condition table"
+      },
+      {
+        "path": [
+          "status",
+          "nodeInfo",
+          "containerRuntimeVersion"
+        ],
+        "control": "read-only facts or condition table"
+      },
+      {
+        "path": [
+          "status",
+          "nodeInfo",
+          "operatingSystem"
+        ],
+        "control": "read-only facts or condition table"
+      },
+      {
+        "path": [
+          "status",
+          "nodeInfo",
+          "architecture"
+        ],
+        "control": "read-only facts or condition table"
+      },
+      {
+        "path": [],
+        "control": "existing ResourceLinkChip opens real Node drawer/workflows; no execution claim",
+        "mutation": false
+      }
+    ],
+    "Event": [
+      {
+        "path": [
+          "reason"
+        ],
+        "control": "read-only fact"
+      },
+      {
+        "path": [
+          "type"
+        ],
+        "control": "read-only fact"
+      },
+      {
+        "path": [
+          "count"
+        ],
+        "control": "read-only fact"
+      },
+      {
+        "path": [
+          "reportingComponent"
+        ],
+        "control": "read-only fact"
+      },
+      {
+        "path": [
+          "reportingInstance"
+        ],
+        "control": "read-only fact"
+      },
+      {
+        "path": [
+          "firstTimestamp"
+        ],
+        "control": "read-only fact"
+      },
+      {
+        "path": [
+          "lastTimestamp"
+        ],
+        "control": "read-only fact"
+      },
+      {
+        "path": [
+          "eventTime"
+        ],
+        "control": "read-only fact"
+      },
+      {
+        "path": [
+          "involvedObject",
+          "apiVersion"
+        ],
+        "control": "read-only related-object fact; existing ResourceLinkChip navigation"
+      },
+      {
+        "path": [
+          "involvedObject",
+          "kind"
+        ],
+        "control": "read-only related-object fact; existing ResourceLinkChip navigation"
+      },
+      {
+        "path": [
+          "involvedObject",
+          "namespace"
+        ],
+        "control": "read-only related-object fact; existing ResourceLinkChip navigation"
+      },
+      {
+        "path": [
+          "involvedObject",
+          "name"
+        ],
+        "control": "read-only related-object fact; existing ResourceLinkChip navigation"
+      },
+      {
+        "path": [
+          "involvedObject",
+          "uid"
+        ],
+        "control": "read-only related-object fact; existing ResourceLinkChip navigation"
+      },
+      {
+        "path": [
+          "involvedObject",
+          "fieldPath"
+        ],
+        "control": "read-only related-object fact; existing ResourceLinkChip navigation"
+      },
+      {
+        "path": [
+          "message"
+        ],
+        "control": "masked; never rendered"
+      }
+    ],
+    "ComponentStatus": [
+      {
+        "path": [
+          "conditions",
+          "*",
+          "type"
+        ],
+        "control": "read-only reported-health table"
+      },
+      {
+        "path": [
+          "conditions",
+          "*",
+          "status"
+        ],
+        "control": "read-only reported-health table"
+      },
+      {
+        "path": [
+          "conditions",
+          "*",
+          "message"
+        ],
+        "control": "masked; never rendered"
+      },
+      {
+        "path": [
+          "conditions",
+          "*",
+          "error"
+        ],
+        "control": "masked; never rendered"
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+.apps-editor { display: flex; flex-direction: column; gap: 16px; min-width: 0; font-size: 13px; }
+.apps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px; margin-block: 12px; }
+.apps-grid > div { min-width: 0; }
+.apps-grid strong { display: block; overflow-wrap: anywhere; margin-top: 5px; font-weight: 500; }
+.apps-budget { display: grid; grid-template-columns: minmax(0, 1fr) minmax(105px, .7fr); gap: 8px; }
+.apps-card { border: 1px solid var(--ov-color-border-default); border-radius: 6px; padding: 12px; margin-block: 12px; min-width: 0; }
+.apps-heading, .apps-row { display: flex; align-items: center; gap: 8px; margin-block: 8px; }
+.apps-row > div { flex: 1; min-width: 0; }
+.apps-notice { border-left: 2px solid var(--ov-color-warning); padding: 6px 10px; margin-block: 8px; overflow-wrap: anywhere; }
+.apps-muted { color: var(--ov-color-fg-muted); }
+.apps-editor summary { cursor: pointer; margin-block: 8px; }
+.apps-editor details > .apps-muted { display: block; margin-block: 8px; }
+@media (max-width: 600px) { .apps-budget { grid-template-columns: minmax(0, 1fr); } .apps-row { align-items: end; } }

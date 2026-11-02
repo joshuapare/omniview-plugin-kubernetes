@@ -1,0 +1,15 @@
+.hpa-editor { display: flex; flex-direction: column; gap: 16px; min-width: 0; font-size: 13px; }
+.hpa-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr)); gap: 12px; }
+.hpa-heading, .hpa-actions, .hpa-inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hpa-heading { justify-content: space-between; }
+.hpa-card { display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--ov-color-border-default, var(--border)); border-radius: 6px; padding: 12px; min-width: 0; }
+.hpa-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr)); gap: 8px; align-items: end; padding-block: 8px; }
+.hpa-values { min-width: 0; }
+.hpa-inline > .resource-editor-field { flex: 1; min-width: 100px; }
+.hpa-advanced { padding-block: 8px; }
+.hpa-advanced > summary { display: flex; align-items: center; gap: 6px; cursor: pointer; margin-bottom: 10px; font-weight: 500; }
+.hpa-warning { color: var(--ov-color-fg-muted, var(--muted-foreground)); line-height: 1.5; overflow-wrap: anywhere; }
+.hpa-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 12px; margin: 0; }
+.hpa-facts dt { text-transform: capitalize; color: var(--ov-color-fg-muted, var(--muted-foreground)); }
+.hpa-facts dd { margin: 4px 0 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.hpa-condition { display: flex; gap: 12px; flex-wrap: wrap; padding-block: 8px; border-bottom: 1px solid var(--ov-color-border-default, var(--border)); overflow-wrap: anywhere; }
