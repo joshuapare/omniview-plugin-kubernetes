@@ -1,3 +1,5 @@
+import { Dialog } from '@omniviewdev/base-ui';
+import { useState } from 'react';
 import type { ResourceEditorFormProps, ResourceEditorReferenceResult } from '@omniviewdev/runtime';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -146,6 +148,30 @@ it('composes hover/focus help and pinned click help with Escape focus return', a
   } finally {
     window.removeEventListener('keydown', outerEscape);
   }
+});
+
+it('dismisses help before the real create dialog and preserves the draft until the next Escape', async () => {
+  const user = userEvent.setup();
+  function CreateDialog() {
+    const [open, setOpen] = useState(true);
+    const [draft, setDraft] = useState('keep this draft');
+    return <Dialog open={open} onClose={() => setOpen(false)}>
+      <Dialog.Title>Create resource</Dialog.Title>
+      <EditorField label="Name" value={draft} onChange={setDraft} help="Name semantics" />
+    </Dialog>;
+  }
+  render(<CreateDialog />);
+  const trigger = screen.getByRole('button', { name: 'Help: Name' });
+  await user.click(trigger);
+  expect(await screen.findByRole('dialog', { name: 'Help: Name' })).toBeVisible();
+  trigger.focus();
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Help: Name' })).toBeNull());
+  expect(screen.getByRole('dialog', { name: 'Create resource' })).toBeVisible();
+  expect(screen.getByLabelText('Name')).toHaveValue('keep this draft');
+  expect(document.activeElement).toBe(trigger);
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Create resource' })).toBeNull());
 });
 
 it('aggregates independent child hooks and removes only the unmounted child bucket', () => {

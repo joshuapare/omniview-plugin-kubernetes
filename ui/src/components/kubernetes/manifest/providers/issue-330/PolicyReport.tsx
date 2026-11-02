@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@omniviewdev/base-ui';
 import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
-import { EditorField, EditorHelp, EditorSection } from '../../editor-controls';
+import { EditorChoice, EditorField, EditorHelp, EditorSection } from '../../editor-controls';
 import ResourceLinkChip from '../../../../shared/ResourceLinkChip';
 import { filterResults, list, outcomes, record, summaryMismatch, text } from './report';
 
@@ -42,7 +42,7 @@ export default function PolicyReport({ context, draft, section }: ResourceEditor
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>{outcomes.map(value => <Button key={value} size="sm" variant="outline" aria-pressed={outcome === value} onClick={() => setOutcome(outcome === value ? '' : value)}>{value}: {text(summary[value])}</Button>)}</div>
     {summaryMismatch(results, summary) && <p role="alert">Reported summary differs from result counts.</p>}
     <EditorField label="Policy or rule" value={search} onChange={setSearch} />
-    <label>Producer <select aria-label="Producer" value={producer} onChange={event => setProducer(event.target.value)} style={{ minHeight: 32, maxWidth: '100%' }}><option value="">All producers</option>{producers.map(value => <option key={value} value={value}>{value}</option>)}</select></label>
+    <EditorChoice label="Producer" value={producer} onChange={setProducer} options={[{value:'',label:'All producers'},...producers.map(value=>({value,label:value}))]} />
     <Button size="sm" variant="outline" onClick={() => { setSearch(''); setProducer(''); setOutcome(''); }}>Clear filters</Button>
     {!results.length && <p>No reported results. Compliance is unknown.</p>}
     {!!results.length && !visible.length && <p role="status">No matching results.</p>}

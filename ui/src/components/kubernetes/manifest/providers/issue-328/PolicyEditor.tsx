@@ -1,7 +1,7 @@
 import { Button } from '@omniviewdev/base-ui';
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ResourceEditorFormProps, ResourceEditorPatch, ResourceEditorPath } from '@omniviewdev/runtime';
-import { EditorField, EditorSection, useFieldValidity } from '../../editor-controls';
+import { EditorChoice, EditorField, EditorSection, useFieldValidity } from '../../editor-controls';
 import { layout, type Field } from './domain';
 const Validity = createContext<(field: string, error: string | null) => void>(() => {});
 
@@ -30,7 +30,7 @@ function ValueSession({ field, path, props, source }: { field: Field; path: Reso
   };
   const list = ['apiGroups', 'apiVersions', 'resources', 'operations', 'validationActions'].includes(String(path.at(-1)));
   if (field.boolean) return <label><input type="checkbox" checked={value === true} disabled={props.disabled} onChange={e => commit(e.target.checked)} /> {field.label}</label>;
-  if (field.choices) return <label>{field.label}<select aria-label={field.label} value={source} disabled={props.disabled} onChange={e => commit(e.target.value)}><option value="">Not specified</option>{field.choices.map(choice => <option key={choice}>{choice}</option>)}</select>{error && <span role="alert">{error}</span>}</label>;
+  if (field.choices) return <EditorChoice label={field.label} value={source} disabled={props.disabled} onChange={commit} options={[{value:'',label:'Not specified'},...field.choices.map(choice=>({value:choice,label:choice}))]} help={field.help} error={error} />;
   return <EditorField label={field.label} value={text} disabled={props.disabled} help={field.help ?? (field.label.includes('CEL') ? 'CEL runs on the controller. object, oldObject and request availability depends on policy evaluation context.' : undefined)} error={error} onChange={next => {
     setText(next);
     if (field.required && !next.trim()) { setError('Required.'); report(JSON.stringify(path), 'Complete the required field.'); return; }

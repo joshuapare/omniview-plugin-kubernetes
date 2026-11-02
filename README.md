@@ -603,6 +603,13 @@ reference service still cancels stale lookups.
 Inspectors keep resource values readable without enabling edits. Unavailable
 write prerequisites do not block switching an inspector to read-only YAML.
 
+Generator Secret selector names and keys accept public reference metadata as
+text. Existing protected references remain write-only; credential subtrees and
+unknown sensitive siblings stay opaque and are preserved by leaf updates.
+
+Image catalogs accept exact canonical major-version integers across Form/YAML
+switches while rejecting duplicates, fractions, and unsupported integer ranges.
+
 **Requests & inspection** in the cluster sidebar opens request-only APIs and
 read-only inspectors without pretending they support named-resource creation.
 It supports exact discovered resource loading and validated local captures.

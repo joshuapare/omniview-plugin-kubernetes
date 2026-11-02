@@ -1,6 +1,7 @@
 import { useReducer } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { parse } from 'yaml';
 import type { ResourceEditorContext, ResourceEditorContribution, ResourceEditorFormProps } from '@omniviewdev/runtime';
 import { ResourceEditorController } from '../../resourceEditorController';
 import ClaimsForm from './ClaimsForm';
@@ -89,6 +90,40 @@ describe('DRA canonical behavior', () => {
     const controller = new ResourceEditorController(source);
     expect(branchOperations(controller.draft(), context(), ['spec', 'devices', 'requests', 0], true)).toBe('Keep advanced request fields in YAML before changing request strategy.');
     expect(controller.getSource()).toBe(source);
+  });
+  it.each(['create', 'edit', 'inspect'] as const)('keeps template metadata stable across sections and form remounts for %s', intent => {
+    const source = 'apiVersion: resource.k8s.io/v1\nkind: ResourceClaimTemplate\nmetadata: {name: template, namespace: fixture}\nspec:\n  metadata:\n    labels: {team: research}\n    annotations: {credential: private-template-value}\n  extension: 9007199254740993 # preserve template extension\n  spec:\n    devices:\n      requests: [{name: gpu, exactly: {deviceClassName: accelerators, count: 2}}]\n      config: [{opaque: {driver: driver.example, parameters: {credential: private-driver-value}}}]\n';
+    const controller = new ResourceEditorController(source);
+    const ctx = context('ResourceClaimTemplate', intent);
+    const validity = vi.fn();
+    const view = render(<Harness controller={controller} ctx={ctx} section="advanced" validity={validity} />);
+    expect(screen.getByLabelText('Value team')).toHaveValue('research');
+    expect(screen.getByLabelText('Value team')).toHaveProperty('disabled', intent !== 'create');
+    expect(validity).toHaveBeenLastCalledWith(null);
+    if (intent === 'create') {
+      fireEvent.change(screen.getByLabelText('Value team'), { target: { value: 'compute' } });
+      expect(controller.draft().get(['spec', 'metadata', 'labels', 'team'])).toBe('compute');
+    }
+    view.rerender(<Harness controller={controller} ctx={ctx} section="requests" validity={validity} />);
+    if (intent === 'create') {
+      fireEvent.change(screen.getByLabelText('Device count'), { target: { value: '7' } });
+      expect(controller.draft().get(['spec', 'spec', 'devices', 'requests', 0, 'exactly', 'count'])).toBe(7n);
+      expect(controller.draft().has(['spec', 'devices'])).toBe(false);
+    }
+    // Source mode unmounts the contributor; returning mounts the same canonical draft.
+    view.rerender(<></>);
+    view.rerender(<Harness controller={controller} ctx={ctx} section="advanced" validity={validity} />);
+    expect(screen.getByLabelText('Value team')).toHaveValue(intent === 'create' ? 'compute' : 'research');
+    expect(screen.queryByText(/private-template-value|private-driver-value/)).toBeNull();
+    const retained = parse(controller.getSource(), { intAsBigInt: true });
+    expect(retained.spec.metadata.annotations.credential).toBe('private-template-value');
+    expect(retained.spec.spec.devices.config[0].opaque.parameters.credential).toBe('private-driver-value');
+    expect(retained.spec.extension).toBe(9007199254740993n);
+    expect(controller.getSource()).toContain('# preserve template extension');
+    if (intent !== 'create') {
+      expect(controller.getSource()).toBe(source);
+      expect(controller.patch({ sessionID: controller.sessionID, expectedRevision: controller.revision, operations: [{ op: 'set', path: ['spec', 'metadata', 'labels', 'team'], value: 'forbidden' }] }, contribution(ctx.kind), ctx).status).toBe('forbidden');
+    }
   });
   it('locks template edits and generated claims, including source patch attempts', () => {
     const source = 'apiVersion: resource.k8s.io/v1\nkind: ResourceClaimTemplate\nmetadata: {name: template, namespace: fixture}\nspec: {metadata: {labels: {team: research}}, spec: {devices: {requests: [{name: gpu, exactly: {deviceClassName: accelerators, count: 2}}]}}}\n';

@@ -27,12 +27,14 @@ export function validate(d:ResourceEditorDraft,c:ResourceEditorContext):readonly
   const rows: unknown = d.get(path('images'));
   if(!Array.isArray(rows)||rows.length<1||rows.length>8)issues.push({path:path('images'),message:'Provide 1–8 PostgreSQL images.'});
   else{
-   const majors=new Set<number>();
+   const majors=new Set<bigint>();
    const images: readonly unknown[] = rows;
    for(const row of images){
-    if(!row||typeof row!=='object'||!('major' in row)||typeof row.major!=='number'||!Number.isSafeInteger(row.major)||row.major<10||!('image' in row)||typeof row.image!=='string'||!row.image||majors.has(row.major)){
+    const value=row&&typeof row==='object'&&'major' in row?row.major:undefined;
+    const major=typeof value==='bigint'?value:typeof value==='number'&&Number.isSafeInteger(value)?BigInt(value):undefined;
+    if(major===undefined||major<10n||major>9007199254740991n||!row||typeof row!=='object'||!('image' in row)||typeof row.image!=='string'||!row.image||majors.has(major)){
      issues.push({path:path('images'),message:'Use unique major versions ≥10 and explicit images.'});
-    }else majors.add(row.major);
+    }else majors.add(major);
    }
   }
  }

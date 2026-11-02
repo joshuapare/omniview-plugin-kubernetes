@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import type { ResourceEditorFormProps, ResourceEditorPath } from '@omniviewdev/runtime';
 import { EditorChoice, EditorSection, KeyValueFields } from '../../editor-controls';
 import { allocationOperations, branchOperations, claimGateUnavailable, claimReadOnly, claimRoot, classNameError, dnsLabel, generatedClaim, labelKeyError, labelValueError, positiveCount, record, requestBodyPath, rows, text } from './model';
@@ -45,7 +46,11 @@ function Allocation() {
 }
 function TemplateMetadata() {
   const { form, locked, setLocal } = useDra(); const path = ['spec', 'metadata', 'labels'] as const;
-  return <><KeyValueFields form={{ ...form, disabled: locked, onValidityChange: error => setLocal(JSON.stringify(path), { canonical: text(form.draft.get(path)), text: '', error }) }} path={path} label="Copied claim labels" validateKey={labelKeyError} validateValue={labelValueError} />
+  const canonical = text(form.draft.get(path));
+  // The validity ledger registers by callback identity and reports on registration.
+  // Keep this boundary stable so its report cannot trigger another registration.
+  const onValidityChange = useCallback((error: string | null) => setLocal('["spec","metadata","labels"]', { canonical, text: '', error }), [canonical, setLocal]);
+  return <><KeyValueFields form={{ ...form, disabled: locked, onValidityChange }} path={path} label="Copied claim labels" validateKey={labelKeyError} validateValue={labelValueError} />
     {form.draft.has(['spec', 'metadata', 'annotations']) && <Notice>Copied annotations retained and masked. Use the protected source workflow for changes.</Notice>}</>;
 }
 export default function ClaimsForm(form: ResourceEditorFormProps) {

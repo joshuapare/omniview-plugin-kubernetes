@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
-import { EditorField, EditorHelp, EditorSection, useEditorReferences } from '../../editor-controls';
+import { EditorChoice, EditorField, EditorHelp, EditorSection, useEditorReferences } from '../../editor-controls';
 import { backingResources, type BackingResource } from './inventory';
 import { allocationCounts, observedValue, type SafeValue } from './projection';
 
@@ -16,7 +16,7 @@ function Destination({ form, resource }: { form: ResourceEditorFormProps; resour
   return <EditorSection title={`Public ${resource.publicKind}`}>
     <EditorHelp label="Destination mapping">Backing names do not prove public identity. Confirm management provenance and public resource identity before authoring through the public API. This lookup never opens an editor or changes a resource.</EditorHelp>
     <div role="status">{state.status === 'ready' ? state.items.length ? `${state.items.length} public records found` : 'No public records found' : state.status === 'loading' ? 'Looking up public API…' : state.status === 'denied' ? 'Public lookup denied' : state.status === 'absent' ? 'Public API not installed' : 'Public lookup unavailable'}</div>
-    {state.status === 'ready' && state.items.length > 0 && <label>Review candidate<select aria-label="Review public candidate" value={selected} onChange={event => setSelected(event.target.value)} style={{ width: '100%', minHeight: 32 }}><option value="">Select public record</option>{state.items.map(item => <option key={`${item.namespace ?? ''}/${item.name}`} value={item.name}>{item.name}</option>)}</select></label>}
+    {state.status === 'ready' && state.items.length > 0 && <EditorChoice label="Review public candidate" value={selected} onChange={setSelected} options={[{value:'',label:'Select public record'},...state.items.map(item=>({value:item.name,label:item.name}))]} />}
     {selected && state.status === 'ready' && state.items.some(item => item.name === selected) && <div role="status">Candidate: {selected}. Identity mapping remains unverified. No mutation requested.</div>}
   </EditorSection>;
 }
