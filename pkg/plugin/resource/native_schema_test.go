@@ -70,7 +70,7 @@ func TestNativeSchemaPublishesCorrectedTimeAndSharesLeases(t *testing.T) {
 		} `json:"components"`
 	}
 	require.NoError(t, json.Unmarshal(source, &parsed))
-	corrected, err := correctNativeTimeSchemas(source, parsed.Components.Schemas)
+	corrected, err := correctNativeTimeSchemas(source)
 	require.NoError(t, err)
 	require.Equal(t, raw, string(source))
 	require.NotEqual(t, raw, string(corrected))
@@ -84,7 +84,7 @@ func TestNativeSchemaPublishesCorrectedTimeAndSharesLeases(t *testing.T) {
 	}
 	require.Contains(t, string(parsed.Components.Schemas["other.Time"]), `"nullable":false`)
 	require.Contains(t, string(parsed.Components.Schemas["native.Pod"]), `"nullable":false`)
-	again, err := correctNativeTimeSchemas(corrected, parsed.Components.Schemas)
+	again, err := correctNativeTimeSchemas(corrected)
 	require.NoError(t, err)
 	require.Equal(t, corrected, again)
 	require.True(t, &corrected[0] == &again[0])
@@ -118,6 +118,19 @@ func TestNativeSchemaPublishesCorrectedTimeAndSharesLeases(t *testing.T) {
 	require.ErrorContains(t, failures["pod"], "budget exhausted")
 	require.Zero(t, tooSmall.used)
 	failedLease.Release()
+}
+
+func TestNativeSchemaCorrectionUsesExactSchemasCase(t *testing.T) {
+	const raw = `{"components":{"schemas":{"native.Pod":{"x-kubernetes-group-version-kind":[{"group":"","version":"v1","kind":"Pod"}]},"io.k8s.apimachinery.pkg.apis.meta.v1.Time":{"type":"string","marker":"A","maximum":9007199254740993}},"Schemas":{"native.Pod":{"x-kubernetes-group-version-kind":[{"group":"","version":"v1","kind":"Pod"}]},"io.k8s.apimachinery.pkg.apis.meta.v1.Time":{"type":"string","marker":"B","maximum":9007199254740995}}},"wide":9007199254740997}`
+	const original = `{"type":"string","marker":"A","maximum":9007199254740993}`
+	const corrected = `{"marker":"A","maximum":9007199254740993,"nullable":true,"type":"string"}`
+	client := nativeSchemaRESTClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(raw))
+	}))
+	result, failures, lease := fetchNativeSchemas(context.Background(), client, map[string]nativeType{"pod": schemaBudgetBinding("")}, &nativeSchemaBudget{})
+	defer lease.Release()
+	require.Empty(t, failures)
+	require.Equal(t, strings.Replace(raw, original, corrected, 1), string(result["pod"].Document))
 }
 
 func TestNativeSchemaCorrectionRejectsNonobjectContainers(t *testing.T) {

@@ -242,7 +242,7 @@ func fetchNativeSchemas(ctx context.Context, client rest.Interface, bindings map
 			}
 			continue
 		}
-		data, err = correctNativeTimeSchemas(data, document.Components.Schemas)
+		data, err = correctNativeTimeSchemas(data)
 		if err != nil {
 			for _, token := range tokens {
 				failures[token] = err
@@ -304,34 +304,7 @@ func fetchNativeSchemas(ctx context.Context, client rest.Interface, bindings map
 
 // correctNativeTimeSchemas changes only the two Kubernetes time components.
 // The input remains untouched, and unchanged documents retain their exact bytes.
-func correctNativeTimeSchemas(data []byte, schemas map[string]json.RawMessage) ([]byte, error) {
-	corrections := make(map[string][]byte, 2)
-	for _, name := range []string{
-		"io.k8s.apimachinery.pkg.apis.meta.v1.Time",
-		"io.k8s.apimachinery.pkg.apis.meta.v1.MicroTime",
-	} {
-		body, ok := schemas[name]
-		if !ok {
-			continue
-		}
-		var fields map[string]json.RawMessage
-		if err := json.Unmarshal(body, &fields); err != nil || fields == nil {
-			return nil, fmt.Errorf("invalid native OpenAPI component %q: expected object", name)
-		}
-		if bytes.Equal(bytes.TrimSpace(fields["nullable"]), []byte("true")) {
-			continue
-		}
-		fields["nullable"] = json.RawMessage("true")
-		corrected, err := json.Marshal(fields)
-		if err != nil {
-			return nil, fmt.Errorf("invalid native OpenAPI component %q: %w", name, err)
-		}
-		corrections[name] = corrected
-	}
-	if len(corrections) == 0 {
-		return data, nil
-	}
-
+func correctNativeTimeSchemas(data []byte) ([]byte, error) {
 	type replacement struct {
 		start, end int
 		body       []byte
@@ -384,10 +357,10 @@ func correctNativeTimeSchemas(data []byte, schemas map[string]json.RawMessage) (
 		}
 		return i
 	}
-	var walk func(int, int)
-	walk = func(start, level int) {
+	var walk func(int, int) error
+	walk = func(start, level int) error {
 		if start >= len(data) || data[start] != '{' {
-			return
+			return fmt.Errorf("native OpenAPI time component location is invalid")
 		}
 		i := skipSpace(start + 1)
 		for data[i] != '}' {
@@ -398,19 +371,35 @@ func correctNativeTimeSchemas(data []byte, schemas map[string]json.RawMessage) (
 			i = skipSpace(i + 1) // Colon.
 			end = skipValue(i)
 			if (level == 0 && name == "components") || (level == 1 && name == "schemas") {
-				walk(i, level+1)
-			} else if corrected, ok := corrections[name]; level == 2 && ok {
-				replacements = append(replacements, replacement{start: i, end: end, body: corrected})
+				if err := walk(i, level+1); err != nil {
+					return err
+				}
+			} else if level == 2 && (name == "io.k8s.apimachinery.pkg.apis.meta.v1.Time" || name == "io.k8s.apimachinery.pkg.apis.meta.v1.MicroTime") {
+				var fields map[string]json.RawMessage
+				if err := json.Unmarshal(data[i:end], &fields); err != nil || fields == nil {
+					return fmt.Errorf("invalid native OpenAPI component %q: expected object", name)
+				}
+				if !bytes.Equal(bytes.TrimSpace(fields["nullable"]), []byte("true")) {
+					fields["nullable"] = json.RawMessage("true")
+					corrected, err := json.Marshal(fields)
+					if err != nil {
+						return fmt.Errorf("invalid native OpenAPI component %q: %w", name, err)
+					}
+					replacements = append(replacements, replacement{start: i, end: end, body: corrected})
+				}
 			}
 			i = skipSpace(end)
 			if data[i] == ',' {
 				i = skipSpace(i + 1)
 			}
 		}
+		return nil
 	}
-	walk(skipSpace(0), 0)
-	if len(replacements) != len(corrections) {
-		return nil, fmt.Errorf("native OpenAPI time component location is invalid")
+	if err := walk(skipSpace(0), 0); err != nil {
+		return nil, err
+	}
+	if len(replacements) == 0 {
+		return data, nil
 	}
 	size := len(data)
 	for _, r := range replacements {
