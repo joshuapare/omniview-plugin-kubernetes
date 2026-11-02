@@ -73,7 +73,10 @@ export default function ResourceManifestEditor(props: ResourceManifestEditorProp
     : snapshot.store ? snapshot.contributions : nativeRegistrations;
   const preferenceScope = JSON.stringify([admittedContext.group, admittedContext.version, admittedContext.kind, admittedContext.resource, admittedContext.scope]);
   const [preferences, setPreferences] = useState<Record<string, string>>(() => { try { const saved: unknown = JSON.parse(localStorage.getItem(providerPreferenceKey) ?? '{}'); return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved as Record<string, string> : {}; } catch { return {}; } });
-  const selection = selectResourceEditor(contributions, admittedContext, { builtinPluginID: 'kubernetes', preferredID: props.preferredProviderID ?? preferences[preferenceScope] });
+  const requestedSelection = selectResourceEditor(contributions, admittedContext, { builtinPluginID: 'kubernetes', preferredID: props.preferredProviderID ?? preferences[preferenceScope] });
+  const inspectionSelection = requestedSelection.status === 'fallback' && admittedContext.intent === 'edit' ? selectResourceEditor(contributions, { ...admittedContext, intent: 'inspect' }, { builtinPluginID: 'kubernetes', preferredID: props.preferredProviderID ?? preferences[preferenceScope] }) : undefined;
+  const inspectionFallback = !!inspectionSelection && inspectionSelection.status !== 'fallback';
+  const selection = inspectionFallback && inspectionSelection ? inspectionSelection : requestedSelection;
   const selected = selection.status === 'selected' ? selection.contribution : undefined;
   const provider = selected?.value;
   const sourceOwnership = useMemo(() => editorOwnership(editing && baseline !== undefined ? baseline : value, admittedContext, provider), [admittedContext, provider, value, baseline, editing]);
@@ -83,7 +86,7 @@ export default function ResourceManifestEditor(props: ResourceManifestEditorProp
   if (providerIdentity.current !== provider) { controller.invalidate(); providerIdentity.current = provider; }
   const serviceRevision = controller.revision;
   const endpointAdmission = useManualEndpointsAdmission(baseline, { ...admittedContext, ownership: sourceOwnership }, services.references, controller.sessionID, serviceRevision);
-  const effectiveContext = useMemo(() => ({ ...admittedContext, ownership: endpointAdmission.manual && sourceOwnership.status === 'unknown' ? { status: 'application' as const } : sourceOwnership }), [admittedContext, sourceOwnership, endpointAdmission.manual]);
+  const effectiveContext = useMemo(() => ({ ...admittedContext, ...(inspectionFallback ? { intent: 'inspect' as const } : {}), ownership: endpointAdmission.manual && sourceOwnership.status === 'unknown' ? { status: 'application' as const } : sourceOwnership }), [admittedContext, sourceOwnership, endpointAdmission.manual, inspectionFallback]);
   const scopedActions = useMemo<ResourceEditorActionService>(() => ({ execute: async (request) => {
     if (!controller.isActive() || request.sessionID !== controller.sessionID || serviceRevision !== controller.revision || request.signal.aborted) return { status: 'cancelled', message: 'Editor session changed.' };
     try { assertResourceEditorInput(request.input); } catch { return { status: 'invalid', message: 'Hidden or inexact values cannot be submitted.' }; }
@@ -259,7 +262,7 @@ export default function ResourceManifestEditor(props: ResourceManifestEditorProp
     } catch { if (!abort.signal.aborted) { requestResultIdentity.current = { controller, revision }; setRequestResult({ status: 'unavailable', message: 'Request failed. Check connection, permissions and server policy.' }); } }
     finally { if (pendingRequest.current === abort) { pendingRequest.current = null; setRequestPending(false); } }
   };
-  const compatible = contributions.filter((entry) => matchesResourceEditor(entry.value, admittedContext));
+  const compatible = contributions.filter((entry) => matchesResourceEditor(entry.value, effectiveContext));
   return <div className={styles.editor}>
     <div className={styles.toolbar}>
       <span className={styles.context}>{connectionID || context || filename}{admittedContext.scope === 'Namespaced' && <> / {admittedContext.namespace || 'Choose namespace'}</>}</span>
@@ -272,7 +275,7 @@ export default function ResourceManifestEditor(props: ResourceManifestEditorProp
       </SegmentedControl>}
       {diff && <span className={styles.modeBadge}><LuFileCode2 size={13} /> YAML diff</span>}
     </div>
-    {!showForm && <>{(unavailable || !provider || quarantinedCurrent) && <div className={styles.notice} role="status">{sensitive ? 'Form unavailable. Sensitive source remains hidden.' : unavailable || (selection.status === 'choose' ? 'Choose an editor to configure this resource.' : 'No compatible form. YAML source remains available.')}{quarantinedCurrent && <Button size="sm" onClick={() => setQuarantined(null)}>Retry editor</Button>}</div>}</>}
+    {!showForm && <>{(unavailable || !provider || quarantinedCurrent) && <div className={styles.notice} role="status">{admittedContext.discovery.status !== 'available' ? `API availability: ${admittedContext.discovery.status}. Source remains intact.` : sensitive ? 'Form unavailable. Sensitive source remains hidden.' : unavailable || (selection.status === 'choose' ? 'Choose an editor to configure this resource.' : 'No compatible form. YAML source remains available.')}{quarantinedCurrent && <Button size="sm" onClick={() => setQuarantined(null)}>Retry editor</Button>}</div>}</>}
     {!showForm && sensitive && <div className={styles.notice} role="status">{raw ? 'Real credential values are visible and editable.' : 'Values redacted · Read-only preview'}{!diff && !readOnly && <SimpleTooltip container={container} content="Raw YAML exposes sensitive values. Hiding it keeps source edits."><Button size="sm" variant="ghost" disabled={disabled || !!formError} onClick={() => setDisclosure(raw ? null : { identity: localIdentity, source: value, mode: 'confirm' })}>{raw ? 'Hide raw source' : 'Edit raw YAML'}</Button></SimpleTooltip>}</div>}
     {formError && <div className={styles.notice} role="alert">{formError}</div>}
     {abandonedInputs && <div className={styles.notice} role="alert">Editor changed with pending local input. Canonical YAML remains intact.<Button size="sm" variant="ghost" onClick={() => { setAbandonedInputs(false); setFormError(null); }}>Discard pending local input</Button></div>}

@@ -33,11 +33,11 @@ function RequestSession({ connectionID, onClose }: { connectionID: string; onClo
   const { resourceTypes } = useResourceTypes({ pluginID: PLUGIN_ID, route: { connection: connectionID } });
   useEffect(() => () => abort.current?.abort(), []);
   const target = selected?.target;
-  const intent = selected?.registration.value.intents.includes(intentChoice) ? intentChoice : selected?.registration.value.intents.includes('action') ? 'action' : 'inspect';
+  const intent: ResourceEditorContext['intent'] = selected?.registration.value.intents.includes(intentChoice) ? intentChoice : selected?.registration.value.intents.includes('action') ? 'action' : 'inspect';
   const resourceKey = target ? `k8s:${target.group}/${target.resource}` : '';
   const descriptor = resourceTypes.data?.find((entry) => entry.type === resourceKey);
   const baseContext = target ? catalogEditorContext(source, resourceKey, connectionID, intent, descriptor) : undefined;
-  const context = target && baseContext ? {
+  const context: ResourceEditorContext | undefined = target && baseContext ? {
     ...baseContext, ...target, connectionID, intent, name: name || baseContext.name, namespace: target.scope === 'Namespaced' ? namespace || baseContext.namespace : undefined,
     discovery: { ...baseContext.discovery, ...(target.resource === '' ? { status: 'available' as const } : {}), features: { ...baseContext.discovery.features, ...(localCapture && intent === 'inspect' ? { 'host.local-capture': 'available' as const } : {}) } },
   } : undefined;
