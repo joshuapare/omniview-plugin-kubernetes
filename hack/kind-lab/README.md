@@ -48,6 +48,41 @@ The baseline cluster already exists after initial setup. Do not rerun `create` a
 
 Kubeconfig is `hack/kind-lab/.state/kubeconfig`; context is `kind-omniview-load-lab`. All lab mutations explicitly select both. Creation never modifies `~/.kube/config`. The API binds loopback, and no application ports are published to the host. State is ignored by Git and contains cluster administrator credentials; do not share it.
 
+If the cluster exists but this checkout has no private kubeconfig, recover it
+without merging the default kubeconfig or recreating the cluster:
+
+```sh
+install -d -m 700 hack/kind-lab/.state
+kind export kubeconfig --name omniview-load-lab \
+  --kubeconfig "$PWD/hack/kind-lab/.state/kubeconfig"
+chmod 600 hack/kind-lab/.state/kubeconfig
+```
+
+Before `seed`, `churn`, or `delete`, inspect the target without mutation:
+
+```sh
+kind get clusters
+docker ps --filter label=io.x-k8s.kind.cluster=omniview-load-lab \
+  --format '{{.ID}}\t{{.Names}}\t{{.CreatedAt}}\t{{.Labels}}'
+kubectl --kubeconfig "$PWD/hack/kind-lab/.state/kubeconfig" \
+  --context kind-omniview-load-lab config view --minify
+kubectl --kubeconfig "$PWD/hack/kind-lab/.state/kubeconfig" \
+  --context kind-omniview-load-lab get nodes -o wide
+```
+
+Compare container creation times, node names, and the loopback API endpoint with
+your own lab creation records. These checks identify the target; neither the kind
+name nor its labels prove ownership. The current driver writes no ownership
+receipt ([#86](https://github.com/omniviewdev/omniview-plugin-kubernetes/issues/86)).
+If you cannot establish that you created this disposable cluster, stop without
+seeding, churning, or deleting it; confirm ownership with its creator first.
+
+A successful seed waits for Deployment Available, not a settled rollout: verify
+actual desired/current/ready Pods and deleting Pods before benchmarking.
+Reseeding after churn or source changes can replace Pods and generate many
+additional controller Events. Count total Events separately from the 900 baseline
+seed Events; presets do not prune a previous larger inventory.
+
 To connect Omniview later, select this kubeconfig explicitly in the Kubernetes plugin. Workspace profiles do not isolate HOME or kubeconfig automatically. No production configuration was merged or replaced.
 
 ## Activity scenarios

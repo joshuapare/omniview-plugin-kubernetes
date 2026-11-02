@@ -11,10 +11,7 @@ import (
 	resourcev2 "github.com/omniviewdev/plugin-sdk/pkg/resource/v2"
 )
 
-const (
-	nativeCatalogRefreshInterval    = 30 * time.Second
-	nativeCatalogAcquisitionTimeout = 10 * time.Second
-)
+const nativeCatalogRefreshInterval = 30 * time.Second
 
 type nativeCatalogRefresh struct {
 	done chan struct{}
@@ -52,9 +49,14 @@ func (p *kubernetesProvider) refreshNativeCatalog(ctx context.Context, connectio
 	p.catalogRefreshes[connectionID] = refresh
 	p.mu.Unlock()
 
-	acquisition, cancel := context.WithTimeout(ctx, nativeCatalogAcquisitionTimeout)
-	snapshot, changed, err := p.acquireNativeCatalog(acquisition, connectionID, client, previous)
-	cancel()
+	var snapshot *nativeCatalogSnapshot
+	var changed bool
+	timeout, err := resourcev2.ConnectionAcquisitionTimeout(ctx)
+	if err == nil {
+		acquisition, cancel := context.WithTimeout(ctx, timeout)
+		snapshot, changed, err = p.acquireNativeCatalog(acquisition, connectionID, client, previous)
+		cancel()
+	}
 	p.mu.Lock()
 	if p.catalogs[connectionID] != previous || ctx.Err() != nil {
 		if err == nil {

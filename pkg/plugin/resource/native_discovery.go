@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -13,6 +14,7 @@ import (
 )
 
 const (
+	nativeCatalogRequestConcurrency = 4
 	maxNativeDiscoveryVersions      = 256
 	maxNativeDiscoveryBytes         = 16 << 20
 	maxNativeDiscoveryDocumentBytes = 4 << 20
@@ -26,13 +28,20 @@ func discoverNativeResources(ctx context.Context, client discovery.DiscoveryInte
 		// Injected discovery implementations supply their own response.
 		return client.ServerGroupsAndResources()
 	}
-	remaining := maxNativeDiscoveryBytes
+	budget := &nativeDiscoveryBudget{remaining: maxNativeDiscoveryBytes + 1}
+	budget.changed = sync.NewCond(&budget.mu)
+	stop := context.AfterFunc(ctx, func() {
+		budget.mu.Lock()
+		budget.changed.Broadcast()
+		budget.mu.Unlock()
+	})
+	defer stop()
 	var core metav1.APIVersions
-	if err := readNativeDiscovery(ctx, restClient, "/api", &core, &remaining); err != nil {
+	if err := readNativeDiscovery(ctx, restClient, "/api", &core, budget); err != nil {
 		return nil, nil, err
 	}
 	var advertised metav1.APIGroupList
-	if err := readNativeDiscovery(ctx, restClient, "/apis", &advertised, &remaining); err != nil {
+	if err := readNativeDiscovery(ctx, restClient, "/apis", &advertised, budget); err != nil {
 		return nil, nil, err
 	}
 	groups := make([]*metav1.APIGroup, 0, len(advertised.Groups))
@@ -54,30 +63,67 @@ func discoverNativeResources(ctx context.Context, client discovery.DiscoveryInte
 	if len(versions) > maxNativeDiscoveryVersions {
 		return nil, nil, fmt.Errorf("Kubernetes discovery exceeds the served-version budget")
 	}
-	lists := make([]*metav1.APIResourceList, 0, len(versions))
-	failed := make(map[schema.GroupVersion]error)
 	seen := make(map[schema.GroupVersion]bool, len(versions))
 	for _, gv := range versions {
 		if seen[gv] || gv.Version == "" {
 			return nil, nil, fmt.Errorf("invalid or duplicate Kubernetes discovery group version")
 		}
 		seen[gv] = true
-		path := "/apis/" + gv.String()
-		if gv.Group == "" {
-			path = "/api/" + gv.Version
-		}
-		var list metav1.APIResourceList
-		if err := readNativeDiscovery(ctx, restClient, path, &list, &remaining); err != nil {
-			if ctx.Err() != nil {
-				return nil, nil, ctx.Err()
+	}
+	type result struct {
+		list metav1.APIResourceList
+		err  error
+	}
+	results := make([]result, len(versions))
+	workCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var workers sync.WaitGroup
+	var nextMu sync.Mutex
+	next := 0
+	for range min(nativeCatalogRequestConcurrency, len(versions)) {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for {
+				nextMu.Lock()
+				if next == len(versions) || workCtx.Err() != nil {
+					nextMu.Unlock()
+					return
+				}
+				index := next
+				next++
+				nextMu.Unlock()
+				gv := versions[index]
+				path := "/apis/" + gv.String()
+				if gv.Group == "" {
+					path = "/api/" + gv.Version
+				}
+				entry := &results[index]
+				entry.err = readNativeDiscovery(workCtx, restClient, path, &entry.list, budget)
+				if entry.err == nil && entry.list.GroupVersion != gv.String() {
+					entry.err = fmt.Errorf("Kubernetes discovery returned a different group version")
+					cancel()
+				}
 			}
-			failed[gv] = err
-			continue
+		}()
+	}
+	workers.Wait()
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
+	// A mismatched response is a hard failure, not partial discovery.
+	if workCtx.Err() != nil {
+		return nil, nil, fmt.Errorf("Kubernetes discovery returned a different group version")
+	}
+	lists := make([]*metav1.APIResourceList, 0, len(versions))
+	failed := make(map[schema.GroupVersion]error)
+	for index, gv := range versions {
+		entry := &results[index]
+		if entry.err != nil {
+			failed[gv] = entry.err
+		} else {
+			lists = append(lists, &entry.list)
 		}
-		if list.GroupVersion != gv.String() {
-			return nil, nil, fmt.Errorf("Kubernetes discovery returned a different group version")
-		}
-		lists = append(lists, &list)
 	}
 	if len(failed) != 0 {
 		return groups, lists, &discovery.ErrGroupDiscoveryFailed{Groups: failed}
@@ -85,8 +131,58 @@ func discoverNativeResources(ctx context.Context, client discovery.DiscoveryInte
 	return groups, lists, nil
 }
 
-func readNativeDiscovery(ctx context.Context, client rest.Interface, path string, into any, remaining *int) error {
-	if *remaining <= 0 {
+// The budget reserves bytes before each read, then refunds unused allowance.
+// Waiting readers share refunds without holding the lock across network I/O.
+// This bounds discovery reads; the existing transport can buffer separately.
+type nativeDiscoveryBudget struct {
+	mu        sync.Mutex
+	remaining int
+	inFlight  int
+	changed   *sync.Cond
+}
+
+type nativeDiscoveryReader struct {
+	ctx    context.Context
+	stream io.Reader
+	budget *nativeDiscoveryBudget
+}
+
+func (r nativeDiscoveryReader) Read(p []byte) (int, error) {
+	b := r.budget
+	b.mu.Lock()
+	for b.remaining == 0 && b.inFlight != 0 {
+		if err := r.ctx.Err(); err != nil {
+			b.mu.Unlock()
+			return 0, err
+		}
+		b.changed.Wait()
+	}
+	if b.remaining == 0 {
+		b.mu.Unlock()
+		return 0, fmt.Errorf("Kubernetes discovery exceeds the byte budget")
+	}
+	limit := min(len(p), b.remaining, 32<<10)
+	b.remaining -= limit
+	b.inFlight++
+	b.mu.Unlock()
+	n, err := r.stream.Read(p[:limit])
+	b.mu.Lock()
+	b.remaining += limit - n
+	b.inFlight--
+	exceeded := b.remaining == 0 && b.inFlight == 0
+	b.changed.Broadcast()
+	b.mu.Unlock()
+	if exceeded {
+		return n, fmt.Errorf("Kubernetes discovery exceeds the byte budget")
+	}
+	return n, err
+}
+
+func readNativeDiscovery(ctx context.Context, client rest.Interface, path string, into any, budget *nativeDiscoveryBudget) error {
+	budget.mu.Lock()
+	exhausted := budget.remaining == 0 && budget.inFlight == 0
+	budget.mu.Unlock()
+	if exhausted {
 		return fmt.Errorf("Kubernetes discovery exceeds the byte budget")
 	}
 	stream, err := client.Get().AbsPath(path).Stream(ctx)
@@ -94,13 +190,12 @@ func readNativeDiscovery(ctx context.Context, client rest.Interface, path string
 		return err
 	}
 	defer stream.Close()
-	limit := min(*remaining, maxNativeDiscoveryDocumentBytes)
-	data, err := io.ReadAll(io.LimitReader(stream, int64(limit)+1))
+	reader := nativeDiscoveryReader{ctx: ctx, stream: stream, budget: budget}
+	data, err := io.ReadAll(io.LimitReader(reader, maxNativeDiscoveryDocumentBytes+1))
 	if err != nil {
 		return err
 	}
-	*remaining -= len(data)
-	if len(data) > limit {
+	if len(data) > maxNativeDiscoveryDocumentBytes {
 		return fmt.Errorf("Kubernetes discovery exceeds the byte budget")
 	}
 	if err := ctx.Err(); err != nil {

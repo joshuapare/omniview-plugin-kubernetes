@@ -109,7 +109,11 @@ func nativeSpecializedHelpers(logger *zap.SugaredLogger, relationships map[strin
 }
 
 func (p *kubernetesProvider) startNativeConnection(ctx context.Context, connection types.Connection, client *clients.ClientSet) error {
-	ctx, cancel := context.WithTimeout(ctx, nativeCatalogAcquisitionTimeout)
+	timeout, err := resourcev2.ConnectionAcquisitionTimeout(ctx)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	load := &nativeCatalogLoad{cancel: cancel}
 	p.mu.Lock()
 	if p.catalogLoads == nil {
