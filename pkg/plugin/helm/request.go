@@ -154,7 +154,7 @@ func queryScope(t resource.ReadTarget) ([]resource.ScopeEntry, error) {
 	return []resource.ScopeEntry{{Dimension: dimension, Value: value}}, nil
 }
 func finishPage(records []resource.Record, offset, size int, more bool) resource.SourcePage {
-	p := resource.SourcePage{Records: records, Count: resource.Count{Kind: "unknown"}, Coverage: resource.Coverage{Kind: "complete"}, Consistency: "bestEffort"}
+	p := resource.SourcePage{Records: records, Count: resource.Count{Kind: "unknown"}, Coverage: resource.Coverage{Kind: "complete"}, Consistency: resource.ConsistencyBestEffort}
 	if more {
 		c := strconv.Itoa(offset + size)
 		p.NextCursor = &c

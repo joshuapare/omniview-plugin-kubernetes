@@ -5,6 +5,7 @@ import (
 	"github.com/omniview/kubernetes/pkg/plugin/resource/clients"
 	resourcev2 "github.com/omniviewdev/plugin-sdk/pkg/resource/v2"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 	"testing"
@@ -31,10 +32,10 @@ func TestNativeRegistrationUsesCatalogBindingAndIndependentOperations(t *testing
 }
 
 func TestNativeRegistrationRetainsCreateOnlyAndSnapshotOnlyTypes(t *testing.T) {
-	for _, verbs := range [][]string{{"create"}, {"get"}, {"list"}, {"update"}, {"delete"}, {}} {
+	for _, verbs := range [][]string{{"create"}, {"get"}, {"list"}, {"watch"}, {"list", "watch"}, {"update"}, {"delete"}, {}} {
 		t.Run(strings.Join(verbs, "-"), func(t *testing.T) {
 			representation := boundaryRepresentation()
-			p := &kubernetesProvider{catalogs: map[string]*nativeCatalogSnapshot{"cluster": {bindings: map[string]nativeType{"k8s:/pods": {GVR: boundaryGVR, API: metav1.APIResource{Name: "pods", Kind: "Pod", Namespaced: true, Verbs: verbs}, Descriptor: resourcev2.ResourceType{Type: "k8s:/pods", Representations: []resourcev2.Representation{representation}}}}}}}
+			p := &kubernetesProvider{logger: zap.NewNop().Sugar(), catalogs: map[string]*nativeCatalogSnapshot{"cluster": {bindings: map[string]nativeType{"k8s:/pods": {GVR: boundaryGVR, API: metav1.APIResource{Name: "pods", Kind: "Pod", Namespaced: true, Verbs: verbs}, Descriptor: resourcev2.ResourceType{Type: "k8s:/pods", Representations: []resourcev2.Representation{representation}}}}}}}
 			snapshot := p.catalogs["cluster"]
 			snapshot.registrations = map[string]resourcev2.Registration[clients.ClientSet]{"k8s:/pods": p.nativeRegistration(boundaryGet().Route, snapshot.bindings["k8s:/pods"])}
 			registration, err := p.registration(context.Background(), boundaryGet().Route, "k8s:/pods")
@@ -42,7 +43,7 @@ func TestNativeRegistrationRetainsCreateOnlyAndSnapshotOnlyTypes(t *testing.T) {
 			require.Equal(t, verbSliceContains(verbs, "get"), registration.Get != nil)
 			require.Equal(t, verbSliceContains(verbs, "list"), registration.Enumerate != nil)
 			require.Equal(t, verbSliceContains(verbs, "create") || verbSliceContains(verbs, "update") || verbSliceContains(verbs, "delete"), registration.Mutate != nil)
-			require.Nil(t, registration.Watch)
+			require.Equal(t, verbSliceContains(verbs, "list") && verbSliceContains(verbs, "watch"), registration.Source != nil)
 		})
 	}
 }
