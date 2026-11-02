@@ -1,9 +1,10 @@
 import { Button, Dialog, IconButton, Progress, Spinner, Text } from '@omniviewdev/base-ui';
-import { useWatchState, useResourceTypes, useResourceGroups, WatchState } from '@omniviewdev/runtime';
+import { useSourceStates, useResourceTypes, useResourceGroups } from '@omniviewdev/runtime';
+import type { SourceSessionState } from '@omniviewdev/runtime';
 import type { Count } from '@omniviewdev/runtime/models';
 import { ResourceClient } from '@omniviewdev/runtime/api';
 import React from 'react';
-import { LuCircleCheck, LuCircleAlert, LuCircleSlash, LuShieldAlert, LuX } from 'react-icons/lu';
+import { LuCircleCheck, LuCircleAlert, LuCircleSlash, LuX } from 'react-icons/lu';
 
 import { useStableObject } from '../../hooks/useStableRef';
 
@@ -52,7 +53,6 @@ const progressBarWrapperStyle: React.CSSProperties = {
 const progressBarInnerStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 };
 const progressBarStyle: React.CSSProperties = { flex: 1 };
 const progressPercentStyle: React.CSSProperties = { minWidth: 64, textAlign: 'right' };
-const skippedSummaryStyle: React.CSSProperties = { marginTop: 2 };
 
 const resourceListStyle: React.CSSProperties = { padding: 0, maxHeight: 400, overflowY: 'auto' };
 
@@ -71,7 +71,6 @@ const groupLabelStyle: React.CSSProperties = {
 };
 
 const kindTextStyle: React.CSSProperties = { flex: 1 };
-const italicStyle: React.CSSProperties = { fontStyle: 'italic' };
 const countTextStyle: React.CSSProperties = { fontFamily: 'var(--ov-font-mono, monospace)' };
 const retryButtonStyle: React.CSSProperties = { minWidth: 0, fontSize: '0.625rem', paddingInline: 8, paddingBlock: 2 };
 
@@ -91,33 +90,23 @@ interface SyncProgressDialogProps {
   connectionID: string;
 }
 
-type ResourceItem = { key: string; kind: string; state: WatchState; count?: Count };
+type ResourceItem = { key: string; kind: string; state: SourceSessionState; count?: Count };
 
-/** Whether a state is terminal (done — won't change further) */
-const isTerminal = (s: WatchState) =>
-  s === WatchState.WatchStateSynced ||
-  s === WatchState.WatchStateError ||
-  s === WatchState.WatchStateStopped ||
-  s === WatchState.WatchStateFailed ||
-  s === WatchState.WatchStateForbidden ||
-  s === WatchState.WatchStateSkipped;
+const isTerminal = (s: SourceSessionState) =>
+  s === 'following' || s === 'finished' || s === 'failed' || s === 'closed';
 
-function StateIcon({ state }: { state: WatchState }) {
+function StateIcon({ state }: { state: SourceSessionState }) {
   switch (state) {
-    case WatchState.WatchStateIdle:
-      return <Spinner size="xs" color="neutral" style={spinnerStyle} />;
-    case WatchState.WatchStateSyncing:
+    case 'opening':
+    case 'snapshotting':
+    case 'resetRequired':
       return <Spinner size="xs" color="brand" style={spinnerStyle} />;
-    case WatchState.WatchStateSynced:
+    case 'following':
+    case 'finished':
+    case 'closed':
       return <LuCircleCheck size={14} color="var(--ov-color-success)" />;
-    case WatchState.WatchStateError:
-    case WatchState.WatchStateFailed:
+    case 'failed':
       return <LuCircleAlert size={14} color="var(--ov-color-danger)" />;
-    case WatchState.WatchStateForbidden:
-      return <LuShieldAlert size={14} color="var(--ov-color-warning)" />;
-    case WatchState.WatchStateStopped:
-    case WatchState.WatchStateSkipped:
-      return <LuCircleSlash size={14} color="var(--ov-color-fg-subtle)" />;
     default:
       return <LuCircleSlash size={14} color="var(--ov-color-fg-subtle)" />;
   }
@@ -125,25 +114,22 @@ function StateIcon({ state }: { state: WatchState }) {
 
 /** Per-group progress summary */
 const GroupProgress = React.memo(function GroupProgress({ items }: { items: ResourceItem[] }) {
-  const watched = items.filter((i) => i.state !== WatchState.WatchStateSkipped);
-  const skipped = items.length - watched.length;
-  const total = watched.length;
-  const done = watched.filter((i) => isTerminal(i.state)).length;
+  const total = items.length;
+  const done = items.filter((i) => isTerminal(i.state)).length;
   const allDone = total > 0 && done === total;
-  const allSkipped = total === 0 && skipped > 0;
-  const hasError = watched.some((i) => i.state === WatchState.WatchStateError || i.state === WatchState.WatchStateFailed);
-  const percent = total > 0 ? Math.round((done / total) * 100) : allSkipped ? 100 : 0;
+  const hasError = items.some((i) => i.state === 'failed');
+  const percent = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return (
     <div style={groupProgressWrapperStyle}>
       <Progress
         value={percent}
         size="xs"
-        color={hasError ? 'danger' : (allDone || allSkipped) ? 'success' : 'brand'}
+        color={hasError ? 'danger' : allDone ? 'success' : 'brand'}
         style={groupProgressBarStyle}
       />
       <Text size="xs" style={groupProgressCountStyle}>
-        {allSkipped ? `${skipped} skipped` : `${done}/${total}`}
+        {done}/{total}
       </Text>
     </div>
   );
@@ -165,40 +151,28 @@ function SyncProgressDialogInner({
   connectionID,
 }: SyncProgressDialogProps) {
   const route = { connection: connectionID };
-  const { summary } = useWatchState({ pluginID, route });
+  const { summary } = useSourceStates({ pluginID, route });
   const { resourceTypes } = useResourceTypes({ pluginID, route });
   const { groups: resourceGroups } = useResourceGroups({ pluginID, route });
 
-  const resources = useStableObject(summary.data?.resources ?? {});
-  const resourceCounts = useStableObject(summary.data?.resourceCounts ?? {});
-
-  // Count resources by category: watched (attempted) vs skipped/inaccessible
-  const { watchedTotal, watchedDone, skippedCount } = React.useMemo(() => {
-    let watched = 0;
-    let done = 0;
-    let skipped = 0;
-    for (const state of Object.values(resources)) {
-      if (state === WatchState.WatchStateSkipped) {
-        skipped++;
-        continue;
-      }
-      watched++;
-      if (isTerminal(state)) {
-        done++;
-      }
-    }
-    return { watchedTotal: watched, watchedDone: done, skippedCount: skipped };
+  const resources = useStableObject(summary?.types ?? {});
+  const { watchedTotal, watchedDone } = React.useMemo(() => {
+    const statuses = Object.values(resources);
+    return {
+      watchedTotal: statuses.length,
+      watchedDone: statuses.filter((status) => isTerminal(status.state)).length,
+    };
   }, [resources]);
 
   // Group opaque types using the provider's presentation catalog.
   const grouped = React.useMemo(() => {
     const groups: Record<string, ResourceItem[]> = {};
 
-    for (const [key, state] of Object.entries(resources)) {
+    for (const [key, status] of Object.entries(resources)) {
       const kind = resourceTypes.data?.find((type) => type.type === key)?.displayName ?? key;
       const label = resourceGroups.data?.find((group) => group.resources.includes(key))?.name ?? 'Resources';
       if (!groups[label]) groups[label] = [];
-      groups[label].push({ key, kind, state, count: resourceCounts[key] });
+      groups[label].push({ key, kind, state: status.state, count: status.count });
     }
 
     // Sort items within each group
@@ -212,18 +186,17 @@ function SyncProgressDialogInner({
       if (b === 'Core') return 1;
       return a.localeCompare(b);
     });
-  }, [resources, resourceCounts, resourceTypes.data, resourceGroups.data]);
+  }, [resources, resourceTypes.data, resourceGroups.data]);
 
   const watchedAllDone = watchedTotal > 0 && watchedDone === watchedTotal;
   const percent = watchedTotal > 0 ? Math.round((watchedDone / watchedTotal) * 100) : 0;
 
   const handleRetry = React.useCallback(
-    async (resourceKey: string) => {
+    async () => {
       try {
-        const resolved = await ResourceClient.ResolveTarget(pluginID, { route: { connection: connectionID }, type: resourceKey });
-        await ResourceClient.EnsureResourceWatch(pluginID, resolved.target);
+        await ResourceClient.RetryConnectionSources(pluginID, { connection: connectionID });
       } catch (err) {
-        console.error('Failed to retry watch:', err);
+        console.error('Failed to retry sources:', err);
       }
     },
     [pluginID, connectionID],
@@ -258,11 +231,6 @@ function SyncProgressDialogInner({
             {percent}%&ensp;{watchedDone}/{watchedTotal}
           </Text>
         </div>
-        {skippedCount > 0 && (
-          <Text size="xs" tone="subtle" style={skippedSummaryStyle}>
-            {skippedCount} resource{skippedCount !== 1 ? 's' : ''} skipped (unavailable on this cluster)
-          </Text>
-        )}
       </div>
 
       {/* Resource list */}
@@ -280,7 +248,7 @@ function SyncProgressDialogInner({
               <div
                 key={key}
                 className={
-                  state === WatchState.WatchStateStopped || state === WatchState.WatchStateSkipped || state === WatchState.WatchStateIdle
+                  state === 'closed'
                     ? `${styles.Row} ${styles.RowFaded}`
                     : styles.Row
                 }
@@ -289,27 +257,17 @@ function SyncProgressDialogInner({
                 <Text size="xs" style={kindTextStyle}>
                   {kind}
                 </Text>
-                {state === WatchState.WatchStateForbidden && (
-                  <Text size="xs" tone="warning" style={italicStyle}>
-                    No access
-                  </Text>
-                )}
-                {(state === WatchState.WatchStateStopped || state === WatchState.WatchStateSkipped) && (
-                  <Text size="xs" tone="subtle" style={italicStyle}>
-                    Skipped
-                  </Text>
-                )}
-                {state === WatchState.WatchStateSynced && (
+                {(state === 'following' || state === 'finished') && (
                   <Text size="xs" tone="subtle" style={countTextStyle}>
                     {count?.kind === 'exact' ? count.value : count?.kind === 'estimate' ? `~${count.value}` : 'Unknown'}
                   </Text>
                 )}
-                {(state === WatchState.WatchStateError || state === WatchState.WatchStateFailed) && (
+                {state === 'failed' && (
                   <Button
                     variant="soft"
                     size="xs"
                     color="danger"
-                    onClick={() => { void handleRetry(key); }}
+                    onClick={() => { void handleRetry(); }}
                     style={retryButtonStyle}
                   >
                     Retry
