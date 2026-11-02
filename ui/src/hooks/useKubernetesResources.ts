@@ -32,7 +32,7 @@ export function useKubernetesResources<T>({
       request: { target: target.data.target, pageSize: 200 },
     },
     enabled: enabled && !!target.data,
-    live: descriptor?.capabilities.some(({ operation }) => operation === 'update') ?? false,
+    live: descriptor?.capabilities.some(({ operation }) => operation === 'sourceUpdates') ?? false,
   });
   const records = result.acquired?.page.records;
   const bodies = useMemo(() => (records ?? []).map(({ record }) => valueToJSON(record.body) as T), [records]);

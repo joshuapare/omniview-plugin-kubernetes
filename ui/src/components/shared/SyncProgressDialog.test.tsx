@@ -7,19 +7,11 @@ vi.mock('@omniviewdev/runtime', async (importOriginal) => {
   const actual = await importOriginal<typeof Runtime>();
   return {
     ...actual,
-    useWatchState: () => ({ summary: { data: {
-      resources: {
-        'wide-native': actual.WatchState.WatchStateSynced,
-        'unknown-native': actual.WatchState.WatchStateSynced,
-        'estimated-native': actual.WatchState.WatchStateSynced,
-        'zero-native': actual.WatchState.WatchStateSynced,
-      },
-      resourceCounts: {
-        'wide-native': { kind: 'exact', value: '9007199254740993' },
-        'unknown-native': { kind: 'unknown' },
-        'estimated-native': { kind: 'estimate', value: '9007199254740995' },
-        'zero-native': { kind: 'exact', value: '0' },
-      },
+    useSourceStates: () => ({ summary: { types: {
+      'wide-native': { state: 'following', count: { kind: 'exact', value: '9007199254740993' } },
+      'unknown-native': { state: 'following', count: { kind: 'unknown' } },
+      'estimated-native': { state: 'following', count: { kind: 'estimate', value: '9007199254740995' } },
+      'zero-native': { state: 'following', count: { kind: 'exact', value: '0' } },
     } } }),
     useResourceTypes: () => ({ resourceTypes: { data: [] } }),
     useResourceGroups: () => ({ groups: { data: [] } }),

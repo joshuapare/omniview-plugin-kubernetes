@@ -23,7 +23,7 @@ describe('useKubernetesResources', () => {
     mocks.types.mockReturnValue({ data: [{
       type: 'k8s:/pods', queryDimensions: [{ name: 'namespace' }],
       representations: [{ id: 'native' }], defaultRepresentation: 'native',
-      capabilities: [{ operation: 'update', guarantee: 'bestEffort' }],
+      capabilities: [{ operation: 'sourceUpdates' }],
     }], isLoading: false });
     mocks.resolve.mockReturnValue({ data: {
       targetId: 'host-membership', target: { authority: 'host-authority' },
@@ -31,7 +31,7 @@ describe('useKubernetesResources', () => {
     mocks.resources.mockReturnValue({ resources: {
       data: { records: [{ key: 'host-key', record: { body: { kind: 'int64', value: '9007199254740993' } } }] },
       isLoading: false,
-    }, guarantee: 'bestEffort' });
+    } });
     mocks.decode.mockReturnValue(9007199254740993n);
   });
 

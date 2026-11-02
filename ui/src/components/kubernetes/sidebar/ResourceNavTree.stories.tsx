@@ -1,5 +1,4 @@
 import { Button } from '@omniviewdev/base-ui';
-import { WatchState } from '@omniviewdev/runtime';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 import { LuBox, LuFolder, LuLayoutDashboard } from 'react-icons/lu';
@@ -8,7 +7,7 @@ import { applyOrder, type SidebarOrder } from '../../../hooks/useSidebarOrder';
 import type { NavSection } from '../../../types/navigation';
 
 import ResourceNavTree from './ResourceNavTree';
-import { SidebarWatchBadge, SidebarWatchStateProvider } from './SidebarWatchBadge';
+import { SidebarWatchBadge, SidebarSourceStateProvider } from './SidebarWatchBadge';
 
 const modern: NavSection[] = [
   {
@@ -127,7 +126,7 @@ function LiveCatalogStory() {
   const [editing, setEditing] = useState(false);
   const [failed, setFailed] = useState(false);
   const states = {
-    'kind-0-0': failed ? WatchState.WatchStateForbidden : WatchState.WatchStateSyncing,
+    'kind-0-0': failed ? 'failed' as const : 'snapshotting' as const,
   };
   return (
     <div
@@ -192,7 +191,7 @@ function LiveCatalogStory() {
       </div>
       <output aria-label="Selected destination">Destination: {selected ?? 'none'}</output>
       <output aria-label="Connection">Connection: {connection}</output>
-      <SidebarWatchStateProvider states={states}>
+      <SidebarSourceStateProvider states={states}>
         <ResourceNavTree
           key={connection}
           sections={applyOrder(sections, order)}
@@ -206,7 +205,7 @@ function LiveCatalogStory() {
           }
           scrollable
         />
-      </SidebarWatchStateProvider>
+      </SidebarSourceStateProvider>
     </div>
   );
 }

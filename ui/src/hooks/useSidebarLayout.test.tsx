@@ -1,10 +1,9 @@
 import type { ResourceGroup, ResourceType } from '@omniviewdev/runtime';
 import type * as Runtime from '@omniviewdev/runtime';
-import { WatchState } from '@omniviewdev/runtime';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 
-import { SidebarWatchStateProvider } from '../components/kubernetes/sidebar/SidebarWatchBadge';
+import { SidebarSourceStateProvider } from '../components/kubernetes/sidebar/SidebarWatchBadge';
 import { PLUGIN_ID } from '../pluginId';
 import type { NavSection } from '../types/navigation';
 
@@ -57,16 +56,16 @@ describe('useSidebarLayout', () => {
   it('keeps structure stable while badges change and shows catalog additions during syncing immediately', () => {
     const child = <Layout />;
     const view = render(
-      <SidebarWatchStateProvider states={{ 'k8s:/pods': WatchState.WatchStateSyncing }}>
+      <SidebarSourceStateProvider states={{ 'k8s:/pods': 'snapshotting' }}>
         {child}
-      </SidebarWatchStateProvider>,
+      </SidebarSourceStateProvider>,
     );
     const first = latest;
     expect(screen.getByLabelText('Resources syncing')).toBeTruthy();
     view.rerender(
-      <SidebarWatchStateProvider states={{ 'k8s:/pods': WatchState.WatchStateError }}>
+      <SidebarSourceStateProvider states={{ 'k8s:/pods': 'failed' }}>
         <Layout />
-      </SidebarWatchStateProvider>,
+      </SidebarSourceStateProvider>,
     );
     expect(latest).toBe(first);
     expect(screen.getByLabelText('Resource watch error')).toBeTruthy();
@@ -76,9 +75,9 @@ describe('useSidebarLayout', () => {
       { type: 'k8s:apps/deployments', displayName: 'Deployments' } as ResourceType,
     ];
     view.rerender(
-      <SidebarWatchStateProvider states={{ 'k8s:/pods': WatchState.WatchStateSyncing }}>
+      <SidebarSourceStateProvider states={{ 'k8s:/pods': 'snapshotting' }}>
         <Layout />
-      </SidebarWatchStateProvider>,
+      </SidebarSourceStateProvider>,
     );
     expect(latest).not.toBe(first);
     expect(
@@ -97,9 +96,9 @@ describe('useSidebarLayout', () => {
       group('core', ['k8s:/nodes']),
     ];
     render(
-      <SidebarWatchStateProvider states={{ 'example.io/widgets': WatchState.WatchStateForbidden }}>
+      <SidebarSourceStateProvider states={{ 'example.io/widgets': 'failed' }}>
         <Layout />
-      </SidebarWatchStateProvider>,
+      </SidebarSourceStateProvider>,
     );
     expect(screen.getByLabelText('Resource watch error')).toBeTruthy();
     const items = latest[0].items;
@@ -120,9 +119,9 @@ describe('useSidebarLayout', () => {
       group('empty', []),
     ];
     render(
-      <SidebarWatchStateProvider states={{ 'example.io/widgets': WatchState.WatchStateFailed }}>
+      <SidebarSourceStateProvider states={{ 'example.io/widgets': 'failed' }}>
         <Layout />
-      </SidebarWatchStateProvider>,
+      </SidebarSourceStateProvider>,
     );
     expect(latest.flatMap((section) => section.items).map((item) => item.id)).toEqual([
       '__dashboard__',

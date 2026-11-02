@@ -10,7 +10,7 @@ require (
 	github.com/aws/smithy-go v1.22.2
 	github.com/fairwindsops/polaris v0.0.0-20250421200712-d7d30ac6116e
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/omniviewdev/plugin-sdk v0.12.0
+	github.com/omniviewdev/plugin-sdk v0.14.0
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.79.2
@@ -20,6 +20,7 @@ require (
 	k8s.io/client-go v0.35.0
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/metrics v0.35.0
+	sigs.k8s.io/controller-runtime v0.23.3
 )
 
 require (
@@ -40,6 +41,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.15 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.25.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.1 // indirect
+	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -53,6 +55,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.12.2 // indirect
 	github.com/evanphx/json-patch v5.9.11+incompatible // indirect
+	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fairwindsops/controller-utils v0.3.4 // indirect
 	github.com/fatih/color v1.18.0 // indirect
@@ -113,6 +116,10 @@ require (
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
+	github.com/prometheus/client_golang v1.23.2 // indirect
+	github.com/prometheus/client_model v0.6.2 // indirect
+	github.com/prometheus/common v0.66.1 // indirect
+	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/qri-io/jsonpointer v0.1.1 // indirect
 	github.com/qri-io/jsonschema v0.1.2 // indirect
 	github.com/rubenv/sql-migrate v1.8.1 // indirect
@@ -162,11 +169,10 @@ require (
 	k8s.io/kubectl v0.35.0 // indirect
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4 // indirect
 	oras.land/oras-go/v2 v2.6.0 // indirect
-	sigs.k8s.io/controller-runtime v0.20.4 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/kustomize/api v0.20.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.20.1 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
