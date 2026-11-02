@@ -60,7 +60,7 @@ func openEnvtestSource(t *testing.T, config *rest.Config, start chan<- struct{},
 	t.Helper()
 	dynamicClient, err := dynamic.NewForConfig(config)
 	require.NoError(t, err)
-	clientSet := &clients.ClientSet{DynamicClient: dynamicClient}
+	clientSet := &clients.ClientSet{DynamicClient: dynamicClient, RESTConfig: config}
 	base := NewKubernetesResourcerBase[*corev1.ConfigMap](zap.NewNop().Sugar(), envtestConfigMaps)
 	scope := resource.QueryScope{{Dimension: "namespace", Match: resource.ScopeAny}}
 	representation := resource.Representation{ID: "native", Revision: "envtest", Schema: resource.SchemaBinding{State: "absent", Validation: "none", Unvalidated: []string{}}}

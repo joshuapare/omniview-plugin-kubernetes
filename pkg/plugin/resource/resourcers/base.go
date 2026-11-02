@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
+	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -15,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -214,6 +219,130 @@ func watchNamespaces(scope resource.QueryScope) ([]string, error) {
 
 var sourceLivenessInterval = 10 * time.Second
 
+type sourceHealthMonitor struct {
+	cancel    context.CancelFunc
+	unhealthy chan struct{}
+	done      chan struct{}
+	refs      int
+}
+
+var sourceHealthMonitors = struct {
+	sync.Mutex
+	clients map[*clients.ClientSet]*sourceHealthMonitor
+}{clients: make(map[*clients.ClientSet]*sourceHealthMonitor)}
+
+// acquireSourceHealth shares a cancellable probe across all following sessions.
+func acquireSourceHealth(ctx context.Context, client *clients.ClientSet) (<-chan struct{}, func(), error) {
+	for {
+		sourceHealthMonitors.Lock()
+		monitor := sourceHealthMonitors.clients[client]
+		if monitor != nil && monitor.refs == 0 {
+			done := monitor.done
+			sourceHealthMonitors.Unlock()
+			select {
+			case <-done:
+				continue
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			}
+		}
+		if monitor == nil {
+			monitorCtx, cancel := context.WithCancel(context.Background())
+			monitor = &sourceHealthMonitor{cancel: cancel, unhealthy: make(chan struct{}), done: make(chan struct{})}
+			sourceHealthMonitors.clients[client] = monitor
+			interval := sourceLivenessInterval
+			go runSourceHealth(monitorCtx, client, monitor, interval)
+		}
+		monitor.refs++
+		sourceHealthMonitors.Unlock()
+		return monitor.unhealthy, func() {
+			sourceHealthMonitors.Lock()
+			monitor.refs--
+			if monitor.refs == 0 {
+				monitor.cancel()
+			}
+			sourceHealthMonitors.Unlock()
+		}, nil
+	}
+}
+
+func runSourceHealth(ctx context.Context, client *clients.ClientSet, monitor *sourceHealthMonitor, interval time.Duration) {
+	defer func() {
+		sourceHealthMonitors.Lock()
+		if sourceHealthMonitors.clients[client] == monitor {
+			delete(sourceHealthMonitors.clients, client)
+		}
+		close(monitor.done)
+		sourceHealthMonitors.Unlock()
+	}()
+	probe, setupErr := newSourceHealthProbe(client)
+	failures := 0
+	for {
+		// Spread connection probes over 80–120% of the nominal interval.
+		delay := time.Duration(float64(interval) * (0.8 + rand.Float64()*0.4))
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+		probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		err := setupErr
+		if err == nil {
+			err = probe(probeCtx)
+		}
+		cancel()
+		if ctx.Err() != nil {
+			return
+		}
+		if err == nil {
+			failures = 0
+			continue
+		}
+		failures++
+		if failures == 2 {
+			close(monitor.unhealthy)
+			// Keep the monitor until all subscribers have released it.
+			<-ctx.Done()
+			return
+		}
+	}
+}
+
+func newSourceHealthProbe(client *clients.ClientSet) (func(context.Context) error, error) {
+	if client.RESTConfig == nil {
+		return nil, fmt.Errorf("Kubernetes REST configuration is unavailable")
+	}
+	endpoint, err := url.Parse(client.RESTConfig.Host)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.Path = strings.TrimSuffix(endpoint.Path, "/") + "/version"
+	httpClient := client.HTTPClient
+	if httpClient == nil {
+		httpClient, err = rest.HTTPClientFor(client.RESTConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return func(ctx context.Context) error {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+		if err != nil {
+			return err
+		}
+		response, err := httpClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer response.Body.Close()
+		if response.StatusCode < 200 || response.StatusCode >= 300 {
+			return fmt.Errorf("Kubernetes health probe returned HTTP %d", response.StatusCode)
+		}
+		return nil
+	}, nil
+}
+
 // Source leases informer handlers for one source session.
 func (s *KubernetesResourcerBase[T]) Source(ctx context.Context, client *clients.ClientSet, request resource.SourceRequest, emit resource.SourceEmitter) error {
 	if client == nil || client.DynamicClient == nil || emit == nil {
@@ -345,8 +474,11 @@ func (s *KubernetesResourcerBase[T]) Source(ctx context.Context, client *clients
 	if err := emit.EndSnapshot(ctx, coverage, resource.ContinuityBestEffort); err != nil {
 		return err
 	}
-	ticker := time.NewTicker(sourceLivenessInterval)
-	defer ticker.Stop()
+	unhealthy, releaseHealth, err := acquireSourceHealth(ctx, client)
+	if err != nil {
+		return err
+	}
+	defer releaseHealth()
 	for {
 		if overflow.Load() {
 			return reset()
@@ -354,16 +486,8 @@ func (s *KubernetesResourcerBase[T]) Source(ctx context.Context, client *clients
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-ticker.C:
-			probeCtx, cancelProbe := context.WithTimeout(ctx, 5*time.Second)
-			err := probe(probeCtx, namespaces[0])
-			cancelProbe()
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			if err != nil {
-				return emit.Reset(ctx, resource.SourceResetContinuityLost, "Kubernetes API is unreachable; informer events are not being delivered")
-			}
+		case <-unhealthy:
+			return emit.Reset(ctx, resource.SourceResetContinuityLost, "Kubernetes API is unreachable; informer events are not being delivered")
 		case first := <-events:
 			changes := make([]resource.SourceChange, 0, request.Limits.MaxBatchItems)
 			event := first
