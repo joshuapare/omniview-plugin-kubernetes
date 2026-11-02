@@ -516,7 +516,7 @@ Expansion stays connection-specific. Sidebar order and edit mode remain global p
 
 New API groups and resource kinds appear as the catalog changes. Watch-state badges update independently of the navigation structure; errors take precedence over syncing indicators. Empty categories and unavailable primary resources do not become invalid navigation destinations. Global command search continues to reuse the same destinations.
 
-The plugin supports base-ui 0.10.x and 0.11.x, plus editors 6.1.3 and 6.1.4. Standalone installs retain published runtime and Vite plugin 0.19.0. Source workspaces use the selected host runtime. Keep the host's shared base-ui version within this range; plugin dependencies do not replace the host singleton.
+For the supported frontend cohort, see [Prerequisites](#prerequisites). The host owns the shared component singleton; plugin dependencies do not replace it.
 
 ### Scoped Command Search
 
@@ -794,10 +794,11 @@ rather than adding unsupported manifest fields.
 
 Registry installs retain pnpm's 24-hour release-age protection. Only coordinated
 `@omniviewdev/*` packages are exempted; linked source worktrees resolve locally.
-The current UI cohort is `@omniviewdev/base-ui` 0.10.0 and
-`@omniviewdev/editors` 6.1.3, paired with host/runtime and Vite plugin 0.17.0.
-The backend pins published Go SDK `v0.11.0` for transactional settings,
-connection metadata, and opt-in profiling.
+The plugin supports `@omniviewdev/base-ui` 0.10.x/0.11.x and
+`@omniviewdev/editors` 6.1.3/6.1.4. Standalone dependency resolution retains
+runtime and Vite plugin 0.19.0. P07 source builds use the reviewed host runtime.
+The backend pins Go SDK `v0.13.1-0.20261102030614-15ff20f0f9b5` for P07
+and the existing settings, connection metadata, and profiling APIs.
 Debug preferences discard unsaved drafts when reopened or switched to another
 connection, but preserve active drafts when saved defaults refresh.
 
