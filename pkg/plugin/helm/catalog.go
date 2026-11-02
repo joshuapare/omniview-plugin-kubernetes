@@ -10,7 +10,7 @@ func HelmResourceGroup() resource.ResourceGroup {
 	return resource.ResourceGroup{ID: "helm", Name: "Helm", Icon: "SiHelm", Resources: []string{ReleaseType, RepositoryType, ChartType}}
 }
 func helmRepresentationDescriptor() resource.Representation {
-	return resource.Representation{ID: helmRepresentation, Revision: "1", Schema: resource.SchemaBinding{State: "absent", Validation: "none", Unvalidated: []string{}}}
+	return resource.Representation{ID: helmRepresentation, Revision: "1", Schema: resource.SchemaBinding{State: "absent"}}
 }
 func HelmResourceTypes() []resource.ResourceType {
 	out := make([]resource.ResourceType, 0, 3)

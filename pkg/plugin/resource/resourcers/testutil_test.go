@@ -61,7 +61,7 @@ func testWatchTarget() resource.ReadTarget {
 }
 
 func testWatchRepresentation() resource.Representation {
-	return resource.Representation{ID: "native", Revision: "test-schema-revision", Schema: resource.SchemaBinding{State: "absent", Validation: "none", Unvalidated: []string{}}}
+	return resource.Representation{ID: "native", Revision: "test-schema-revision", Schema: resource.SchemaBinding{State: "absent"}}
 }
 
 func relationshipRequest(source resource.GetRequest, targetTypes ...string) resource.RelationshipResolutionRequest {

@@ -6,7 +6,6 @@ import (
 	"github.com/omniview/kubernetes/pkg/plugin/resource/clients"
 	"github.com/omniview/kubernetes/pkg/plugin/resource/resourcers"
 	resourcev2 "github.com/omniviewdev/plugin-sdk/pkg/resource/v2"
-	"net/url"
 	"sort"
 )
 
@@ -28,54 +27,19 @@ func (p *kubernetesProvider) GetSchemaDocument(ctx context.Context, route resour
 
 func (p *kubernetesProvider) GetEditorSchemas(ctx context.Context, route resourcev2.AccessRoute) (schemas []resourcev2.EditorSchema, err error) {
 	err = p.WithClient(ctx, route, func(ctx context.Context, client *clients.ClientSet) error {
-		snapshot, err := p.snapshot(route)
-		if err != nil {
-			return err
+		schemas, err = p.helmAncillary.GetEditorSchemas(ctx, client)
+		if err == nil {
+			return nil
 		}
-		schemas = make([]resourcev2.EditorSchema, 0, len(snapshot.catalog.Types))
-		for _, descriptor := range snapshot.catalog.Types {
-			for _, representation := range descriptor.Representations {
-				if representation.ID != descriptor.DefaultRepresentation {
-					continue
-				}
-				encodedType := url.QueryEscape(descriptor.Type)
-				uri := "kubernetes.schema/" + url.QueryEscape(route.Connection) + "/" + encodedType
-				if representation.Schema.Revision != nil {
-					uri += "/" + url.QueryEscape(*representation.Schema.Revision)
-				}
-				schemas = append(schemas, resourcev2.EditorSchema{
-					Type: descriptor.Type, FileMatch: "**/" + encodedType + "/*.yaml",
-					URI: uri, Language: "yaml", Binding: representation.Schema,
-				})
-			}
+		if canceled := ctx.Err(); canceled != nil {
+			return canceled
 		}
-		helmSchemas, err := p.helmAncillary.GetEditorSchemas(ctx, client)
-		if err != nil {
-			if canceled := ctx.Err(); canceled != nil {
-				return canceled
-			}
-			sourceError := err
-			if classified := classifyResourceError(err); classified != nil {
-				sourceError = classified
-			}
-			reason := resourcev2.ErrorCode(sourceError)
-			switch reason {
-			case "CANCELLED", "TIMEOUT", "RESET_REQUIRED":
-				return sourceError
-			}
-			// This is an unavailable values-schema role, not an invented
-			// installed release/chart or an absent native resource schema.
-			schemas = append(schemas, resourcev2.EditorSchema{
-				Type:      helm.ReleaseType,
-				FileMatch: "**/helm:releases/*.yaml",
-				URI:       "helm://schemas/values/unavailable?connection=" + url.QueryEscape(route.Connection),
-				Language:  "yaml",
-				Binding:   resourcev2.SchemaBinding{State: "unavailable", UnavailableReason: &reason, Validation: "none", Unvalidated: []string{}},
-			})
-			return ctx.Err()
+		// Native Kubernetes errors lose their code across the SDK boundary;
+		// classify them into public-safe resource errors.
+		if classified := classifyResourceError(err); classified != nil {
+			return classified
 		}
-		schemas = append(schemas, helmSchemas...)
-		return ctx.Err()
+		return err
 	})
 	return schemas, err
 }

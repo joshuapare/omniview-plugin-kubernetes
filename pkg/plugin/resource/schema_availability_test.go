@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestNativeSchemaAvailabilityDoesNotRequireHelmSecretPermission(t *testing.T) {
+func TestEditorSchemasClassifyHelmPermissionFailureAsForbidden(t *testing.T) {
 	t.Setenv("HELM_DRIVER", "secrets")
 	var lists, secretGets atomic.Int32
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +54,7 @@ func TestNativeSchemaAvailabilityDoesNotRequireHelmSecretPermission(t *testing.T
 	document := json.RawMessage(`{"openapi":"3.0.0","components":{"schemas":{"Pod":{"type":"object","properties":{"apiVersion":{"type":"string","enum":["v1"]},"kind":{"type":"string","enum":["Pod"]}}}}}}`)
 	revision := "fixture-native-pod-schema"
 	representation := boundaryRepresentation()
-	representation.Schema = resourcev2.SchemaBinding{State: "available", Revision: &revision, Dialect: "openapi-3.0", Root: "#/components/schemas/Pod", Document: document, Validation: "none", Unvalidated: []string{}}
+	representation.Schema = resourcev2.SchemaBinding{State: "available", Revision: &revision, Dialect: resourcev2.DialectOpenAPI30, Root: "#/components/schemas/Pod", Document: document}
 	descriptor := resourcev2.ResourceType{Type: "k8s:/pods", DefaultRepresentation: representation.ID, Representations: []resourcev2.Representation{representation}, IdentityDimensions: []resourcev2.Dimension{{Name: "namespace"}}, QueryDimensions: []resourcev2.Dimension{{Name: "namespace"}}}
 	provider := &kubernetesProvider{catalogs: map[string]*nativeCatalogSnapshot{route.Connection: {catalog: resourcev2.Catalog{Provider: "kubernetes", Revision: "fixture-native-catalog", Types: []resourcev2.ResourceType{descriptor}, Coverage: resourcev2.Coverage{Kind: "complete"}}}}, helmAncillary: helm.NewHelmAncillary(zap.NewNop().Sugar())}
 	controller, err := resourcev2.NewController(resourcev2.Config[clients.ClientSet]{Catalog: provider.catalog, Lifecycle: &resourcev2.Lifecycle[clients.ClientSet]{
@@ -82,26 +82,9 @@ func TestNativeSchemaAvailabilityDoesNotRequireHelmSecretPermission(t *testing.T
 	_, err = controller.StartConnection(context.Background(), route.Connection)
 	require.NoError(t, err)
 	schemas, err := provider.GetEditorSchemas(context.Background(), route)
-	require.NoError(t, err, "unrelated Helm permission must not disable native Pod schema registration")
-	require.Len(t, schemas, 2)
-	native, unavailable := schemas[0], schemas[1]
-	require.Equal(t, "k8s:/pods", native.Type)
-	require.Equal(t, "available", native.Binding.State)
-	require.JSONEq(t, string(document), string(native.Binding.Document))
-	require.Nil(t, native.Binding.UnavailableReason)
-	require.Equal(t, helm.ReleaseType, unavailable.Type)
-	require.Equal(t, "**/helm:releases/*.yaml", unavailable.FileMatch)
-	require.Equal(t, "helm://schemas/values/unavailable?connection=native-schema-owned", unavailable.URI)
-	require.Equal(t, "unavailable", unavailable.Binding.State)
-	require.NotNil(t, unavailable.Binding.UnavailableReason)
-	require.Equal(t, "FORBIDDEN", *unavailable.Binding.UnavailableReason)
-	require.Empty(t, unavailable.Binding.Document)
-	require.Nil(t, unavailable.Binding.DocumentRef)
-	require.Nil(t, unavailable.Binding.Revision)
+	require.Equal(t, "FORBIDDEN", resourcev2.ErrorCode(err), "Helm permission failure must cross the SDK boundary as FORBIDDEN: %v", err)
+	require.NotContains(t, err.Error(), "private backend detail")
+	require.Empty(t, schemas, "catalog types are host-derived and never emitted by the provider")
 	require.Equal(t, int32(1), lists.Load(), "permission failure must not retry metadata acquisition")
 	require.Zero(t, secretGets.Load(), "metadata denial must not fall back to Secret GET")
-	for _, schema := range schemas {
-		_, err := resourcev2.ToProtoEditorSchema(schema)
-		require.NoError(t, err)
-	}
 }

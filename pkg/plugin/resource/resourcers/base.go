@@ -81,11 +81,19 @@ func extractMetadata(u *unstructured.Unstructured) resource.ResourceMetadata {
 }
 
 type watchErrorClassification struct {
-	isForbidden        bool
-	isNotFound         bool
-	isMethodNotAllowed bool
-	code               string
-	message            string
+	code    string
+	message string
+}
+
+func watchErrorCode(err error) string {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "TIMEOUT"
+	}
+	var classified *resource.ResourceOperationError
+	if errors.As(err, &classified) && classified != nil && resource.IsErrorCode(classified.Code) {
+		return classified.Code
+	}
+	return "PROVIDER_ERROR"
 }
 
 func classifyWatchError(err error) watchErrorClassification {
@@ -93,16 +101,16 @@ func classifyWatchError(err error) watchErrorClassification {
 	if errors.As(err, &status) {
 		switch status.ErrStatus.Code {
 		case 403:
-			return watchErrorClassification{isForbidden: true, code: "FORBIDDEN", message: "Access denied"}
+			return watchErrorClassification{code: "FORBIDDEN", message: "Access denied"}
 		case 401:
-			return watchErrorClassification{isForbidden: true, code: "UNAUTHORIZED", message: "Authentication failed"}
+			return watchErrorClassification{code: "UNAUTHORIZED", message: "Authentication failed"}
 		case 404:
-			return watchErrorClassification{isNotFound: true, code: "NOT_FOUND", message: "Resource type not found"}
+			return watchErrorClassification{code: "NOT_FOUND", message: "Resource type not found"}
 		case 405:
-			return watchErrorClassification{isMethodNotAllowed: true, code: "UNSUPPORTED", message: "Resource does not support this method"}
+			return watchErrorClassification{code: "UNSUPPORTED", message: "Resource does not support this method"}
 		}
 	}
-	return watchErrorClassification{code: "UNKNOWN", message: err.Error()}
+	return watchErrorClassification{code: watchErrorCode(err), message: err.Error()}
 }
 
 func watchRecord(target resource.ReadTarget, representation resource.Representation, u *unstructured.Unstructured) (resource.Record, error) {
@@ -388,11 +396,11 @@ func (s *KubernetesResourcerBase[T]) Source(ctx context.Context, client *clients
 	for _, namespace := range namespaces {
 		err = probe(ctx, namespace)
 		if err != nil {
-			classified := classifyWatchError(err)
-			if classified.isForbidden || classified.isNotFound || classified.isMethodNotAllowed {
-				return resource.NewError(classified.code, classified.message)
+			if errors.Is(err, context.Canceled) {
+				return err
 			}
-			return err
+			classified := classifyWatchError(err)
+			return resource.NewError(classified.code, classified.message)
 		}
 		lease, err := client.AcquireInformer(ctx, namespace, s.resourceType, handler)
 		if err != nil {

@@ -1,5 +1,5 @@
 import { Button, Card, Chip, IconButton, Separator, Stack, Tabs, Text } from '@omniviewdev/base-ui';
-import { DrawerContext, jsonToValue, useExecuteAction, useRightDrawer } from '@omniviewdev/runtime';
+import { DrawerContext, jsonToValue, useExecuteAction, useResourceEditorModelPath, useRightDrawer } from '@omniviewdev/runtime';
 import { ResourceClient } from '@omniviewdev/runtime/api';
 import React from 'react';
 import { LuCircleArrowUp, LuUndo2, LuGitCompare } from 'react-icons/lu';
@@ -220,6 +220,10 @@ const ReleaseSidebarContent: React.FC<Props> = ({ ctx }) => {
   const connectionID = ctx.resource?.route.connection ?? '';
   const releaseName = ctx.resource?.reference.address.id ?? '';
   const namespace = ctx.resource?.reference.address.scope.find((entry) => entry.dimension === 'namespace')?.value ?? '';
+  const valuesPath = useResourceEditorModelPath({
+    pluginID: PLUGIN_ID, route: ctx.resource?.route ?? { connection: connectionID }, type: 'helm:releases',
+    key: `${namespace}/${releaseName}`, name: 'values-preview',
+  });
   const { executeAction, isExecuting } = useExecuteAction({ pluginID: PLUGIN_ID });
   const resource = ctx.resource;
   const runAction = React.useCallback((action: string, input = jsonToValue({})) => {
@@ -370,6 +374,7 @@ const ReleaseSidebarContent: React.FC<Props> = ({ ctx }) => {
         <div style={editorBoxStyle}>
           <CodeEditor
             filename="values.yaml"
+            path={valuesPath}
             language="yaml"
             value={valuesEntry ? stringify(valuesEntry.values ?? {}) : '# Loading...'}
             readOnly

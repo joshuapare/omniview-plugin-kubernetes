@@ -14,7 +14,7 @@ import (
 
 const editorQueryType="kubernetes:editor-queries"
 func editorQueryResourceType() resourcev2.ResourceType {
- return resourcev2.ResourceType{Type:editorQueryType,DisplayName:"Kubernetes API queries",IdentityDimensions:[]resourcev2.Dimension{},QueryDimensions:[]resourcev2.Dimension{},DefaultRepresentation:"kubernetes.editor-query.v1",Representations:[]resourcev2.Representation{{ID:"kubernetes.editor-query.v1",Revision:"kubernetes.editor-query.v1",Schema:resourcev2.SchemaBinding{State:"absent",Validation:"none",Unvalidated:[]string{}}}},Capabilities:[]resourcev2.Capability{{Operation:resourcev2.OperationAction,Scope:resourcev2.QueryScope{}}}}
+ return resourcev2.ResourceType{Type:editorQueryType,DisplayName:"Kubernetes API queries",IdentityDimensions:[]resourcev2.Dimension{},QueryDimensions:[]resourcev2.Dimension{},DefaultRepresentation:"kubernetes.editor-query.v1",Representations:[]resourcev2.Representation{{ID:"kubernetes.editor-query.v1",Revision:"kubernetes.editor-query.v1",Schema:resourcev2.SchemaBinding{State:"absent"}}},Capabilities:[]resourcev2.Capability{{Operation:resourcev2.OperationAction,Scope:resourcev2.QueryScope{}}}}
 }
 func editorQueryRegistration() resourcev2.Registration[clients.ClientSet] {
  return resourcev2.Registration[clients.ClientSet]{Type:editorQueryType,Actions:[]resourcev2.ActionDescriptor{{ID:tigeraEvidenceProtocol,Label:"Read Tigera operator evidence",Scope:resourcev2.ActionScopeType},{ID:"kubernetes.server-info.v1",Label:"Read server version",Scope:resourcev2.ActionScopeType},{ID:"kubernetes.discovery.v1",Label:"Discover APIs",Scope:resourcev2.ActionScopeType},{ID:"kubernetes.metrics.v1",Label:"Query adapter metrics",Scope:resourcev2.ActionScopeType}},Action:editorQueryAction}

@@ -265,10 +265,10 @@ func TestHelmEditorSchemasReuseExistingMetadataAuthLimitsAndLifetimes(t *testing
 		require.Len(t, schemas, 1)
 		require.Equal(t, "helm:releases", schemas[0].Type)
 		require.Equal(t, "available", schemas[0].Binding.State)
-		require.Equal(t, "none", schemas[0].Binding.Validation)
+		require.Equal(t, sdkresource.DialectJSONSchemaDraft07, schemas[0].Binding.Dialect)
 		require.JSONEq(t, string(document), string(schemas[0].Binding.Document))
-		require.Equal(t, "**/helm:releases/installed.yaml", schemas[0].FileMatch)
-		require.Equal(t, "helm://owned-cluster/installed-chart/1.0.0/values-schema", schemas[0].URI)
+		require.Equal(t, "selected/installed", schemas[0].Key)
+		require.Equal(t, "yaml", schemas[0].Language)
 	}
 	wait := func(event <-chan struct{}, description string) {
 		select {

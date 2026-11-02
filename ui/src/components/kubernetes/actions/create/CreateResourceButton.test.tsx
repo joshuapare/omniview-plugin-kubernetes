@@ -4,12 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CreateResourceButton from './CreateResourceButton';
 import type { jsonToValue as EncodeValue } from '@omniviewdev/runtime';
 
-const mocks = vi.hoisted(() => ({ mutate: vi.fn(), resolve: vi.fn(), encode: vi.fn(), schema: vi.fn() }));
+const mocks = vi.hoisted(() => ({ mutate: vi.fn(), resolve: vi.fn(), encode: vi.fn(), schema: vi.fn(), editorPath: vi.fn() }));
 vi.mock('@omniviewdev/runtime', () => ({
   jsonToValue: mocks.encode,
   RESOURCE_EDITOR_EXTENSION_POINT: 'kubernetes/resource/editor/v1',
   useExtensionPointSnapshot: () => ({ contributions: [] }),
   useResourceMutations: () => ({ mutate: mocks.mutate }),
+  useResourceEditorModelPath: mocks.editorPath,
   useResourceTypes: () => ({ resourceTypes: { data: [{
     type: 'k8s:/pods', displayName: 'Pod', identityDimensions: [{ name: 'namespace' }],
     defaultRepresentation: 'kubernetes.object.v1/v1', representations: [{ id: 'kubernetes.object.v1/v1', schema: { state: 'absent' } }],
@@ -37,7 +38,8 @@ describe('canonical create mutation', () => {
   it('creates pasted manifests without schema using host reference and exact tagged body', async () => {
     render(<CreateResourceButton connectionID="selected" resourceKey="k8s:/pods" />);
     fireEvent.click(screen.getByRole('button', { name: 'Create Pod' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Submit native manifest' }));
+    const submit = await screen.findByRole('button', { name: 'Submit native manifest' });
+    fireEvent.click(submit);
     await waitFor(() => expect(mocks.mutate).toHaveBeenCalled());
     expect(mocks.resolve).toHaveBeenCalledWith({
       connectionID: 'selected', resourceType: 'k8s:/pods', name: 'exact-name', namespace: 'team',

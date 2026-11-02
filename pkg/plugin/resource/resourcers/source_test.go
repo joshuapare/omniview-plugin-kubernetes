@@ -13,6 +13,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	fakedynamic "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/rest"
 	k8stesting "k8s.io/client-go/testing"
@@ -174,6 +175,69 @@ func TestSourceForbidden(t *testing.T) {
 	require.Empty(t, emitter.events)
 }
 
+func TestSourceCanonicalProbeErrors(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		code string
+	}{
+		{"method not allowed", k8serrors.NewMethodNotSupported(testGVR.GroupResource(), "list"), "UNSUPPORTED"},
+		{"timeout", fmt.Errorf("list timed out: %w", context.DeadlineExceeded), "TIMEOUT"},
+		{"unknown", fmt.Errorf("native failure"), "PROVIDER_ERROR"},
+		{"classified", resource.NewError("RESOURCE_LIMIT", "too large"), "RESOURCE_LIMIT"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cs := newFakeClientSet(defaultGVRListKinds())
+			cs.DynamicClient.(*fakedynamic.FakeDynamicClient).PrependReactor("list", "pods", func(k8stesting.Action) (bool, runtime.Object, error) {
+				return true, nil, tc.err
+			})
+			emitter := &sourceTestEmitter{events: make(chan sourceTestEvent, 1)}
+			err := newBaseResourcer().Source(context.Background(), cs, resource.SourceRequest{Target: testWatchTarget(), Representation: testWatchRepresentation()}, emitter)
+			require.Equal(t, tc.code, resource.ErrorCode(err))
+			require.Empty(t, emitter.events)
+		})
+	}
+}
+
+func TestSourceCanonicalConversionErrors(t *testing.T) {
+	var nested any = "value"
+	for range resource.MaxValueDepth + 1 {
+		nested = []any{nested}
+	}
+	for _, tc := range []struct {
+		name string
+		body any
+		code string
+	}{
+		{"oversized", nested, "RESOURCE_LIMIT"},
+		{"unsupported", make(chan int), "UNSUPPORTED"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cs := newFakeClientSet(defaultGVRListKinds())
+			watcher := watch.NewRaceFreeFake()
+			cs.DynamicClient.(*fakedynamic.FakeDynamicClient).PrependWatchReactor("pods", func(k8stesting.Action) (bool, watch.Interface, error) {
+				return true, watcher, nil
+			})
+			emitter := &sourceTestEmitter{events: make(chan sourceTestEvent, 1)}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			done := make(chan error, 1)
+			go func() {
+				done <- newBaseResourcer().Source(ctx, cs, resource.SourceRequest{Target: testWatchTarget(), Representation: testWatchRepresentation()}, emitter)
+			}()
+			require.True(t, nextSourceTestEvent(t, emitter).boundary)
+			pod := newTestPod("pod", "default")
+			pod.Object["spec"] = tc.body
+			watcher.Add(pod)
+			select {
+			case err := <-done:
+				require.Equal(t, tc.code, resource.ErrorCode(err))
+			case <-time.After(10 * time.Second):
+				t.Fatal("source did not report conversion error")
+			}
+		})
+	}
+}
 func TestSourceLivenessProbe(t *testing.T) {
 	oldInterval := sourceLivenessInterval
 	sourceLivenessInterval = 20 * time.Millisecond
