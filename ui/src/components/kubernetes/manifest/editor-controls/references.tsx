@@ -8,12 +8,15 @@ export type ReferenceState = ResourceEditorReferenceResult | { status: 'loading'
 
 let nextGeneration = 0;
 
-/** Revision, service identity and query changes cancel prior lookup generations. */
+/**
+ * Session/revision, service and query changes cancel reads. Write admission changes
+ * (including submission locks rotating patch) do not invalidate read-only metadata.
+ */
 export function useEditorReferences(form: ResourceEditorFormProps, query: ReferenceQuery): ReferenceState {
   const { group, version, resource, namespace, projection } = query;
-  const { references, patch, draft } = form;
-  const request = useMemo(() => ({ group, version, resource, namespace, projection, sessionID: draft.sessionID, revision: draft.revision, references, patch }),
-    [group, version, resource, namespace, projection, draft.sessionID, draft.revision, references, patch]);
+  const { references, draft } = form;
+  const request = useMemo(() => ({ group, version, resource, namespace, projection, sessionID: draft.sessionID, revision: draft.revision, references }),
+    [group, version, resource, namespace, projection, draft.sessionID, draft.revision, references]);
   const [completed, setCompleted] = useState<{ request: typeof request; result: ResourceEditorReferenceResult } | null>(null);
   useEffect(() => {
     const controller = new AbortController();

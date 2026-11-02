@@ -596,6 +596,10 @@ cannot execute mutation protocols. Provider unload/crash retains the draft;
 pending local input and unavailable required admission must be resolved before
 submission. Controller/system inspection never unlocks generic YAML Save.
 
+Submission temporarily locks write callbacks without invalidating completed
+read-only reference evidence. A changed query, source revision, session, or
+reference service still cancels stale lookups.
+
 **Requests & inspection** in the cluster sidebar opens request-only APIs and
 read-only inspectors without pretending they support named-resource creation.
 It supports exact discovered resource loading and validated local captures.

@@ -221,3 +221,40 @@ it('does not show previous reference results while a new revision is loading', a
   await act(async () => { resolve({ status: 'ready', items: [] }); await promise; });
   expect(screen.getByRole('status').getAttribute('data-state')).toBe('empty');
 });
+
+it('keeps completed references ready when submission locks rotate only the write callback', async () => {
+  const props = form();
+  const list = vi.fn(async (_request: Parameters<ResourceEditorFormProps['references']['list']>[0]) => ({ status: 'ready' as const, items: [{ name: 'selected' }] }));
+  props.references = { list };
+  const field = { label: 'Service', value: 'selected', onChange: vi.fn(), query: { group: '', version: 'v1', resource: 'services' } };
+  const view = render(<ReferencePicker {...field} form={props} />);
+  await waitFor(() => expect(screen.getByRole('status')).toHaveAttribute('data-state', 'ready'));
+  const signal = list.mock.calls[0][0].signal;
+  const pendingPatch = vi.fn(() => ({ status: 'forbidden' as const, message: 'Submission is pending.' }));
+  view.rerender(<ReferencePicker {...field} form={{ ...props, disabled: true, patch: pendingPatch }} />);
+  expect(screen.getByRole('status')).toHaveAttribute('data-state', 'ready');
+  expect(screen.getByLabelText('Service')).toBeDisabled();
+  expect(list).toHaveBeenCalledTimes(1);
+  expect(signal.aborted).toBe(false);
+  const unlockedPatch = vi.fn((request: Parameters<ResourceEditorFormProps['patch']>[0]) => props.patch(request));
+  view.rerender(<ReferencePicker {...field} form={{ ...props, patch: unlockedPatch }} />);
+  expect(screen.getByRole('status')).toHaveAttribute('data-state', 'ready');
+  expect(list).toHaveBeenCalledTimes(1);
+  expect(pendingPatch).not.toHaveBeenCalled();
+});
+
+it('still aborts stale reads when the actual reference service changes', async () => {
+  const props = form();
+  const { promise, resolve } = Promise.withResolvers<ResourceEditorReferenceResult>();
+  const first = vi.fn((_request: Parameters<ResourceEditorFormProps['references']['list']>[0]) => promise);
+  const replacement = vi.fn(async (_request: Parameters<ResourceEditorFormProps['references']['list']>[0]) => ({ status: 'ready' as const, items: [] }));
+  props.references = { list: first };
+  const field = { label: 'Reference', value: 'manual', onChange: vi.fn(), query: { group: '', version: 'v1', resource: 'services' } };
+  const view = render(<ReferencePicker {...field} form={props} />);
+  view.rerender(<ReferencePicker {...field} form={{ ...props, references: { list: replacement } }} />);
+  expect(first.mock.calls[0][0].signal.aborted).toBe(true);
+  await waitFor(() => expect(screen.getByRole('status')).toHaveAttribute('data-state', 'empty'));
+  await act(async () => { resolve({ status: 'ready', items: [{ name: 'obsolete' }] }); await promise; });
+  expect(screen.getByRole('status')).toHaveAttribute('data-state', 'empty');
+  expect(replacement).toHaveBeenCalledTimes(1);
+});
