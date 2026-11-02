@@ -1,0 +1,48 @@
+{
+  "issue": 278,
+  "apiGroup": "admissionregistration.k8s.io",
+  "baseline": "Kubernetes v1.35.0 / k8s.io/api v0.35.0",
+  "sources": [
+    "https://raw.githubusercontent.com/kubernetes/api/v0.35.0/admissionregistration/v1/types.go",
+    "https://raw.githubusercontent.com/kubernetes/api/v0.35.0/admissionregistration/v1beta1/types.go",
+    "https://raw.githubusercontent.com/kubernetes/kubernetes/v1.35.0/api/discovery/aggregated_v2.json",
+    "https://raw.githubusercontent.com/kubernetes/kubernetes/v1.35.0/pkg/features/kube_features.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/apis/admissionregistration/validation/validation.go"
+  ],
+  "targets": [
+    { "kind": "MutatingWebhookConfiguration", "version": "v1", "resource": "mutatingwebhookconfigurations", "scope": "Cluster", "component": "WebhookEditor.tsx", "fields": ["webhook", "client", "webhookBehavior", "webhookReinvocation", "webhookMatching"], "fixtureIndex": 0 },
+    { "kind": "ValidatingWebhookConfiguration", "version": "v1", "resource": "validatingwebhookconfigurations", "scope": "Cluster", "component": "WebhookEditor.tsx", "fields": ["webhook", "client", "webhookBehavior", "webhookMatching"], "fixtureIndex": 1 },
+    { "kind": "ValidatingAdmissionPolicy", "version": "v1", "resource": "validatingadmissionpolicies", "scope": "Cluster", "component": "PolicyEditor.tsx", "fields": ["validations", "policyMatching", "policyAdvanced", "audit", "status"], "fixtureIndex": 2 },
+    { "kind": "ValidatingAdmissionPolicyBinding", "version": "v1", "resource": "validatingadmissionpolicybindings", "scope": "Cluster", "component": "BindingEditor.tsx", "fields": ["binding", "enforcement", "bindingMatching"], "fixtureIndex": 3 },
+    { "kind": "MutatingAdmissionPolicy", "version": "v1beta1", "resource": "mutatingadmissionpolicies", "scope": "Cluster", "feature": "MutatingAdmissionPolicy", "component": "PolicyEditor.tsx", "fields": ["mutations", "policyMatching", "policyAdvanced"], "fixtureIndex": 4 },
+    { "kind": "MutatingAdmissionPolicyBinding", "version": "v1beta1", "resource": "mutatingadmissionpolicybindings", "scope": "Cluster", "feature": "MutatingAdmissionPolicy", "component": "BindingEditor.tsx", "fields": ["binding", "bindingMatching"], "fixtureIndex": 5 }
+  ],
+  "fields": {
+    "webhook": { "controls": "Unbounded add/remove webhook cards, DNS name", "paths": ["webhooks[i].name"], "addRemove": "webhooks" },
+    "client": { "controls": "Exclusive Service / masked HTTPS URL; namespace text; real Service metadata reference; bounded port; absolute path; CA presence only", "paths": ["webhooks[i].clientConfig.service.namespace", "webhooks[i].clientConfig.service.name", "webhooks[i].clientConfig.service.port", "webhooks[i].clientConfig.service.path", "webhooks[i].clientConfig.url"], "preservedSensitive": ["webhooks[i].clientConfig.caBundle"], "union": "Atomic remove opposite Service/URL branch; never replace clientConfig" },
+    "webhookBehavior": { "controls": "Explicit side effects; ordered protocol list; omitted/Fail/Ignore; bounded 1–30 seconds", "paths": ["webhooks[i].sideEffects", "webhooks[i].admissionReviewVersions", "webhooks[i].failurePolicy", "webhooks[i].timeoutSeconds"] },
+    "webhookReinvocation": { "controls": "Omitted/Never/IfNeeded", "paths": ["webhooks[i].reinvocationPolicy"] },
+    "webhookMatching": { "controls": "Include-rule cards; operation/version/group/resource lists; scope choice; full label equality and In/NotIn/Exists/DoesNotExist expressions; named CEL conditions", "paths": ["webhooks[i].rules[j].operations", "webhooks[i].rules[j].apiGroups", "webhooks[i].rules[j].apiVersions", "webhooks[i].rules[j].resources", "webhooks[i].rules[j].scope", "webhooks[i].namespaceSelector.matchLabels[key]", "webhooks[i].namespaceSelector.matchExpressions[j]", "webhooks[i].objectSelector.matchLabels[key]", "webhooks[i].objectSelector.matchExpressions[j]", "webhooks[i].matchPolicy", "webhooks[i].matchConditions[j].name", "webhooks[i].matchConditions[j].expression"] },
+    "policyMatching": { "controls": "Matching rules and advanced exclusions; named resource lists; selectors; match policy; up to 64 CEL conditions", "paths": ["spec.matchConstraints.resourceRules[j].operations/apiGroups/apiVersions/resources/scope/resourceNames", "spec.matchConstraints.excludeResourceRules[j].operations/apiGroups/apiVersions/resources/scope/resourceNames", "spec.matchConstraints.namespaceSelector.matchLabels/matchExpressions", "spec.matchConstraints.objectSelector.matchLabels/matchExpressions", "spec.matchConstraints.matchPolicy", "spec.matchConditions[j].name/expression"], "mutationRestriction": "Only CREATE/UPDATE/CONNECT/*; DELETE excluded" },
+    "validations": { "controls": "Repeatable multiline CEL; failure message; advanced reason and message CEL; evaluation failure choice", "paths": ["spec.validations[i].expression", "spec.validations[i].message", "spec.validations[i].reason", "spec.validations[i].messageExpression", "spec.failurePolicy"] },
+    "mutations": { "controls": "Required Never/IfNeeded; ordered repeatable ApplyConfiguration/JSONPatch strategy and typed CEL expression; evaluation failure choice", "paths": ["spec.reinvocationPolicy", "spec.mutations[i].patchType", "spec.mutations[i].applyConfiguration.expression", "spec.mutations[i].jsonPatch.expression", "spec.failurePolicy"], "union": "Atomic strategy/expression branch change removes only inactive mutation expression" },
+    "policyAdvanced": { "controls": "Optional parameter type add/remove; repeatable ordered variable names and CEL", "paths": ["spec.paramKind.apiVersion", "spec.paramKind.kind", "spec.variables[i].name", "spec.variables[i].expression"] },
+    "audit": { "controls": "Repeatable audit key and value CEL", "paths": ["spec.auditAnnotations[i].key", "spec.auditAnnotations[i].valueExpression"] },
+    "binding": { "controls": "Exact real policy reference/manual entry; no-parameter/name/selector union; optional namespace; explicit Allow/Deny when missing", "paths": ["spec.policyName", "spec.paramRef.name", "spec.paramRef.selector.matchLabels", "spec.paramRef.selector.matchExpressions", "spec.paramRef.namespace", "spec.paramRef.parameterNotFoundAction"], "scope": "Parameter namespace omission is never guessed; follows actual referenced parameter type and admitted request namespace" },
+    "enforcement": { "controls": "Deny/Warn/Audit checkboxes; empty selection and Deny+Warn stay local and block submission", "paths": ["spec.validationActions"] },
+    "bindingMatching": { "controls": "Optional match intersection with full rules, exclusions and selectors; no mutation validationActions", "paths": ["spec.matchResources.resourceRules[j].operations/apiGroups/apiVersions/resources/scope/resourceNames", "spec.matchResources.excludeResourceRules[j].operations/apiGroups/apiVersions/resources/scope/resourceNames", "spec.matchResources.namespaceSelector.matchLabels/matchExpressions", "spec.matchResources.objectSelector.matchLabels/matchExpressions", "spec.matchResources.matchPolicy"] },
+    "status": { "controls": "Read-only observed generation; condition type/status; warning count; no source-derived warning text", "readPaths": ["status.observedGeneration", "status.conditions[i].type", "status.conditions[i].status", "status.typeChecking.expressionWarnings"], "writePaths": [] }
+  },
+  "ownership": {
+    "createEdit": "All six authorable only with host-admitted discovery, installed schema and operation authorization.",
+    "inspectOnly": "Inspect intent, trusted controller/system ownership, controller ownerReference, or explicit managed-by metadata. Status is never owned.",
+    "identity": "Host owns metadata.name, namespace omission, API identity and edit resourceVersion/UID locks.",
+    "fallback": "Alpha mutating policy versions, unsupported field shapes and absent schema remain source-only without conversion.",
+    "feature": "MutatingAdmissionPolicy is default-off at pinned baseline. Exact newly gated GVK discovery proves server availability; explicit absent/denied/unavailable feature evidence still blocks the form. No fictitious mandatory feature flag or controller health grant.",
+    "noActions": "No synthetic admission mutation action, CEL evaluator, certificate validator, controller health, companion resource or success result."
+  },
+  "composition": ["base-ui Button", "base-ui Input via EditorField", "base-ui Select via existing Choice", "shared EditorHelp", "shared ReferencePicker", "shared KeyValueFields", "native labelled checkboxes", "native labelled CEL textarea", "details advanced sections"],
+  "fixtures": "fixtures.ts: admissionFixtures and admissionScenario cover six kinds, create/edit, managed, denied, discovery-unknown, gate-off, unsupported, invalid-actions, lookup-denied; local harness adds ready/empty/denied/absent/unavailable reference transport.",
+  "regressions": "admission.test.tsx: valid complete schemas for all six, client union preserving masked CA and unknown siblings, credential URL rejection, local timeout across sibling/section changes, CEL edits preserving comments and exact integer, local Deny+Warn conflict, mutation strategy and DELETE restriction, controller ownership rejection, source/gate/discovery boundaries.",
+  "verification": { "checksRun": false, "screenshotsCaptured": false, "captureOwner": "Parent-coordinated coherent integration wave", "liveMutations": false }
+}

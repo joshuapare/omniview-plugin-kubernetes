@@ -1,0 +1,71 @@
+{
+  "issue": 284,
+  "baseline": "Kubernetes v1.35.0 / k8s.io v0.35.0",
+  "provider": "native built-in",
+  "apiPrerequisites": "Discover exact served v1 GVR, installed schema and separate CRUD authorization. No optional controller or feature gate is required by this pinned baseline. Other versions retain source fallback.",
+  "sources": [
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/api/openapi-spec/swagger.json#L64764-L66521",
+    "https://github.com/kubernetes/api/blob/v0.35.0/flowcontrol/v1/types.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/apis/flowcontrol/validation/validation.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/registry/flowcontrol/rest/storage_flowcontrol.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/registry/flowcontrol/flowschema/strategy.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/registry/flowcontrol/prioritylevelconfiguration/strategy.go",
+    "https://github.com/kubernetes/apiserver/blob/v0.35.0/pkg/apis/flowcontrol/bootstrap/default.go"
+  ],
+  "sharedBoundaries": {
+    "identity": "Host owns metadata.name during create and locks identity/revision during edit. Both resources are Cluster scoped; no namespace control.",
+    "source": "Host owns canonical AST, source preference, privacy, authorization, submission and review. Forms send scoped atomic patches; they never serialize projected parent objects.",
+    "status": "status.conditions[].{type,status,reason,message,lastTransitionTime} are inspect-only, with no status ownership or fabricated health.",
+    "permissions": "Discovery and schema do not grant create/update verbs. Host enforces capabilities; provider does not synthesize authorization.",
+    "ownership": "Pinned mandatory and suggested names are exact. Explicit trusted controller/system ownership and controller ownerReferences make custom objects inspect-only. Missing ownership context is not described as proven administrator ownership. Suggested objects require explicit string false opt-out before edit. Mandatory FlowSchemas and catch-all priority are fixed; exempt priority exposes only allowed tuning. Custom policy cannot opt into bootstrap auto-update.",
+    "safety": "Partial invalid numbers, names, sets, URLs and queue bounds stay local. Unsupported shapes retain source fallback. Changing a union with unknown children refuses destructive replacement. Unknown siblings/comments/exact integers remain canonical. Reference errors contain no returned bodies. No actions, companion objects or live mutation service are invented."
+  },
+  "resources": [
+    {
+      "target": { "group": "flowcontrol.apiserver.k8s.io", "version": "v1", "kind": "FlowSchema", "resource": "flowschemas", "scope": "Cluster" },
+      "component": "FlowSchemaForm.tsx",
+      "interfaces": ["custom create/edit", "suggested opt-out/edit", "mandatory inspect", "controller-owned inspect", "observed status"],
+      "controls": [
+        { "label": "Priority level", "control": "metadata-only live reference suggestions plus exact-name entry", "path": "spec.priorityLevelConfiguration.name", "lookup": "flowcontrol.apiserver.k8s.io/v1/prioritylevelconfigurations, Cluster, metadata projection; loading/ready/empty/denied/absent/unavailable remain distinct" },
+        { "label": "Matching precedence", "control": "optional integer 2–10000; default placeholder 1000", "path": "spec.matchingPrecedence", "consequence": "Lower value wins; equal values sort by name. 1 is exempt-only." },
+        { "label": "Separate flows by", "control": "No distinguisher / User / Namespace", "path": "spec.distinguisherMethod.type or omission" },
+        { "label": "Matching groups", "control": "repeatable independent OR groups with add/remove", "path": "spec.rules[]" },
+        { "label": "Subject type", "control": "User / Group / Service account union", "path": "spec.rules[].subjects[].kind; inactive user/group/serviceAccount branch removed atomically" },
+        { "label": "Subject name", "control": "required exact name or *", "path": "spec.rules[].subjects[].user.name | group.name | serviceAccount.name" },
+        { "label": "Service account namespace", "control": "required DNS label, only ServiceAccount branch", "path": "spec.rules[].subjects[].serviceAccount.namespace" },
+        { "label": "Resource matches", "control": "repeatable resource predicates", "path": "spec.rules[].resourceRules[]" },
+        { "label": "Request verbs", "control": "validated comma-separated request verb set; * alone", "path": "spec.rules[].resourceRules[].verbs" },
+        { "label": "API groups", "control": "comma-separated set; explicit quoted empty token for core", "path": "spec.rules[].resourceRules[].apiGroups" },
+        { "label": "Resources / subresources", "control": "explicit plural/subresource set; no guessed plural", "path": "spec.rules[].resourceRules[].resources" },
+        { "label": "Target namespaces", "control": "namespace set, * alone", "path": "spec.rules[].resourceRules[].namespaces" },
+        { "label": "Include namespace-less requests", "control": "Omitted / No / Yes preserving boolean scalar type", "path": "spec.rules[].resourceRules[].clusterScope" },
+        { "label": "URL matches", "control": "repeatable non-resource predicates", "path": "spec.rules[].nonResourceRules[]" },
+        { "label": "URL request verbs", "control": "validated verb set", "path": "spec.rules[].nonResourceRules[].verbs" },
+        { "label": "Non-resource URLs", "control": "validated slash paths, suffix /* or sole *", "path": "spec.rules[].nonResourceRules[].nonResourceURLs" },
+        { "label": "Opt out of spec reconciliation", "control": "explicit suggested-only consequence action", "path": "metadata.annotations[apf.kubernetes.io/autoupdate-spec] = string false" }
+      ],
+      "fixtures": ["flow-create", "flow-edit", "flow-suggested", "flow-mandatory", "flow-owned", "reference-denied", "reference-empty", "reference-unavailable", "reference-absent", "write-denied", "api-absent", "schema-unknown", "unsupported-source"]
+    },
+    {
+      "target": { "group": "flowcontrol.apiserver.k8s.io", "version": "v1", "kind": "PriorityLevelConfiguration", "resource": "prioritylevelconfigurations", "scope": "Cluster" },
+      "component": "PriorityLevelForm.tsx",
+      "interfaces": ["Limited custom create/edit", "suggested opt-out/edit", "mandatory catch-all inspect", "mandatory exempt shares/lending edit", "observed status"],
+      "controls": [
+        { "label": "Priority type", "control": "Limited for non-exempt names; fixed Exempt singleton", "path": "spec.type", "boundary": "Create of reserved mandatory names uses existing-object inspection, not bootstrap reimplementation." },
+        { "label": "Nominal concurrency shares", "control": "optional nonnegative int32; omission distinct from zero", "path": "spec.limited.nominalConcurrencyShares | spec.exempt.nominalConcurrencyShares" },
+        { "label": "Lendable concurrency (%)", "control": "optional integer 0–100", "path": "spec.limited.lendablePercent | spec.exempt.lendablePercent" },
+        { "label": "When concurrency is exhausted", "control": "Queue / Reject conditional union", "path": "spec.limited.limitResponse.type", "consequence": "Reject removes known queuing branch and returns 429 for overload. Queue restores locally retained known numeric leaves; never opaque parent writeback." },
+        { "label": "Queue count", "control": "optional integer 1–10000000; default placeholder 64", "path": "spec.limited.limitResponse.queuing.queues" },
+        { "label": "Shuffle-sharding hand size", "control": "optional positive int32, not greater than queues; default placeholder 8", "path": "spec.limited.limitResponse.queuing.handSize" },
+        { "label": "Requests per queue", "control": "optional positive int32; default placeholder 50", "path": "spec.limited.limitResponse.queuing.queueLengthLimit" },
+        { "label": "Advanced borrowing", "control": "optional progressive integer ≥0; values above 100 allowed; omission unlimited", "path": "spec.limited.borrowingLimitPercent" },
+        { "label": "Opt out of spec reconciliation", "control": "explicit suggested-only action", "path": "metadata.annotations[apf.kubernetes.io/autoupdate-spec] = string false" }
+      ],
+      "fixtures": ["priority-create", "priority-edit", "priority-invalid", "priority-exempt", "priority-mandatory", "priority-suggested", "unsupported-queue"]
+    }
+  ],
+  "regressions": ["domain.test.ts", "forms.test.tsx"],
+  "regressionBehavior": ["exact integer and comment preservation", "multi-group leaf mutation", "atomic Queue/Reject transitions", "unsupported child branch refusal", "mandatory versus exempt protection", "exact suggested-name classification and explicit opt-out", "namespace-less matching", "canonical bigint validation", "invalid local buffers survive sibling revisions and tab changes", "lookup denial and unresolved manual names", "scoped group removal", "invalid queue bounds leave old source unchanged"],
+  "composition": ["base-ui Button", "shared EditorField", "shared EditorChoice", "shared EditorSection", "shared ReferencePicker", "shared accessible EditorHelp", "provider-owned rule/subject/union compositions"],
+  "limits": ["Server admission remains authoritative, including shuffle-sharding hash entropy and full Kubernetes validation.", "No real cluster request or mutation was exercised.", "Repository checks and production screenshots belong to the parent integration wave. No checks or screenshots are claimed here."]
+}

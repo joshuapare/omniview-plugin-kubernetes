@@ -1,0 +1,19 @@
+.inspector { display: flex; flex-direction: column; gap: 16px; min-width: 0; font-size: 13px; color: var(--ov-color-fg-default); }
+.boundary { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--ov-color-fg-muted); font-size: 12px; }
+.card { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--ov-color-border-default); border-radius: 6px; min-width: 0; }
+.card header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.card h4 { margin: 0; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.badge { display: inline-flex; padding: 3px 7px; border-radius: 4px; background: var(--ov-color-bg-surface); border: 1px solid var(--ov-color-border-default); font-family: var(--ov-font-mono, monospace); font-size: 12px; overflow-wrap: anywhere; min-width: 0; }
+.agreement, .versions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.versionRow { display: grid; grid-template-columns: 85px minmax(0, 1fr); align-items: start; gap: 10px; }
+.versionRow > span, .muted { color: var(--ov-color-fg-muted); }
+.versions code { border-radius: 4px; padding: 2px 5px; border: 1px solid var(--ov-color-border-default); font-size: 12px; overflow-wrap: anywhere; }
+.filter { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
+.filter > div { flex: 1; min-width: 160px; }
+.filter > button { min-height: 32px; }
+.facts { display: grid; grid-template-columns: minmax(100px, 155px) minmax(0, 1fr); gap: 8px 12px; margin: 0; }
+.facts dt { color: var(--ov-color-fg-muted); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.facts code { font-size: 12px; }
+.notice { margin: 0; padding: 8px 10px; color: var(--ov-color-fg-default); border: 1px solid var(--ov-color-border-default); border-radius: 4px; }
+@container (max-width: 460px) { .facts { grid-template-columns: 1fr; gap: 4px; } .facts dd { margin-bottom: 8px; } .versionRow { grid-template-columns: 1fr; gap: 4px; } }

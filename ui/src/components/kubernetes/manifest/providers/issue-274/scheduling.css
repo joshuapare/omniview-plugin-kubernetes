@@ -1,0 +1,9 @@
+.scheduling-editor { display: flex; flex-direction: column; gap: 16px; min-width: 0; font-size: 13px; }
+.scheduling-editor p { margin: 0; overflow-wrap: anywhere; }
+.scheduling-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; min-width: 0; }
+.scheduling-group { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--ov-color-border-default, var(--border)); border-radius: 6px; min-width: 0; }
+.scheduling-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.scheduling-note { color: var(--ov-color-fg-muted, var(--muted-foreground)); }
+.scheduling-consequence { padding: 8px 10px; border-inline-start: 2px solid var(--ov-color-warning, currentColor); background: var(--ov-color-bg-surface-raised, transparent); }
+.scheduling-advanced > summary { cursor: pointer; padding-block: 8px; }
+.scheduling-advanced > .scheduling-editor { padding-block: 8px; }

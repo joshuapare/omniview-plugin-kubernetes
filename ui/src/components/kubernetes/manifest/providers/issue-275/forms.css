@@ -1,0 +1,13 @@
+.auth275-form { display: grid; gap: 16px; min-width: 0; font-size: 13px; }
+.auth275-heading { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.auth275-row { display: flex; align-items: end; gap: 8px; min-width: 0; }
+.auth275-row > :first-child { flex: 1; min-width: 0; }
+.auth275-row > button { flex-shrink: 0; margin-bottom: 1px; }
+.auth275-result { display: grid; grid-template-columns: minmax(100px, 140px) minmax(0, 1fr); gap: 6px 12px; margin: 0; }
+.auth275-result dd { margin: 0; overflow-wrap: anywhere; }
+.auth275-result dt, .auth275-consequence { color: var(--ov-color-fg-muted, inherit); }
+.auth275-consequence { margin: 0; }
+.auth275-advanced { min-width: 0; }
+.auth275-advanced > summary { cursor: pointer; padding: 8px 0; }
+.auth275-advanced[open] > section { margin-top: 12px; }
+@media (max-width: 520px) { .auth275-result { grid-template-columns: 1fr; gap: 4px; } .auth275-result dd { margin-bottom: 6px; } }

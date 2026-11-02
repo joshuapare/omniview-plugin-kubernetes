@@ -1,0 +1,21 @@
+Flux source-controller v1.7.0 / Flux 2.7
+
+Provider: add-on domain contribution, explicit source.toolkit.fluxcd.io/v1, Namespaced.
+Exact resources: gitrepositories, ocirepositories, buckets, helmrepositories, helmcharts, externalartifacts.
+Pinned CRD inventory refreshed from https://api.github.com/repos/fluxcd/source-controller/contents/config/crd/bases?ref=v1.7.0.
+Five authorable kinds also serve deprecated v1beta2; guided provider intentionally targets v1 only. ExternalArtifact serves v1 only. Other versions retain host source fallback.
+
+Field/control/manifest mapping lives in domain.ts fields, common and lists. Every field path denotes its narrow owned leaf; list paths admit indexed insert/remove/leaf edits, never projected container replacement. Identity, source mode, destination, submission, schema and permission policy remain host-owned.
+GitRepository: URL/provider, Git branch/tag/semver/name/commit choice and preserved combined references, Azure service account, signature mode and key Secret, proxy Secret, submodules, ignore, sparse directory rows and include repository/from/to rows.
+OCIRepository: OCI URL/provider, tag/semver/digest choice and semverFilter, signature provider/key Secret, OIDC issuer/subject rows, layer media type/operation, service account, TLS/proxy Secrets, insecure transport and ignore.
+Bucket: bucketName/endpoint/provider/region/prefix, identity reference, insecure transport, generic TLS Secret, proxy Secret, STS provider/endpoint and LDAP Secret/TLS, ignore. Validation rejects incompatible STS providers and conflicting identities.
+HelmRepository: URL/type, conditional OCI provider/insecure, TLS Secret, conditional index cross-host passCredentials. Cross-host credential exposure remains visible when enabled.
+HelmChart independent: chart, same-namespace source kind/name/apiVersion, conditional HelmRepository chart version, reconcileStrategy, valuesFiles ordered rows, missing-file policy, OCI verification provider/key/identity rows.
+HelmChart managed or unknown ownership: inspect only, host-derived policy; owner kind/name plus observed artifact. No owner metadata mutation and no self-grant switch.
+ExternalArtifact: inspect only; producer apiVersion/kind/name/namespace plus observed artifact revision/digest/lastUpdateTime. No Create/status writes.
+Shared authoring: spec.interval, timeout, suspend; secretRef.name except HelmChart. Secret references use metadata-only lookup and never resolve bodies. Blank optional choice removes its leaf, not parent. Boolean strings remain strings outside typed boolean controls.
+
+No extra spec immutable rule found in pinned v1 schemas. Host locks identity and enforces schema, verbs, revision and actual ownership. Workload identity configuration is an installation prerequisite; helper text makes no controller readiness claim. accessFrom is unimplemented upstream and intentionally has no fake ACL control. Reconcile is an existing controller action integration boundary, not a fabricated successful operation. Suspension edits canonical spec.suspend with explicit consequence.
+
+Behavior regressions: domain.test.ts tests ownership, Bucket identity/STS admission, Git provider admission, and partial duration preservation. No tests/build/lint/format run by this worker.
+Canonical fixture harness: .local/resource-editor-implementation/issue-309/main.tsx uses production ResourceEditorHarness and actual lazy contribution components. Fixture-only reference transport; no live mutations. Parent owns coherent checks and screenshot wave.

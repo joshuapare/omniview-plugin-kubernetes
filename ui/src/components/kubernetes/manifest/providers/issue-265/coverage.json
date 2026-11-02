@@ -1,0 +1,354 @@
+{
+  "issue": 265,
+  "fieldControlMapping": "./field-controls.json",
+  "canonicalFixtures": "./fixtures.ts",
+  "submissionAdmission": {
+    "callback": "domain.ts: validateEndpointsSubmission",
+    "entrypoints": ["Form submission", "initial YAML submission without mounting Form"],
+    "lookup": "Exact core/v1 services, same name and namespace, servicePorts sanitized projection",
+    "requiredEvidence": "Existing Service with serviceSelector:none; denied/unavailable/absent/missing/unknown evidence blocks",
+    "safety": "Read-only lookup, AbortSignal, sessionID and draft revision generation; host rechecks snapshot after await before mutation",
+    "regression": "core.test.tsx: Endpoints submission admission without a mounted form"
+  },
+  "immutabilitySource": "https://raw.githubusercontent.com/kubernetes/kubernetes/v1.35.0/pkg/apis/core/validation/validation.go",
+  "behaviorCoverage": {
+    "Namespace": "core.test.tsx: changes one Pod Security label without replacing unrelated Namespace labels",
+    "ServiceAccount": "core.test.tsx: stores ServiceAccount automount as a top-level boolean and retains legacy Secret references",
+    "ResourceQuota": "core.test.tsx: keeps dotted quota resource names as literal keys and rejects incompatible scopes",
+    "LimitRange": "core.test.tsx: compares limit quantities exactly and rejects non-container defaults",
+    "PodTemplate": "core.test.tsx: keeps partial image local while preserving unrelated canonical scalars and comments",
+    "PersistentVolume": "core.test.tsx: source locks, unknown ownership, masked provisioner evidence and local capacity decrease rejection",
+    "ReplicationController": "core.test.tsx: rejects selector mismatch for legacy controllers without inventing template labels",
+    "Endpoints": "core.test.tsx: unicast validation, selector-managed edit lock and async initial-YAML submit admission/cancellation",
+    "Node": "core.test.tsx: keeps Node inspection immutable and hides sensitive reported detail",
+    "Event": "core.test.tsx: keeps Event inspection immutable and hides sensitive reported detail",
+    "ComponentStatus": "core.test.tsx: keeps ComponentStatus inspection immutable and hides sensitive reported detail"
+  },
+  "api": {
+    "group": "",
+    "version": "v1",
+    "snapshot": "Kubernetes v1.35.0 / k8s.io v0.35.0",
+    "crdRequired": false,
+    "sources": [
+      "https://github.com/kubernetes/kubernetes/blob/v1.35.0/api/openapi-spec/swagger.json",
+      "https://raw.githubusercontent.com/kubernetes/api/v0.35.0/core/v1/types.go",
+      "https://raw.githubusercontent.com/kubernetes/kubernetes/v1.35.0/pkg/registry/core/rest/storage_core.go"
+    ],
+    "applicability": "Require actual discovery, schema and verbs. No version or permission inference."
+  },
+  "resources": [
+    {
+      "kind": "Namespace",
+      "resource": "namespaces",
+      "scope": "Cluster",
+      "component": "NamespaceForm.tsx",
+      "paths": [
+        "metadata.labels.pod-security.kubernetes.io/{enforce,warn,audit}",
+        "metadata.labels.pod-security.kubernetes.io/{enforce,warn,audit}-version",
+        "metadata.labels.environment"
+      ],
+      "intents": [
+        "create",
+        "edit",
+        "inspect"
+      ],
+      "ownership": "System/controller ownership remains inspection-only.",
+      "fixtures": [
+        "populated",
+        "inspect",
+        "create",
+        "edit",
+        "local-held-submission",
+        "denied",
+        "unknown-schema"
+      ]
+    },
+    {
+      "kind": "ServiceAccount",
+      "resource": "serviceaccounts",
+      "scope": "Namespaced",
+      "component": "ServiceAccountForm.tsx",
+      "paths": [
+        "automountServiceAccountToken",
+        "imagePullSecrets[*].name"
+      ],
+      "intents": [
+        "create",
+        "edit",
+        "inspect"
+      ],
+      "ownership": "System/controller ownership remains inspection-only.",
+      "fixtures": [
+        "populated",
+        "inspect",
+        "create",
+        "edit",
+        "local-held-submission",
+        "denied",
+        "unknown-schema"
+      ]
+    },
+    {
+      "kind": "ResourceQuota",
+      "resource": "resourcequotas",
+      "scope": "Namespaced",
+      "component": "ResourceQuotaForm.tsx",
+      "paths": [
+        "spec.hard[resource]",
+        "spec.scopes[*]",
+        "spec.scopeSelector.matchExpressions[*].{scopeName,operator,values[*]}"
+      ],
+      "intents": [
+        "create",
+        "edit",
+        "inspect"
+      ],
+      "ownership": "System/controller ownership remains inspection-only.",
+      "fixtures": [
+        "populated",
+        "inspect",
+        "create",
+        "edit",
+        "local-held-submission",
+        "denied",
+        "unknown-schema"
+      ]
+    },
+    {
+      "kind": "LimitRange",
+      "resource": "limitranges",
+      "scope": "Namespaced",
+      "component": "LimitRangeForm.tsx",
+      "paths": [
+        "spec.limits[*].type",
+        "spec.limits[*].{min,max,default,defaultRequest,maxLimitRequestRatio}[resource]"
+      ],
+      "intents": [
+        "create",
+        "edit",
+        "inspect"
+      ],
+      "ownership": "System/controller ownership remains inspection-only.",
+      "fixtures": [
+        "populated",
+        "inspect",
+        "create",
+        "edit",
+        "local-held-submission",
+        "denied",
+        "unknown-schema"
+      ]
+    },
+    {
+      "kind": "PodTemplate",
+      "resource": "podtemplates",
+      "scope": "Namespaced",
+      "component": "WorkloadFields.tsx",
+      "paths": [
+        "template.metadata.labels[key]",
+        "template.spec.containers[*].{name,image,imagePullPolicy}",
+        "template.spec.containers[*].resources.{requests,limits}.{cpu,memory,ephemeral-storage}",
+        "template.spec.{serviceAccountName,nodeSelector[key],automountServiceAccountToken}"
+      ],
+      "intents": [
+        "create",
+        "edit",
+        "inspect"
+      ],
+      "ownership": "System/controller ownership remains inspection-only.",
+      "fixtures": [
+        "populated",
+        "inspect",
+        "create",
+        "edit",
+        "local-held-submission",
+        "denied",
+        "unknown-schema"
+      ]
+    },
+    {
+      "kind": "PersistentVolume",
+      "resource": "persistentvolumes",
+      "scope": "Cluster",
+      "component": "PersistentVolumeForm.tsx",
+      "paths": [
+        "spec.capacity.storage",
+        "spec.accessModes[*]",
+        "spec.volumeMode",
+        "spec.storageClassName",
+        "spec.nfs.{server,path,readOnly}",
+        "spec.persistentVolumeReclaimPolicy",
+        "spec.mountOptions[*]"
+      ],
+      "intents": [
+        "create",
+        "edit",
+        "inspect"
+      ],
+      "ownership": "Create requires explicit administrator/manual/standalone confirmation; edit requires trusted application ownership. Other ownership is inspection-only.",
+      "fixtures": [
+        "populated",
+        "inspect",
+        "create",
+        "edit",
+        "local-held-submission",
+        "denied",
+        "unknown-schema"
+      ]
+    },
+    {
+      "kind": "ReplicationController",
+      "resource": "replicationcontrollers",
+      "scope": "Namespaced",
+      "component": "WorkloadFields.tsx",
+      "paths": [
+        "spec.replicas",
+        "spec.selector[key]",
+        "spec.template.metadata.labels[key]",
+        "spec.template.spec.containers[*].{name,image,imagePullPolicy}",
+        "spec.template.spec.containers[*].resources.{requests,limits}.{cpu,memory,ephemeral-storage}",
+        "spec.template.spec.{serviceAccountName,nodeSelector[key],automountServiceAccountToken}"
+      ],
+      "intents": [
+        "create",
+        "edit",
+        "inspect"
+      ],
+      "ownership": "Create requires explicit administrator/manual/standalone confirmation; edit requires trusted application ownership. Other ownership is inspection-only.",
+      "fixtures": [
+        "populated",
+        "inspect",
+        "create",
+        "edit",
+        "local-held-submission",
+        "denied",
+        "unknown-schema"
+      ]
+    },
+    {
+      "kind": "Endpoints",
+      "resource": "endpoints",
+      "scope": "Namespaced",
+      "component": "EndpointsForm.tsx",
+      "paths": [
+        "subsets[*].{addresses,notReadyAddresses}[*].{ip,hostname,nodeName}",
+        "subsets[*].ports[*].{name,port,protocol}"
+      ],
+      "intents": [
+        "create",
+        "edit",
+        "inspect"
+      ],
+      "ownership": "Create requires explicit administrator/manual/standalone confirmation; edit requires trusted application ownership. Other ownership is inspection-only.",
+      "fixtures": [
+        "populated",
+        "inspect",
+        "create",
+        "edit",
+        "local-held-submission",
+        "denied",
+        "unknown-schema"
+      ]
+    },
+    {
+      "kind": "Node",
+      "resource": "nodes",
+      "scope": "Cluster",
+      "component": "InspectionForms.tsx",
+      "paths": [
+        "spec.{unschedulable,podCIDR,providerID}",
+        "spec.taints[*].{key,value,effect,timeAdded}",
+        "status.conditions[*].{type,status,reason,lastTransitionTime}",
+        "status.nodeInfo.{kubeletVersion,containerRuntimeVersion,operatingSystem,architecture}"
+      ],
+      "intents": [
+        "inspect"
+      ],
+      "ownership": "System/controller ownership remains inspection-only.",
+      "fixtures": [
+        "populated",
+        "inspect"
+      ]
+    },
+    {
+      "kind": "Event",
+      "resource": "events",
+      "scope": "Namespaced",
+      "component": "InspectionForms.tsx",
+      "paths": [
+        "reason",
+        "type",
+        "involvedObject.{apiVersion,kind,namespace,name,uid,fieldPath}",
+        "count",
+        "reportingComponent",
+        "reportingInstance",
+        "firstTimestamp",
+        "lastTimestamp",
+        "eventTime",
+        "message (masked, never rendered)"
+      ],
+      "intents": [
+        "inspect"
+      ],
+      "ownership": "System/controller ownership remains inspection-only.",
+      "fixtures": [
+        "populated",
+        "inspect"
+      ]
+    },
+    {
+      "kind": "ComponentStatus",
+      "resource": "componentstatuses",
+      "scope": "Cluster",
+      "component": "InspectionForms.tsx",
+      "paths": [
+        "kind (exact provider target)",
+        "conditions[*].{type,status}",
+        "conditions[*].{message,error} (masked, never rendered)"
+      ],
+      "intents": [
+        "inspect"
+      ],
+      "ownership": "System/controller ownership remains inspection-only.",
+      "fixtures": [
+        "populated",
+        "inspect"
+      ]
+    }
+  ],
+  "boundaries": {
+    "existingForms": "Pod, Service, ConfigMap, Secret and PVC unchanged",
+    "pv": "Static unbound NFS only; source and volumeMode lock in edit. Class/access changes affect binding. Capacity edit requires baseline and cannot decrease; it never resizes storage. Bound/provisioned volumes inspect-only.",
+    "endpoints": "Live sanitized same-name Service lookup must report serviceSelector:none; manual values retained; no companion Service.",
+    "actions": "Node workflows and Event involved objects use the existing discovery-backed ResourceLinkChip navigation. No invented action protocol or execution claim. Existing workflows own drain/cordon/taint/finalize/token/scale and pod streams.",
+    "sensitive": "Annotation values, inline container env/command/args, PV mount options/CSI attributes/flex options, event messages and component health messages/errors stay masked. No raw source capture.",
+    "source": "Only canonical atomic leaf set/remove/insert. No projected subtree writeback."
+  },
+  "regressions": [
+    "core.test.tsx: partial image retained across sibling patch; exact integer/comments/sibling preservation",
+    "core.test.tsx: legacy selector mismatch",
+    "core.test.tsx: exact quantity ordering and conditional defaults",
+    "core.test.tsx: invalid endpoint destinations",
+    "core.test.tsx: unknown ownership rejects canonical patch",
+    "core.test.tsx: static PV source edit lock",
+    "core.test.tsx: selector-managed Service locks Endpoints",
+    "core.test.tsx: malformed collections stay source-only",
+    "core.test.tsx: masked provisioner annotation still blocks canonical PV mutation",
+    "core.test.tsx: shrinking capacity stays local without changing source"
+  ],
+  "capture": {
+    "status": "prepared-not-run",
+    "reason": "Main owns coherent integration checks and final production screenshot wave.",
+    "desktop": {
+      "width": 1440,
+      "height": 900,
+      "deviceScaleFactor": 1.25
+    },
+    "narrow": {
+      "width": 760,
+      "height": 700,
+      "deviceScaleFactor": 1.25
+    },
+    "screenshots": []
+  }
+}

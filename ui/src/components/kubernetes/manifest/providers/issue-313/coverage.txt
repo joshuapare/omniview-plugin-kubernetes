@@ -1,0 +1,23 @@
+Flux image editor production coverage — issue 313
+
+API snapshot: image-reflector-controller v1.0.0 (30288d85a73b3da10af17083ec9cc2de546c7809), image-automation-controller v1.0.0 (6747b8f8bfd0a24102a9537c808da0be629cf0e3), Flux 2.7.
+Primary sources refreshed: upstream api/v1/imagerepository_types.go, imagepolicy_types.go, imageupdateautomation_types.go, git.go. Sources: https://github.com/fluxcd/image-reflector-controller/tree/v1.0.0/api/v1 and https://github.com/fluxcd/image-automation-controller/tree/v1.0.0/api/v1.
+
+All targets image.toolkit.fluxcd.io/v1, Namespaced:
+ImageRepository -> imagerepositories
+ImagePolicy -> imagepolicies
+ImageUpdateAutomation -> imageupdateautomations
+Optional image controllers must be installed. Discovery, verbs and schema remain host-owned; schema presence never proves controller health. All three are declarative desired-state resources. Trusted controller/system ownership overrides authoring. Identity is host-owned and locks on edit; status is never owned. Unknown siblings survive leaf patches. No spec oldSelf immutability rules found in pinned design source; server admission remains authoritative.
+
+Resource -> control -> manifest paths:
+ImageRepository: registry text -> spec.image; duration -> spec.interval; provider choice -> spec.provider; metadata-only Secret references -> spec.secretRef.name, spec.certSecretRef.name, spec.proxySecretRef.name; ServiceAccount reference -> spec.serviceAccountName; duration -> spec.timeout; tri-state HTTP -> spec.insecure; add/remove regex rows -> spec.exclusionList[index] (max 25); namespace label map -> spec.accessFrom.namespaceSelectors[0].matchLabels; tri-state suspend -> spec.suspend.
+ImagePolicy: repository metadata reference + namespace -> spec.imageRepositoryRef.name/namespace; explicit selection branch -> spec.policy.semver.range, alphabetical.order, numerical.order; digest choice -> spec.digestReflectionPolicy; duration -> spec.interval (required iff Always); tag text -> spec.filterTags.pattern/extract; tri-state suspend -> spec.suspend.
+ImageUpdateAutomation: GitRepository reference -> spec.sourceRef.kind/name/namespace/apiVersion; duration -> spec.interval; update directory and strategy -> spec.update.path/strategy; explicit checkout choice -> spec.git.checkout.ref.branch/tag/semver/commit/name; push text -> spec.git.push.branch/refspec; author text -> spec.git.commit.author.name/email; signing metadata reference -> spec.git.commit.signingKey.secretRef.name; template text -> spec.git.commit.messageTemplate; editable string maps -> spec.git.commit.messageTemplateValues, spec.git.push.options, spec.policySelector.matchLabels; tri-state suspend -> spec.suspend.
+
+Advanced selector expressions/multiple namespace selectors, combined checkout reference precedence and unsupported source kind retain YAML fallback. No whole spec replacement. Rule changes explicitly discard other known rule branches atomically; unrelated policy children survive. Invalid duration/required text stays local, reports validity and leaves canonical source unchanged. Go regex/semver/template evaluation belongs controller/admission; no false local preview. References distinguish denied/unavailable/absent/empty and retain manual unresolved names; Secret data is never requested.
+
+Consequences: HTTP permits non-TLS registry traffic; namespace labels can broaden reference access; policy changes affect downstream selections; active automation may commit and push. Branch plus refspec can push both destinations. Suspend stops future work, not in-flight work. Scan/reconcile metadata actions and proposed Git update inspection belong existing controller integration, not a fabricated editor protocol or diff.
+
+Source: index.ts lazy-loads FluxImageForms.tsx; model.ts holds domain validation and atomic policy operations. model.test.ts covers digest CEL dependencies, policy branch preservation boundaries, duration differences and ownership restrictions. Parent runs tests and compilation after integration; worker did not run checks.
+
+Fixture harness: .local/resource-editor-implementation/issue-313/harness.tsx imports canonical production ResourceEditorHarness and this provider. Three synthetic manifests, create/edit/inspect, controller-owned state, metadata references and real empty Secret results. No live mutations. Parent screenshot wave must capture create/edit/held-review, invalid interval, digest dependency, advanced add/remove, ownership, lookup states, keyboard/help/Escape and narrow fit. No actual screenshots captured by this worker.

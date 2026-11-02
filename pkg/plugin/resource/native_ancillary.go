@@ -64,9 +64,13 @@ func (p *kubernetesProvider) GetActions(ctx context.Context, route resourcev2.Ac
 		if !found {
 			return resourcev2.NewError("NOT_FOUND", "Resource type is not present in this connection catalog")
 		}
-		if helper, ok := p.helpers[token].(nativeActionHelper); ok {
-			actions, err = helper.GetActions(ctx, client)
-			return err
+		if token == editorQueryType {
+			actions = editorQueryRegistration().Actions
+			return nil
+		}
+		if binding, ok := snapshot.bindings[token]; ok {
+			actions = binding.Actions
+			return nil
 		}
 		for _, descriptor := range p.helmTypes {
 			if descriptor.Type == token {

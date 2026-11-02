@@ -1,0 +1,13 @@
+.apiservice-editor { display: grid; gap: 16px; min-width: 0; font-size: 13px; }
+.apiservice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+.apiservice-name, .apiservice-ownership { display: flex; align-items: center; gap: 8px; color: var(--ov-color-fg-muted); overflow-wrap: anywhere; }
+.apiservice-notice { padding: 8px 10px; border: 1px solid var(--ov-color-border-default); border-radius: 6px; color: var(--ov-color-fg-default); background: var(--ov-color-bg-surface); }
+.apiservice-ca { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 10px; min-width: 0; }
+.apiservice-upload { display: grid; gap: 6px; min-width: 0; }
+.apiservice-upload input { max-width: 100%; font: inherit; }
+.apiservice-conditions { display: grid; gap: 12px; }
+.apiservice-condition { border: 1px solid var(--ov-color-border-default); border-radius: 6px; padding: 12px; }
+.apiservice-condition dl { display: grid; grid-template-columns: minmax(90px, auto) minmax(0, 1fr); gap: 6px 12px; margin-bottom: 0; }
+.apiservice-condition dt { color: var(--ov-color-fg-muted); }
+.apiservice-condition dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 760px) { .apiservice-grid { grid-template-columns: minmax(0, 1fr); } }

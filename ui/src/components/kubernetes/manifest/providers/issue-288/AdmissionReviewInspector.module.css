@@ -1,0 +1,10 @@
+.root { display: grid; gap: 16px; min-width: 0; font-size: 13px; color: var(--ov-color-fg-default); }
+.banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--ov-color-border-default); border-radius: 4px; color: var(--ov-color-fg-muted); }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; margin: 0; }
+.readout { display: grid; align-content: start; gap: 4px; min-width: 0; }
+.readout dt { display: flex; align-items: center; gap: 6px; color: var(--ov-color-fg-muted); }
+.readout dd { margin: 0; min-height: 32px; display: flex; align-items: center; padding: 5px 8px; border: 1px solid var(--ov-color-border-default); border-radius: 4px; overflow-wrap: anywhere; }
+.boundaries { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; margin: 0; }
+.errors { margin: 0; padding: 10px 10px 10px 26px; border: 1px solid var(--ov-color-danger); color: var(--ov-color-danger); border-radius: 4px; }
+.root p { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 720px) { .grid, .boundaries { grid-template-columns: minmax(0, 1fr); } }

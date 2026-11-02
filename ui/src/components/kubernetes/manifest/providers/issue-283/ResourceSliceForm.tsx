@@ -1,0 +1,16 @@
+import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
+import { EditorHelp, EditorSection } from '../../editor-controls';
+import { record, rows, text } from './model';
+import { DraEditor, Notice, Summary } from './shared';
+
+/** Driver-owned inventory is always an inspector, including a create-intent launch. */
+export default function ResourceSliceForm(form: ResourceEditorFormProps) {
+  const spec = ['spec'] as const;
+  return <DraEditor form={form} locked><Notice>Driver-owned inventory. Publish changes through the DRA driver, not this editor.</Notice>
+    {form.section === 'inventory' && <><EditorSection title="Driver and pool"><Summary label="Driver" value={form.draft.get([...spec, 'driver'])} /><Summary label="Pool" value={form.draft.get([...spec, 'pool', 'name'])} /><Summary label="Generation" value={form.draft.get([...spec, 'pool', 'generation'])} /><Summary label="Expected slices" value={form.draft.get([...spec, 'pool', 'resourceSliceCount'])} /><EditorHelp label="Pool completeness">Only slices at the highest pool generation count. This object alone cannot prove complete inventory.</EditorHelp><Summary label="Node" value={form.draft.get([...spec, 'nodeName'])} /><Summary label="All nodes" value={form.draft.get([...spec, 'allNodes'])} /><Summary label="Per-device node selection" value={form.draft.get([...spec, 'perDeviceNodeSelection'])} />{form.draft.has([...spec, 'nodeSelector']) && <Notice>Node selector retained in read-only source.</Notice>}</EditorSection>
+      <EditorSection title="Devices">{rows(form.draft.get([...spec, 'devices'])).map((value, index) => { const device = record(value); const basic = form.context.version === 'v1beta1' ? record(device.basic) : device;
+        return <div className="dra-card" key={index}><Summary label="Device" value={device.name} />{Object.entries(record(basic.capacity)).map(([name, capacity]) => <Summary key={name} label={name} value={record(capacity).value ?? capacity} />)}<Summary label="Attribute count" value={Object.keys(record(basic.attributes)).length} /><Summary label="Taint count" value={rows(basic.taints).length} />{basic.nodeName !== undefined && <Summary label="Device node" value={basic.nodeName} />}</div>;
+      })}{!rows(form.draft.get([...spec, 'devices'])).length && <Notice>No devices published in this slice.</Notice>}</EditorSection></>}
+    {form.section === 'advanced' && <EditorSection title="Partitioned resources">{rows(form.draft.get([...spec, 'sharedCounters'])).map((value, index) => { const set = record(value); return <div className="dra-card" key={index}><Summary label="Counter set" value={set.name} />{Object.entries(record(set.counters)).map(([name, counter]) => <Summary key={name} label={name} value={record(counter).value} />)}</div>; })}{!rows(form.draft.get([...spec, 'sharedCounters'])).length && <Notice>No shared counter sets recorded.</Notice>}<EditorHelp label="Inventory ownership">Driver, pool name and node name are immutable. Counter and device attributes are driver-defined. Inspection never changes source or allocates a device.</EditorHelp><Summary label="Published API" value={`${form.context.group}/${form.context.version}`} /><Summary label="Ownership" value={text(form.context.ownership?.status) || 'driver-managed inventory'} /></EditorSection>}
+  </DraEditor>;
+}

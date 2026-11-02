@@ -1,0 +1,70 @@
+{
+  "issue": 318,
+  "snapshot": "External Secrets Operator v0.20.1",
+  "source": "https://github.com/external-secrets/external-secrets/tree/v0.20.1/config/crds/bases",
+  "applicability": {
+    "ExternalSecret": "external-secrets.io/v1 externalsecrets Namespaced",
+    "SecretStore": "external-secrets.io/v1 secretstores Namespaced",
+    "ClusterSecretStore": "external-secrets.io/v1 clustersecretstores Cluster",
+    "ClusterExternalSecret": "external-secrets.io/v1 clusterexternalsecrets Cluster",
+    "PushSecret": "external-secrets.io/v1alpha1 pushsecrets Namespaced",
+    "ClusterPushSecret": "external-secrets.io/v1alpha1 clusterpushsecrets Cluster",
+    "legacy": "v1beta1 is not served in the pinned CRDs. Exact installed discovery, verbs, schema, controller installation and provider capability govern use; schema alone is not permission.",
+    "refresh": "Primary CRD directory, ExternalSecret, AWS auth, ClusterExternalSecret and PushSecret Go APIs refreshed during implementation. clusterpushsecret_types.go does not exist; ClusterPushSecret shares pushsecret_types.go."
+  },
+  "shared": {
+    "identity": "Host owns metadata.name/namespace and edit locks; cluster targets omit namespace.",
+    "canonical": "Revision/session atomic scalar patches and array insert/remove operations. Never serialize projected containers. Unknown fields, scalar types, exact integers and comments belong to canonical host.",
+    "privacy": "No credential fetch or plaintext preview. Mask template data/metadata, wildcard literal/Secret templates, provider metadata, externalID, status and generated annotations. No status/provider messages rendered.",
+    "ownership": "declarative policy is not authorization; controller/system evidence or controller ownerReferences forces inspection. No status/annotation mutations or false refresh success.",
+    "controls": "Actual base-ui Button and shared EditorField/ExactValueField/EditorChoice/ReferencePicker/KeyValueFields/EditorSection. Help uses shared accessible help. Partial invalid integers/durations remain local.",
+    "source": "Host Form/YAML preference and AST only; no localStorage, second draft, source parser or registry."
+  },
+  "mapping": {
+    "ExternalSecret": {
+      "Store scope/name": "spec.secretStoreRef.kind/name; actual namespaced or cluster GVR metadata lookup",
+      "Key mappings add/remove": "spec.data[i].secretKey, remoteRef.key/property; scalar leaf changes preserve sourceRef, version and decoding/conversion siblings",
+      "Lifecycle": "spec.refreshPolicy, refreshInterval, target.name, target.creationPolicy, target.deletionPolicy",
+      "Template references": "spec.target.template.templateFrom[i].configMap.name/items[j].key; nested repeatable rows with metadata-only ConfigMap lookup",
+      "Source retained": "dataFrom, sourceRef, remoteRef.version/conversion/decoding/metadata policies, target.immutable, template type/engine/merge/payloads; no destructive conversion"
+    },
+    "SecretStore": {
+      "AWS service/region/role": "spec.provider.aws.service/region/role",
+      "Authentication choice": "spec.provider.aws.auth.jwt or secretRef; explicit branch change atomically removes only prior auth branch; controller identity removes branches",
+      "JWT": "spec.provider.aws.auth.jwt.serviceAccountRef.name; actual metadata-only ServiceAccount lookup",
+      "Secret references": "spec.provider.aws.auth.secretRef.accessKeyIDSecretRef/secretAccessKeySecretRef/sessionTokenSecretRef name/key; metadata-only Secret lookup never credential bodies",
+      "Access/retries": "spec.controller, spec.refreshInterval (exact integer seconds), spec.retrySettings.maxRetries/retryInterval",
+      "Provider boundary": "AWS guided; any different provider retains honest YAML/provider fallback; no implicit provider replacement",
+      "Source retained": "AWS role chains, session tags, externalID, additional roles, provider settings and unknown fields"
+    },
+    "ClusterSecretStore": {
+      "Connection": "Same AWS fields as SecretStore; explicit reference namespace for JWT and credential selectors",
+      "Allowed namespaces": "spec.conditions[i].namespaces[j] repeatable condition/name rows; omitted conditions visibly allow all namespaces",
+      "Source retained": "namespaceSelector, namespaceRegexes and unknown conditions remain untouched"
+    },
+    "ClusterExternalSecret": {
+      "Child configuration": "All ExternalSecret controls prefix spec.externalSecretSpec",
+      "Fan-out": "spec.externalSecretName, spec.refreshTime, spec.namespaceSelectors[i].matchLabels[k]; repeatable selectors and key/value controls",
+      "Consequence": "Future namespaces can match; child Secrets may be created; parent interval distinct from child interval",
+      "Source retained": "legacy namespaceSelector/namespaces, namespace expressions, externalSecretMetadata"
+    },
+    "PushSecret": {
+      "Source": "spec.selector.secret.name; same-namespace metadata-only Secret lookup; generator/label-selector variants retained without changing union",
+      "Destinations": "spec.secretStoreRefs[i].kind/name repeatable exact store references; labelSelector variants retain source boundary",
+      "Mappings": "spec.data[i].match.secretKey/remoteRef.remoteKey/property; blank secretKey means whole Secret; add/remove arrays without copying siblings",
+      "Policies": "spec.refreshInterval, updatePolicy Replace|IfNotExists, deletionPolicy None|Delete; visible overwrite/delete external-system consequences",
+      "Templates": "spec.template.templateFrom[i].configMap.name/items[j].key",
+      "Source retained": "selector generatorRef/label selectors, provider metadata, conversionStrategy, payload templates"
+    },
+    "ClusterPushSecret": {
+      "Child configuration": "All PushSecret controls prefix spec.pushSecretSpec",
+      "Fan-out": "spec.pushSecretName, spec.refreshTime, spec.namespaceSelectors[i].matchLabels[k]",
+      "Consequence": "Each current/future selected namespace may write external systems",
+      "Source retained": "spec.conditions, pushSecretMetadata and namespace expressions"
+    },
+    "Generated ExternalSecret": "Controller-owner inspection; owner kind/name only, no source/status/provider message rendering or child mutations; parent navigation requires shared host integration",
+    "Generated PushSecret": "Same controller-owner inspection boundary, no external write/refresh execution or ordinary child Create/Edit"
+  },
+  "regressions": "ExternalSecretsEditor.test.tsx: scalar mapping preservation; local partial integer retention; controller ownership/privacy; cluster auth namespace/conflict validation; generator source and nested fan-out validation",
+  "verification": "Not run by worker; parent runs integrated checks and canonical screenshot wave."
+}
