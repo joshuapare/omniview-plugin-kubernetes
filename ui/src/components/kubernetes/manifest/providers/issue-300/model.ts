@@ -23,7 +23,8 @@ export function validate(draft: ResourceEditorDraft) {
   function walk(path: (string | number)[]) {
     const value = draft.get(path);
     if (value === null || value === undefined) return;
-    if (path[path.length-1] === 'randomSamplingPercentage' && (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100)) issues.push({path,message:'Sampling must be between 0 and 100.'});
+    // Canonical YAML integers are bigint; compare directly to preserve exact source values.
+    if (path[path.length-1] === 'randomSamplingPercentage' && (typeof value === 'bigint' ? value < 0n || value > 100n : typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100)) issues.push({path,message:'Sampling must be between 0 and 100.'});
     if (path[path.length-1] === 'targetRefs' && Array.isArray(value) && value.length > 16) issues.push({path,message:'At most 16 targets are allowed.'});
     if (value && typeof value === 'object') {
       if (!Array.isArray(value)) {

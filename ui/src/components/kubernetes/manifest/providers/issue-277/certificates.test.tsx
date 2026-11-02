@@ -15,6 +15,7 @@ import { parseMaterial } from './material';
 import PodCertificateRequestForm from './PodCertificateRequestForm';
 
 import { resourceEditors } from './index';
+import { ControllerActions } from '../issue-296/ControllerActions';
 
 const fixtureDirectory = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const requestPEM = readFileSync(join(fixtureDirectory, 'request.pem'), 'utf8');
@@ -55,7 +56,39 @@ describe('certificate policy', () => {
     expect(validateCSR(form.draft, { ...form.context, intent: 'inspect' })).toEqual([]);
   });
 });
+describe('cert-manager action admission', () => {
+  it('retains capability and intent admission when an immutable request exposes actions', () => {
+    const form = props(csr, 'action');
+    const current: ResourceEditorFormProps = { ...form, context: { ...form.context, kind: 'CertificateRequest', capabilities: { ...form.context.capabilities, actions: { 'kubernetes.cert-manager.v1': 'available' } } } };
+    const view = render(<ControllerActions form={current} />);
+    expect(screen.getByRole('button', { name: 'Approve request' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Approve request' }));
+    view.rerender(<ControllerActions form={{ ...current, disabled: true }} />);
+    expect(screen.getByRole('button', { name: 'Confirm approve' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm approve' }));
+    expect(form.actions.execute).not.toHaveBeenCalled();
+    view.rerender(<ControllerActions form={{ ...current, context: { ...current.context, intent: 'inspect' } }} />);
+    expect(screen.getByRole('button', { name: 'Approve request' })).toBeDisabled();
+    view.rerender(<ControllerActions form={{ ...current, context: { ...current.context, capabilities: { ...current.context.capabilities, actions: { 'kubernetes.cert-manager.v1': 'denied' } } } }} />);
+    expect(screen.getByRole('button', { name: 'Approve request' })).toBeDisabled();
+    expect(form.actions.execute).not.toHaveBeenCalled();
+  });
+});
+
 describe('canonical certificate controls', () => {
+  it.each(['create', 'inspect', 'disabled', 'denied', 'missing-version'] as const)('denies approval for %s without sending an action', restriction => {
+    const form = props(csr, restriction === 'create' || restriction === 'inspect' ? restriction : 'action');
+    const current: ResourceEditorFormProps = { ...form, section: 'lifecycle', disabled: restriction === 'disabled', context: { ...form.context,
+      resourceVersion: restriction === 'missing-version' ? undefined : form.context.resourceVersion,
+      capabilities: { ...form.context.capabilities, actions: { 'kubernetes.csr-approval.v1': restriction === 'denied' ? 'denied' : 'available' } },
+    } };
+    render(<CertificateSigningRequestForm {...current} />);
+    expect(screen.getByRole('button', { name: 'Review approval' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Review approval' }));
+    expect(screen.queryByRole('button', { name: 'Confirm approval' })).not.toBeInTheDocument();
+    expect(form.actions.execute).not.toHaveBeenCalled();
+  });
+
   it('retains invalid lifetime locally across unrelated canonical revisions', () => {
     const form = props(); const view = render(<CertificateSigningRequestForm {...form} />);
     fireEvent.click(screen.getByText('Optional lifetime'));
@@ -80,7 +113,7 @@ describe('canonical certificate controls', () => {
     expect(form.controller.getSource()).toBe(csr);
   });
   it('reviews approval without executing and sends only minimized approval input after confirmation', async () => {
-    const form = props(csr, 'inspect'); render(<CertificateSigningRequestForm {...form} section="lifecycle" />);
+    const form = props(csr, 'action'); render(<CertificateSigningRequestForm {...form} section="lifecycle" />);
     fireEvent.click(screen.getByRole('button', { name: 'Review denial' }));
     expect(form.actions.execute).not.toHaveBeenCalled();
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Confirm denial' })); });
@@ -89,7 +122,7 @@ describe('canonical certificate controls', () => {
     expect((screen.getByRole('button', { name: 'Review approval' }) as HTMLButtonElement).disabled).toBe(true);
   });
   it('does not expose signer material or enable contradictory terminal approval', () => {
-    const form = props(csr + 'status:\n  conditions:\n    - type: Approved\n      status: "True"\n      message: do-not-display-this\n', 'inspect');
+    const form = props(csr + 'status:\n  conditions:\n    - type: Approved\n      status: "True"\n      message: do-not-display-this\n', 'action');
     render(<CertificateSigningRequestForm {...form} section="lifecycle" />);
     expect((screen.getByRole('button', { name: 'Review denial' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.queryByText('do-not-display-this')).toBeNull();
@@ -164,7 +197,7 @@ describe('certificate revision lifecycles', () => {
     expect(form.patch).not.toHaveBeenCalled();
   });
   it('aborts an in-flight approval when the revision changes and suppresses its late result', async () => {
-    const form = props(csr, 'inspect');
+    const form = props(csr, 'action');
     const pending = Promise.withResolvers<{ status: 'ready'; output: Record<string, never> }>();
     const execute = vi.fn<ResourceEditorFormProps['actions']['execute']>(() => pending.promise);
     const view = render(<CertificateSigningRequestForm {...form} section="lifecycle" actions={{ execute }} />);

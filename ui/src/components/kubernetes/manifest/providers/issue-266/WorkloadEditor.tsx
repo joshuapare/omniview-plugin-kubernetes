@@ -24,7 +24,7 @@ function WorkloadEditor(form: ResourceEditorFormProps) {
   const rolloutCache = useRef<readonly ResourceEditorPatch[]>([]);
   const issue = validateApps(draft, context)[0]?.message;
   const localError = Object.values(buffers).find(buffer => !buffer.rollout || draft.get(['spec', 'updateStrategy', 'type']) !== 'OnDelete')?.error;
-  useEffect(() => onValidityChange(localError ?? patchError ?? issue ?? null), [localError, patchError, issue, onValidityChange]);
+  useEffect(() => onValidityChange(localError ?? patchError ?? null), [localError, patchError, onValidityChange]);
   const commit = (operations: readonly ResourceEditorPatch[]): string | null => {
     if (locked) return 'This resource is read-only.';
     const result = form.patch({ sessionID: draft.sessionID, expectedRevision: draft.revision, operations });

@@ -19,7 +19,7 @@ export function observedValue(value: unknown, schema: FieldSchema, name = ''): S
     return Object.fromEntries(Object.entries(schema.properties).filter(([key]) => Object.hasOwn(record, key)).map(([key, child]) => [key, observedValue(record[key], child, key)]));
   }
   if (schema.type === 'integer' && (typeof value === 'bigint' || typeof value === 'number' && Number.isSafeInteger(value))) return value;
-  if (schema.type === 'number' && typeof value === 'number' && Number.isFinite(value)) return value;
+  if (schema.type === 'number' && (typeof value === 'bigint' || typeof value === 'number' && Number.isFinite(value))) return value;
   if (schema.type === 'string' && typeof value === 'string') return value;
   if (schema.type === 'boolean' && typeof value === 'boolean') return value;
   return 'Unsupported or protected value';

@@ -134,3 +134,48 @@ describe('CRD form behavior', () => {
     expect(controller.draft().get([...clientPath, 'service', 'port'])).toBe(443n);
   });
 });
+
+describe('CRD public webhook reference', () => {
+  const service = '        service:\n          namespace: fixture-system\n          name: widget-converter\n          path: /convert\n          port: 443';
+  const source = (url: unknown) => createSource.replace(service, `        caBundle: PRIVATE_CA_RETAINED\n        future: {private: PRIVATE_SIBLING_RETAINED}\n        url: ${JSON.stringify(url)}`);
+
+  it.each([
+    'https://user:private-password@example.invalid/convert',
+    'https://example.invalid/convert?token=private-token',
+    'https://example.invalid/convert#private-token',
+    { opaque: 'private-token' },
+  ])('keeps unsafe or opaque endpoint canonical and hidden through remount/source switch: %j', url => {
+    const controller = new ResourceEditorController(source(url));
+    const before = controller.getSource();
+    const view = render(<Harness controller={controller} />);
+    expect(screen.getByLabelText('HTTPS endpoint')).toHaveValue('');
+    expect(screen.getByLabelText('HTTPS endpoint')).toHaveAttribute('placeholder', 'Stored reference unchanged');
+    expect(view.container.innerHTML).not.toContain('private-password');
+    expect(view.container.innerHTML).not.toContain('private-token');
+    expect(controller.getSource()).toBe(before);
+    view.unmount();
+    const mounted = render(<Harness controller={controller} />);
+    expect(screen.getByLabelText('HTTPS endpoint')).toHaveValue('');
+    expect(controller.getSource()).toBe(before);
+    const fromSource = new ResourceEditorController(source('https://example.invalid/from-source'));
+    mounted.rerender(<Harness controller={fromSource} />);
+    expect(screen.getByLabelText('HTTPS endpoint')).toHaveValue('https://example.invalid/from-source');
+    expect(controller.getSource()).toBe(before);
+  });
+
+  it.each(['https://example.invalid/convert', 'https://user:private-password@example.invalid/convert'])('replaces endpoint leaf explicitly and retains CA/private siblings: %s', url => {
+    const controller = new ResourceEditorController(source(url));
+    const before = controller.draft().get(clientPath);
+    const view = render(<Harness controller={controller} />);
+    expect(screen.getByLabelText('HTTPS endpoint')).toHaveValue(url.includes('@') ? '' : url);
+    fireEvent.change(screen.getByLabelText('HTTPS endpoint'), { target: { value: 'https://user:password@example.invalid/invalid' } });
+    expect(controller.draft().get([...clientPath, 'url'])).toBe(url);
+    fireEvent.change(screen.getByLabelText('HTTPS endpoint'), { target: { value: 'https://example.invalid/public' } });
+    expect(controller.draft().get(clientPath)).toEqual({ ...before as Record<string, unknown>, url: 'https://example.invalid/public' });
+    expect(controller.draft().get([...clientPath, 'caBundle'])).toBe('PRIVATE_CA_RETAINED');
+    expect(controller.draft().get([...clientPath, 'future'])).toEqual({ private: 'PRIVATE_SIBLING_RETAINED' });
+    view.unmount();
+    render(<Harness controller={controller} />);
+    expect(screen.getByLabelText('HTTPS endpoint')).toHaveValue('https://example.invalid/public');
+  });
+});

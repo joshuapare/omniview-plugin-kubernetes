@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import type { ResourceEditorDraft } from '@omniviewdev/runtime';
-import { moduleError, validate } from './model';
+import { moduleError, publicModuleReference, validate } from './model';
 function draft(spec: unknown): ResourceEditorDraft {
   const root = { spec };
   return { sessionID: 'fixture', revision: 0, get(path) { return path.reduce<unknown>((node, part) => node && typeof node === 'object' ? (node as Record<string | number, unknown>)[part] : undefined, root); }, has(path) { return this.get(path) !== undefined; } };
 }
 describe('Wasm module integrity and attachment', () => {
+  it('projects public module references without coercing opaque or private values', () => {
+    for (const value of ['registry.example/module:v1', 'oci://registry.example/module:v1', `oci://registry.example/module@sha256:${'a'.repeat(64)}`, 'https://registry.example/module.wasm', 'file:///opt/module.wasm']) {
+      expect(publicModuleReference(value)).toBe(value);
+    }
+    for (const value of ['oci://user:secret@registry.example/module:v1', 'https://registry.example/module?token=secret', 'https://registry.example/module#secret', 'https://user%40registry.example/module', { toString() { throw new Error('Opaque projection'); } }]) {
+      expect(publicModuleReference(value)).toBe('');
+    }
+  });
   it('blocks conflicting OCI and explicit digests', () => {
     expect(moduleError(`oci://registry/module@sha256:${'a'.repeat(64)}`, 'b'.repeat(64))).toContain('must match');
     expect(moduleError(`oci://registry/module@sha256:${'a'.repeat(64)}`, 'a'.repeat(64))).toBeNull();

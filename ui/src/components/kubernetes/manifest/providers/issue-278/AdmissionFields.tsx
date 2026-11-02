@@ -3,7 +3,7 @@ import type { ResourceEditorFormProps, ResourceEditorPatch, ResourceEditorPath }
 import { createContext, useCallback, useContext, useEffect, useId, useState, type ReactNode } from 'react';
 import { Choice, Remove, Section } from '../../ResourceFormFields';
 import { EditorField, EditorHelp, KeyValueFields, ReferencePicker, patchFields } from '../../editor-controls';
-import { managed, rows, text } from './model';
+import { managed, rows, text, validWebhookURL } from './model';
 import './admission.css';
 
 type Session = { form: ResourceEditorFormProps; disabled: boolean; commit: (operations: readonly ResourceEditorPatch[]) => string | null; validity: (key: string, error: string | null) => void; partial: Map<string, { value: string; error: string }>; remember: (key: string, value: string, error: string | null) => void };
@@ -40,9 +40,11 @@ export function AdmissionPanel({ form, children }: { form: ResourceEditorFormPro
     {children}
   </div></Fields.Provider>;
 }
-export function Scalar({ path, label, required = false, help, parse, multiline = false, type = 'text' }: { path: ResourceEditorPath; label: string; required?: boolean; help?: string; parse?: (value: string) => unknown; multiline?: boolean; type?: 'text' | 'password' }) {
+export function Scalar({ path, label, required = false, help, parse, multiline = false, type = 'text', publicURL = false }: { path: ResourceEditorPath; label: string; required?: boolean; help?: string; parse?: (value: string) => unknown; multiline?: boolean; type?: 'text' | 'password'; publicURL?: boolean }) {
   const { form, disabled, commit, validity, partial, remember } = useAdmission();
-  const current = text(form.draft.get(path));
+  const source = form.draft.get(path);
+  // Imported unsafe/opaque endpoints remain canonical, but only validated public HTTPS enters the view.
+  const current = publicURL ? typeof source === 'string' && validWebhookURL(source) ? source : '' : text(source);
   const key = JSON.stringify(path);
   const [local, setLocal] = useState(partial.get(key)?.value ?? current);
   const [error, setError] = useState<string | null>(partial.get(key)?.error ?? null);
@@ -53,11 +55,17 @@ export function Scalar({ path, label, required = false, help, parse, multiline =
     let failure: string | null;
     try {
       if (required && !value.trim()) failure = `${label} is required.`;
-      else failure = commit([{ op: !value && !required ? 'remove' : 'set', path, ...(value || required ? { value: parse ? parse(value) : value } : {}) } as ResourceEditorPatch]);
+      else {
+        const parsed = value || required ? parse ? parse(value) : value : undefined;
+        failure = commit([
+          ...(publicURL && source !== undefined && typeof source !== 'string' ? [{ op: 'remove' as const, path }] : []),
+          { op: !value && !required ? 'remove' : 'set', path, ...(value || required ? { value: parsed } : {}) } as ResourceEditorPatch,
+        ]);
+      }
     } catch (caught) { failure = caught instanceof Error ? caught.message : 'Enter a valid value.'; }
     remember(key, value, failure); setError(failure); validity(key, failure);
   };
-  if (!multiline) return <EditorField label={label} value={display} onChange={change} disabled={disabled} help={help} error={error} type={type} />;
+  if (!multiline) return <EditorField label={label} value={display} onChange={change} disabled={disabled} help={help} error={error} type={type} placeholder={publicURL && !current && form.draft.has(path) ? 'Stored endpoint unchanged; enter replacement' : undefined} />;
   return <div className="admission-field"><div className="admission-label"><label htmlFor={id}>{label}</label>{help && <EditorHelp label={label}>{help}</EditorHelp>}</div><textarea id={id} value={display} onChange={event => change(event.target.value)} disabled={disabled} rows={3} spellCheck={false} aria-invalid={!!error} aria-describedby={error ? `${id}-error` : undefined} />{error && <span role="alert" id={`${id}-error`}>{error}</span>}</div>;
 }
 export function boundedInteger(min: number, max: number) { return (value: string) => {

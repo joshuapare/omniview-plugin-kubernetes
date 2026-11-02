@@ -10,12 +10,13 @@ type Report = (key: string, error: string | null) => void;
 interface Session { form: ResourceEditorFormProps; commit: Commit; report: Report; locked: boolean }
 
 /** Invalid text stays local; a source edit to this leaf replaces only this field's local buffer. */
-function Leaf({ session, path, label, help, validate, optional: omitEmpty, disabled, referenceNamespace, parse }: {
+function Leaf({ session, path, label, help, validate, optional: omitEmpty, disabled, referenceNamespace, parse, endpoint = false }: {
   session: Session; path: ResourceEditorPath; label: string; help?: string; validate?: (value: string) => string | null;
-  optional?: boolean; disabled?: boolean; referenceNamespace?: string; parse?: (value: string) => unknown;
+  optional?: boolean; disabled?: boolean; referenceNamespace?: string; parse?: (value: string) => unknown; endpoint?: boolean;
 }) {
   const current = session.form.draft.get(path);
-  const canonical = Array.isArray(current) ? strings(current).join(', ') : text(current);
+  // Never seed an endpoint control with private or opaque canonical references.
+  const canonical = endpoint ? typeof current === 'string' && !urlError(current) ? current : '' : Array.isArray(current) ? strings(current).join(', ') : text(current);
   const key = JSON.stringify(path);
   const identity = JSON.stringify([session.form.draft.sessionID, path, canonical]);
   const [edit, setEdit] = useState<{ identity: string; value: string; error: string | null }>({ identity, value: canonical, error: null });
@@ -23,7 +24,7 @@ function Leaf({ session, path, label, help, validate, optional: omitEmpty, disab
   const { value, error } = edit.identity === identity ? edit : { value: canonical, error: null };
   const report = session.report;
   useEffect(() => { report(key, error); return () => report(key, null); }, [key, error, report]);
-  const field = { label, value, help, error, disabled: session.locked || disabled, onChange: (next: string) => {
+  const field = { label, value, help, placeholder: endpoint && current !== undefined && canonical === '' ? 'Stored reference unchanged' : undefined, error, disabled: session.locked || disabled, onChange: (next: string) => {
     const problem = next === '' && omitEmpty ? null : validate?.(next) ?? null;
     const failure = problem ?? session.commit([next === '' && omitEmpty ? remove(path) : set(path, parse ? parse(next) : next)]);
     setEdit({ identity, value: next, error: failure }); report(key, failure);
@@ -147,7 +148,7 @@ function Conversion({ session }: { session: Session }) {
   }} help="No conversion controller or webhook Service is installed by this editor." />
     {strategy === 'Webhook' && <><p className="crd-consequence">Webhook failure can block reads and writes for custom resources.</p>
       <Choice label="Webhook endpoint" value={endpoint} disabled={session.locked} options={[{ value: 'service', label: 'Existing Service' }, { value: 'url', label: 'HTTPS URL' }]} onChange={value => session.commit(endpointOperations(draft, value as 'service' | 'url'))} />
-      {endpoint === 'url' ? <Leaf session={session} label="HTTPS endpoint" path={[...clientPath, 'url']} validate={urlError} help="Do not embed credentials. Use a Service reference for in-cluster endpoints." /> : <div className="crd-grid">
+      {endpoint === 'url' ? <Leaf session={session} label="HTTPS endpoint" path={[...clientPath, 'url']} endpoint validate={urlError} help="Do not embed credentials. Private or opaque stored endpoints stay hidden until replaced. Use a Service reference for in-cluster endpoints." /> : <div className="crd-grid">
         <Leaf session={session} label="Service namespace" path={[...clientPath, 'service', 'namespace']} validate={nameCheck} />
         <Leaf session={session} label="Service name" path={[...clientPath, 'service', 'name']} validate={value => dnsName(value) ? null : 'Enter a valid Service name.'} referenceNamespace={text(draft.get([...clientPath, 'service', 'namespace']))} help="Select an existing Service or keep an unresolved manual reference. No Service is created." />
         <Leaf session={session} label="Service path" path={[...clientPath, 'service', 'path']} optional validate={value => value.startsWith('/') ? null : 'Path must start with /.'} />

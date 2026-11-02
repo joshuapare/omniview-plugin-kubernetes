@@ -2,10 +2,19 @@ import type { ResourceEditorContext, ResourceEditorDraft, ResourceEditorFieldIss
 
 const stringValue = (value: unknown): string => typeof value === 'string' ? value : '';
 
+/** Only public reference syntax reaches the view; opaque values and credential-bearing URLs stay canonical and unreadable. */
+export function publicModuleReference(value: unknown): string {
+  if (typeof value !== 'string' || !value || /[\s\\%?#]/.test(value)) return '';
+  const reference = value.replace(/@sha256:[a-f0-9]{64}$/, '');
+  if (reference.includes('@') || !/^[A-Za-z0-9._~:/+-]+$/.test(reference)) return '';
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(reference) && !/^(oci|https?|file):\/\//.test(reference)) return '';
+  return value;
+}
+
 export function moduleError(url: string, sha: string): string | null {
   if (!url.trim() || /\s/.test(url)) return 'Enter a module reference without whitespace.';
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(url) && !/^(oci|https?|file):\/\//.test(url)) return 'Use OCI, HTTP(S), or a proxy-local file.';
-  if (/@|\?/.test(url) && /^https?:\/\//.test(url)) return 'Use a module URL without embedded credentials or query parameters.';
+  if (!publicModuleReference(url)) return 'Use a public module reference without embedded credentials, query parameters, or encoded characters.';
   if (sha && !/^[a-f0-9]{64}$/.test(sha)) return 'Enter a lowercase SHA-256 digest (64 characters).';
   const digest = url.match(/@sha256:([a-f0-9]{64})$/)?.[1];
   return digest && sha && digest !== sha ? 'Module digest and SHA-256 must match.' : null;

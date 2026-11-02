@@ -25,14 +25,15 @@ export function PolicyFrame({ form, children }: { form: ResourceEditorFormProps;
   const own = ownership(form.draft, form.context);
   const mutationAvailable = form.context.capabilities[form.context.intent === 'create' ? 'create' : 'update'] === 'available';
   const locked = form.disabled || !mutationAvailable || form.context.intent === 'inspect' || protectedPolicy(form.draft, form.context) || (own === 'suggested' && form.draft.get(annotationPath) !== 'false');
-  const issue = Object.values(errors)[0] || validate(form.draft, form.context)[0]?.message || null;
-  useEffect(() => { form.onValidityChange(issue); }, [form.onValidityChange, issue]);
+  const pendingIssue = Object.values(errors)[0] || null;
+  const issue = pendingIssue || validate(form.draft, form.context)[0]?.message || null;
+  useEffect(() => { form.onValidityChange(pendingIssue); }, [form.onValidityChange, pendingIssue]);
   return <SessionContext.Provider value={{ form, locked, commit, validity }}><div className="apf-editor">
     {own === 'mandatory' && <div role="note" className="apf-notice">Mandatory bootstrap policy · fixed spec</div>}
     {own === 'administrator' && protectedPolicy(form.draft, form.context) && <div role="note" className="apf-notice">Controller-owned policy · inspect only</div>}
     {own === 'exempt' && <div role="note" className="apf-notice">Mandatory exempt policy · shares and lending only</div>}
     {own === 'suggested' && <EditorSection title="Bootstrap ownership"><div className="apf-notice">Suggested bootstrap policy may be reconciled.</div><Button size="sm" variant="outline" disabled={form.disabled || !mutationAvailable || form.context.intent === 'inspect' || form.draft.get(annotationPath) === 'false'} onClick={() => commit([{ op: 'set', path: annotationPath, value: 'false' }])}>{form.draft.get(annotationPath) === 'false' ? 'Reconciliation opted out' : 'Opt out of spec reconciliation'}</Button></EditorSection>}
-    {errors.patch && <div role="alert" className="apf-error">{errors.patch}</div>}
+    {issue && <div role="alert" className="apf-error">{issue}</div>}
     {children}
   </div></SessionContext.Provider>;
 }

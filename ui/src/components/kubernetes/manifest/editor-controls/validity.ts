@@ -23,6 +23,9 @@ function reportLedger(ledger: ValidityLedger): void {
 }
 
 /**
+ * Reports uncommitted local input, patch failures, and form-only admission.
+ * Contributions report canonical errors through validate, so invalid canonical
+ * drafts can still switch to YAML while submission remains blocked.
  * Independent children sharing a host callback/session share admission. Every hook
  * owns a bucket; sibling validation and row unmount remove only that bucket's errors.
  * Wrapped callbacks intentionally create nested boundaries. Session changes reset

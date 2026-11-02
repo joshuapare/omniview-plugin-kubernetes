@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { patchError, patchFields, scalarText } from '../../editor-controls';
 
-import { authoringDisabled, validateStorage } from './rules';
+import { authoringDisabled } from './rules';
 
 interface StorageBuffer { text: string; canonical?: string }
 export interface StorageRow { id: string; index: number }
@@ -34,10 +34,9 @@ export function useStorageForm(form: ResourceEditorFormProps): StorageState {
     const canonical = Array.isArray(current) && current.every(value => typeof value === 'string') ? current.join(', ') : scalarText(current);
     if (!entry || entry.canonical === undefined || !path || entry.canonical === canonical) errors[key] = error;
   }
-  const canonicalError = validateStorage(form.draft, form.context)[0]?.message;
   const localError = Object.values(errors).find(Boolean);
   const onValidityChange = form.onValidityChange;
-  useEffect(() => { onValidityChange(localError || canonicalError || null); }, [localError, canonicalError, onValidityChange]);
+  useEffect(() => { onValidityChange(localError || null); }, [localError, onValidityChange]);
   const locked = form.disabled || authoringDisabled(form.draft, form.context);
   const rows = (path: ResourceEditorPath): readonly StorageRow[] => {
     const value = form.draft.get(path);

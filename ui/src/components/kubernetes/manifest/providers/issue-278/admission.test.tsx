@@ -58,6 +58,61 @@ describe('admission registration behavior', () => {
     expect(validWebhookURL('http://example.test/review')).toBe(false);
     expect(validWebhookURL('https://example.test/review')).toBe(true);
   });
+  it.each([0, 1])('edits public webhook URL leaves without exposing CA or replacing unknown siblings (%s)', index => {
+    const { controller, patch } = session(index);
+    const client = ['webhooks', 0, 'clientConfig'] as const;
+    expect(patch([
+      ...clientBranch(client, 'url'),
+      { op: 'set', path: [...client, 'url'], value: 'https://hooks.example.invalid/admit' },
+      { op: 'set', path: [...client, 'caBundle'], value: 'private-ca-data' },
+      { op: 'set', path: [...client, 'futureTLSOption'], value: { exact: '9007199254740993' } },
+    ]).status).toBe('accepted');
+    const view = render(<Consumer index={index} controller={controller} />);
+    const input = screen.getByLabelText('HTTPS URL');
+    expect(input).not.toHaveAttribute('type', 'password');
+    expect(input).toHaveValue('https://hooks.example.invalid/admit');
+    expect(view.container.innerHTML).not.toContain('private-ca-data');
+    fireEvent.change(input, { target: { value: 'https://hooks.example.invalid/replacement' } });
+    expect(controller.draft().get([...client, 'url'])).toBe('https://hooks.example.invalid/replacement');
+    expect(controller.draft().get([...client, 'caBundle'])).toBe('private-ca-data');
+    expect(controller.draft().get([...client, 'futureTLSOption'])).toEqual({ exact: '9007199254740993' });
+  });
+  it.each([
+    'https://name:private-credential@example.test/review',
+    'https://example.test/review?token=private-credential',
+    'https://example.test/review#private-credential',
+  ])('retains hidden unsafe URL through remount until explicit replacement (%s)', value => {
+    const { controller, patch } = session(0);
+    const client = ['webhooks', 0, 'clientConfig'] as const;
+    expect(patch([
+      ...clientBranch(client, 'url'),
+      { op: 'set', path: [...client, 'url'], value },
+      { op: 'set', path: [...client, 'caBundle'], value: 'private-ca-data' },
+      { op: 'set', path: [...client, 'futureTLSOption'], value: 'retain' },
+    ]).status).toBe('accepted');
+    const original = controller.getSource();
+    const view = render(<Consumer index={0} controller={controller} />);
+    expect(screen.getByLabelText('HTTPS URL')).toHaveValue('');
+    expect(view.container.innerHTML).not.toContain('private-credential');
+    expect(view.container.innerHTML).not.toContain('private-ca-data');
+    expect(controller.getSource()).toBe(original);
+    view.unmount();
+    const remount = render(<Consumer index={0} controller={controller} />);
+    expect(screen.getByLabelText('HTTPS URL')).toHaveValue('');
+    expect(controller.getSource()).toBe(original);
+    fireEvent.change(screen.getByLabelText('HTTPS URL'), { target: { value: 'https://hooks.example.invalid/replacement' } });
+    expect(controller.draft().get([...client, 'url'])).toBe('https://hooks.example.invalid/replacement');
+    expect(controller.draft().get([...client, 'caBundle'])).toBe('private-ca-data');
+    expect(controller.draft().get([...client, 'futureTLSOption'])).toBe('retain');
+    const next = session(0);
+    expect(next.patch([
+      ...clientBranch(client, 'url'),
+      { op: 'set', path: [...client, 'url'], value: 'https://next.example.invalid/admit' },
+    ]).status).toBe('accepted');
+    remount.rerender(<Consumer index={0} controller={next.controller} />);
+    expect(screen.getByLabelText('HTTPS URL')).toHaveValue('https://next.example.invalid/admit');
+    expect(controller.draft().get([...client, 'url'])).toBe('https://hooks.example.invalid/replacement');
+  });
   it('keeps invalid timeout locally through a sibling edit and section roundtrip', () => {
     const { controller } = session(0);
     const validity = vi.fn();

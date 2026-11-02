@@ -29,7 +29,7 @@ function ReviewSession(props: ResourceEditorFormProps) {
   const issues = validateReview(draft, context);
   const inactiveBranch = url ? 'resourceAttributes' : 'nonResourceAttributes';
   const pendingIdentity = newGroup || extraKey || extraValue ? 'Add or clear pending identity rows before review.' : null;
-  const firstError = Object.entries(buffers).find(([key]) => !key.includes(`"${inactiveBranch}"`))?.[1].error ?? failure ?? pendingIdentity ?? issues[0]?.message ?? null;
+  const firstError = Object.entries(buffers).find(([key]) => !key.includes(`"${inactiveBranch}"`))?.[1].error ?? failure ?? pendingIdentity ?? null;
   useEffect(() => { onValidityChange(firstError); }, [firstError, onValidityChange]);
   const commit = (operations: readonly ResourceEditorPatch[]) => {
     const result = props.patch({ sessionID: draft.sessionID, expectedRevision: draft.revision, operations });

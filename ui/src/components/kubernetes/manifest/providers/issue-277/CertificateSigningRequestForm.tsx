@@ -56,7 +56,7 @@ function ApprovalSession({ form }: { form: ResourceEditorFormProps }) {
   const settled = currentAttempt?.phase === 'settled';
   const capability = form.context.capabilities.actions['kubernetes.csr-approval.v1'] ?? 'unknown';
   const terminal = approvalBlocked(form.draft);
-  const enabled = form.context.intent !== 'create' && !!form.context.name && !!form.context.resourceVersion && capability === 'available' && !terminal && !busy && !settled && !form.disabled;
+  const enabled = (form.context.intent === 'edit' || form.context.intent === 'action') && !!form.context.name && !!form.context.resourceVersion && capability === 'available' && !terminal && !busy && !settled && !form.disabled;
   return <div className="cert-editor-stack"><div className="cert-editor-row"><strong>Approval</strong><EditorHelp label="Approval">Requires update on certificatesigningrequests/approval and approve on the named signer. Approved and Denied are terminal and mutually exclusive. This does not issue a certificate.</EditorHelp></div>
     {terminal ? <span>Approval is closed for this request.</span> : <span>Approval access: {capability}</span>}
     <div className="cert-editor-row"><Button size="sm" variant="outline" disabled={!enabled} onClick={() => setChoice({ value: 'Approved', execute: form.actions.execute })}>Review approval</Button><Button size="sm" variant="outline" disabled={!enabled} onClick={() => setChoice({ value: 'Denied', execute: form.actions.execute })}>Review denial</Button></div>

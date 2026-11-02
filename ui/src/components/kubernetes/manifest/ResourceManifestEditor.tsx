@@ -205,8 +205,13 @@ function ResourceManifestSession(props: ResourceManifestEditorProps) {
     if (result.status === 'accepted') changeSource.current(controller.getSource());
     return result;
   }, [controller, provider, currentRevision, disabled, requestPending, quarantinedCurrent, readOnly, effectiveContext, patchIdentity, maskedPaths]);
+  // Canonical validation gates submission above. Local form admission gates mode
+  // changes, because unmounting controls can discard uncommitted input.
   const reportValidity = useCallback((error: string | null) => { setFormError(error && !readOnly ? 'Resolve pending form changes before continuing.' : null); }, [setFormError, readOnly]);
-  const formProps = { context: publicContext, draft: publicDraft, baseline: publicBaseline, section: activeSection, disabled: disabled || readOnly || requestPending, patch, onValidityChange: reportValidity, references: scopedReferences, actions: scopedActions, requestResult: visibleRequestResult };
+  // A readonly manifest may declare capability-gated subresource actions.
+  // Patch/YAML stay readonly; global disabled/busy still disables both paths.
+  const formDisabled = disabled || requestPending || readOnly && effectiveContext.intent !== 'action';
+  const formProps = { context: publicContext, draft: publicDraft, baseline: publicBaseline, section: activeSection, disabled: formDisabled, patch, onValidityChange: reportValidity, references: scopedReferences, actions: scopedActions, requestResult: visibleRequestResult };
   const nativeProps = { value, onChange: (next: string) => {
     if (sourceAdmission.current.disabled || sourceAdmission.current.requestPending || sourceAdmission.current.readOnly || provider !== providerIdentity.current || controller.revision !== currentRevision || !controller.isActive()) return;
     const identityError = editing ? validateEditorIdentity(next, admittedContext, baseline ?? value) : null;

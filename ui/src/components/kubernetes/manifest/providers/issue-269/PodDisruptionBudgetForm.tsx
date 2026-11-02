@@ -54,10 +54,11 @@ function PolicySession(form: ResourceEditorFormProps) {
     return (value.error || value.input) && value.base === (Array.isArray(canonical) ? JSON.stringify(canonical) : scalarText(canonical));
   })?.[1];
   const pending = labelKey !== '' || labelValue !== '' || expressionKey !== '' || expressionValues.length > 0 || expressionInput !== '';
+  const pendingAmountError = budget ? amountError : null;
 
   useEffect(() => {
-    onValidityChange(disabled ? null : amountError || localError?.error || (localError?.input ? 'Commit or clear the pending expression value.' : null) || patchFailure || rowError || (pending ? 'Add the pending selector requirement or clear its fields.' : null));
-  }, [disabled, amountError, localError, patchFailure, rowError, pending, onValidityChange]);
+    onValidityChange(disabled ? null : pendingAmountError || localError?.error || (localError?.input ? 'Commit or clear the pending expression value.' : null) || patchFailure || rowError || (pending ? 'Add the pending selector requirement or clear its fields.' : null));
+  }, [disabled, pendingAmountError, localError, patchFailure, rowError, pending, onValidityChange]);
   useEffect(() => () => onValidityChange(null), [onValidityChange]);
 
   function commit(operations: readonly ResourceEditorPatch[]): boolean {

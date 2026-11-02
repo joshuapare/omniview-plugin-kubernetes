@@ -25,6 +25,8 @@ function MigrationSession(props: ResourceEditorFormProps) {
   const locked = disabled || !create || !!unsupported || !!availability;
   const invalidGroup = groupError(group);
   const invalidResource = resourceError(resource);
+  const pendingGroupError = group !== canonicalGroup ? invalidGroup : null;
+  const pendingResourceError = resource !== canonicalResource ? invalidResource : null;
   const conditions = migrationConditions(draft);
   const observedVersion = draft.get(['status', 'resourceVersion']);
 
@@ -36,8 +38,8 @@ function MigrationSession(props: ResourceEditorFormProps) {
     setPatchFailure(null);
   }, [draft.revision, canonicalGroup, canonicalResource]);
   useEffect(() => {
-    onValidityChange(create ? unsupported || availability || patchFailure || invalidGroup || invalidResource : null);
-  }, [create, unsupported, availability, patchFailure, invalidGroup, invalidResource, onValidityChange]);
+    onValidityChange(create ? availability || patchFailure || pendingGroupError || pendingResourceError : null);
+  }, [create, availability, patchFailure, pendingGroupError, pendingResourceError, onValidityChange]);
   useEffect(() => () => onValidityChange(null), [onValidityChange]);
 
   function changeTarget(field: 'group' | 'resource', value: string) {

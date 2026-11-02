@@ -18,6 +18,14 @@ export function endpointError(value: string): string | null {
     return null;
   } catch { return 'Enter a complete HTTP(S) endpoint.'; }
 }
+/**
+ * Public endpoint projection only; never stringify opaque canonical values.
+ * Encoded or ambiguous references stay hidden, without changing admission rules.
+ */
+export function publicEndpointReference(value: unknown): string {
+  if (typeof value !== 'string' || /[\s\\%?#@]/.test(value) || !/^[A-Za-z0-9._~:/+[\]-]+$/.test(value)) return '';
+  return endpointError(value) ? '' : value;
+}
 export function validate(draft: ResourceEditorDraft, context: ResourceEditorContext): ResourceEditorFieldIssue[] {
   const issues: ResourceEditorFieldIssue[] = [];
   for (const path of ownedPaths.slice(0, 2)) {

@@ -19,8 +19,9 @@ function RuntimeClassSession(props: ResourceEditorFormProps) {
   const form = { ...props, disabled: props.disabled || readOnly(props.draft, props.context) };
   const { draft, context, onValidityChange } = props;
   const canonicalErrors = validate(draft);
-  const error = Object.values(errors).find(Boolean) ?? canonicalErrors[0]?.message ?? null;
-  useEffect(() => { onValidityChange(error); }, [error, onValidityChange]);
+  const pendingError = Object.values(errors).find(Boolean) ?? null;
+  const error = pendingError ?? canonicalErrors[0]?.message ?? null;
+  useEffect(() => { onValidityChange(pendingError); }, [pendingError, onValidityChange]);
   const commit = (operations: readonly ResourceEditorPatch[]) => patchError(patchFields(form, operations));
   const scalar = (path: ResourceEditorPath, value: string) => commit(value === '' ? [{ op: 'remove', path }] : [{ op: 'set', path, value }]);
   const childForm = (id: string) => ({ ...form, onValidityChange: (failure: string | null) => report(id, failure) });

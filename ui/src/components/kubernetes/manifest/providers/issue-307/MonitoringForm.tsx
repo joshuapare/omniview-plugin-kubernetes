@@ -1,7 +1,7 @@
 import { Button } from '@omniviewdev/base-ui';
 import type { ResourceEditorFormProps, ResourceEditorPath, ResourceEditorPatch } from '@omniviewdev/runtime';
 import { EditorChoice, EditorSection, ExactValueField, KeyValueFields, patchError, useFieldValidity } from '../../editor-controls';
-import { definitions, parseField, ruleBranch, type Field } from './model';
+import { definitions, parseField, publicMonitoringReference, ruleBranch, type Field } from './model';
 
 export default function MonitoringForm(form:ResourceEditorFormProps) {
  const definition=definitions[form.context.kind];
@@ -28,5 +28,7 @@ function DomainField({form,field,parent}:{form:ResourceEditorFormProps;field:Fie
  if(field.fields) return <details><summary>{field.label}</summary><div style={{display:'grid',gap:12,paddingTop:12}}>{field.fields.map(child=><DomainField key={child.key} form={form} field={child} parent={path}/>)}</div></details>;
  if(field.options) return <EditorChoice label={field.label} value={typeof value==='string'?value:''} disabled={form.disabled} options={[{value:'',label:'Not set'},...field.options.map(value=>({value,label:value}))]} onChange={next=>next?set(next):patch([{op:'remove',path}])}/>;
  const scalar=typeof value==='string'||typeof value==='number'||typeof value==='bigint';
- return <ExactValueField label={field.label} help={field.help} type={field.type==='url'||field.key==='url'?'password':'text'} value={scalar?String(value):''} identity={`${form.draft.sessionID}:${id}`} disabled={form.disabled || (value!==undefined&&!scalar)} parse={text=>{if(!text)return {valid:true,value:''};const result=parseField(field,text);return result.error?{valid:false,error:result.error}:{valid:true,value:result.value as string|number};}} onCommit={next=>next===''?patch([{op:'remove',path}]):set(next)} onValidityChange={error=>validity(id,error)}/>;
+ const reference=field.type==='url'||field.key==='url';
+ const hidden=reference&&value!==undefined&&publicMonitoringReference(value,field.type!=='url')==='';
+ return <ExactValueField label={field.label} help={reference?'Public HTTP(S) reference. Private or opaque stored references stay hidden and unchanged until replaced.':field.help} type="text" value={reference?publicMonitoringReference(value,field.type!=='url'):scalar?String(value):''} placeholder={hidden?'Stored reference unchanged':undefined} identity={`${form.draft.sessionID}:${id}`} disabled={form.disabled || (value!==undefined&&!scalar)} parse={text=>{if(!text)return {valid:true,value:''};const result=parseField(field,text);return result.error?{valid:false,error:result.error}:{valid:true,value:result.value as string|number};}} onCommit={next=>next===''?(hidden?null:patch([{op:'remove',path}])):set(next)} onValidityChange={error=>validity(id,error)}/>;
 }

@@ -20,7 +20,7 @@ function QuerySession(props: ResourceEditorFormProps) {
   const input = queryInput(draft, context);
   const issues = validateQuery(draft, context);
   const problem = patchFailure || (context.intent === 'action' ? issues[0]?.message : null) || null;
-  useEffect(() => { props.onValidityChange(problem); }, [problem, props.onValidityChange]);
+  useEffect(() => { props.onValidityChange(patchFailure); }, [patchFailure, props.onValidityChange]);
   useEffect(() => {
     const abort = new AbortController();
     if (context.discovery.status !== 'available') return () => abort.abort();

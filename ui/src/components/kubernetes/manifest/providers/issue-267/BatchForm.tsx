@@ -55,9 +55,8 @@ function BatchSession(form: ResourceEditorFormProps) {
   const immutableJob = !cron && context.intent !== 'create';
   const schemaAllows = (path: ResourceEditorPath) => context.schema.paths === undefined || context.schema.paths.some(parent => parent.length <= path.length && parent.every((segment, index) => segment === '*' || segment === path[index]));
   const canonicalIssues = validateBatch(draft, context);
-  const issueText = canonicalIssues.map(issue => issue.message).join(' ');
   const localError = Object.values(errors)[0] ?? patchFailure;
-  useEffect(() => { form.onValidityChange(localError ?? (issueText || null)); }, [localError, issueText, form.onValidityChange]);
+  useEffect(() => { form.onValidityChange(localError ?? null); }, [localError, form.onValidityChange]);
   const report = (key: string, error: string | null) => setErrors(previous => {
     if (previous[key] === error || !error && !(key in previous)) return previous;
     const next = { ...previous };

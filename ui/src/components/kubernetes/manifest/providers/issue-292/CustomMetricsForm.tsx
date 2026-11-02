@@ -28,7 +28,6 @@ function CustomMetricsSession(form: ResourceEditorFormProps) {
   const queryKey = `${query.resource}/${query.metric}`;
   const selected = discovery.status === 'ready' ? discovery.items.find(item => item.name === queryKey) : undefined;
   const canonicalError = inspection ? null : issues[0]?.message ?? (discovery.status === 'ready' && !selected ? 'Select a discovered resource and metric.' : null);
-  useEffect(() => { report('query', canonicalError); }, [report, canonicalError]);
   useEffect(() => {
     if (inspection || !supportedVersion(context.version)) return;
     const controller = new AbortController();
@@ -100,7 +99,7 @@ function CustomMetricsSession(form: ResourceEditorFormProps) {
     <KeyValueFields form={{ ...form, onValidityChange: error => report('metricLabels', error) }} path={['query', 'metricLabels']} label="Metric label filters" validateKey={labelKey} validateValue={labelValue} />
     <details><summary>Advanced metric selector</summary>{field('metricLabelSelector', 'Metric selector expression', 'Native metricLabelSelector syntax, including in, notin, existence and inequality. Combined with label rows using AND; this is not the returned selector.')}</details>
     <details><summary>Request review</summary><p className="custom-metrics-consequence">GET only · No resource is created or changed</p><code className="custom-metrics-path">{issues.length ? 'Complete the query to review its destination.' : queryPath(query)}</code></details>
-    {issues.length > 0 && <p role="status">{issues[0].message}</p>}
+    {canonicalError && <p role="status">{canonicalError}</p>}
     {patchFailure && <p role="alert">{patchFailure}</p>}
   </EditorSection></div>;
 }

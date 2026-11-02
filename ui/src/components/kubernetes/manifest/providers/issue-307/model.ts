@@ -23,6 +23,19 @@ export const definitions:Record<string,{version:string;resource:string;fields:Fi
  AlertmanagerConfig:{version:'v1alpha1',resource:'alertmanagerconfigs',fields:[{key:'route',label:'Root route',fields:[...route,array('routes','Child routes',route)]},array('receivers','Receivers',[text('name','Receiver name'),array('webhookConfigs','Webhook delivery',[{key:'urlSecret',label:'URL Secret reference',fields:[text('name','Secret name'),text('key','Secret key')]}])])],consequence:'Alpha API. Routing changes can redirect or silence notifications. Secret values are never fetched.'},
  ScrapeConfig:{version:'v1alpha1',resource:'scrapeconfigs',fields:[text('jobName','Job name'),{key:'scheme',label:'Scheme',options:['HTTP','HTTPS']},text('metricsPath','Metrics path'),text('scrapeInterval','Interval','duration'),text('scrapeTimeout','Timeout','duration'),array('staticConfigs','Static target groups',[array('targets','Targets',[text('','Host:port')]),{key:'labels',label:'Labels',type:'map'}]),relabel],consequence:'Alpha API. Installed CRDs do not prove operator support.'},
 };
+/**
+ * Display only public HTTP(S) URLs or prober host:port references.
+ * Queries, fragments, userinfo, encoded syntax, and opaque projections stay
+ * canonical but blank in the form, including after YAML edits or remounts.
+ * This is display policy, not an additional admission or URL validation rule.
+ */
+export function publicMonitoringReference(value:unknown, hostPort=false):string {
+ if(typeof value!=='string'||!value||/[\s\\%?#@]/.test(value)||!/^[A-Za-z0-9._~:/+[\]-]+$/.test(value)) return '';
+ try {
+  const url=new URL(hostPort&&!value.includes('://')?`http://${value}`:value);
+  return ['http:','https:'].includes(url.protocol)&&!url.username&&!url.password?value:'';
+ } catch { return ''; }
+}
 export function parseField(field:Field,text:string):{value:unknown;error?:string} {
  if(field.type==='integer') return /^\d+$/.test(text) && BigInt(text)<=2147483647n ? {value:Number(text)} : {value:null,error:'Enter a nonnegative 32-bit integer.'};
  if(field.type==='duration' && !/^(?:\d+(?:ms|s|m|h|d|w|y))+$/.test(text)) return {value:null,error:'Enter a duration with units.'};

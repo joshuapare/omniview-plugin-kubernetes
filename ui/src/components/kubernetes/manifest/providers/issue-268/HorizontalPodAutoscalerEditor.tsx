@@ -29,10 +29,11 @@ function HPASession(form: ResourceEditorFormProps) {
     return next;
   }), []);
   const validation = validateHPA(draft, context);
-  const issue = patchFailure || localErrors.values().next().value || (validation[0] ? `${validation[0].path.join('.')}: ${validation[0].message}` : null);
+  const pendingIssue = patchFailure || localErrors.values().next().value || null;
+  const issue = pendingIssue || (validation[0] ? `${validation[0].path.join('.')}: ${validation[0].message}` : null);
   const validity = useRef(form.onValidityChange);
   useEffect(() => { validity.current = form.onValidityChange; }, [form.onValidityChange]);
-  useEffect(() => { validity.current(issue); }, [issue]);
+  useEffect(() => { validity.current(pendingIssue); }, [pendingIssue]);
   useEffect(() => () => validity.current(null), []);
   const commit = (operations: readonly ResourceEditorPatch[]): string | null => {
     if (disabled) return 'This autoscaler is read-only.';

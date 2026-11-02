@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { ResourceEditorFormProps, ResourceEditorPath, ResourceEditorPatch } from '@omniviewdev/runtime';
 import { EditorChoice, ExactValueField, EditorHelp, EditorSection, ReferencePicker, useFieldValidity } from '../../editor-controls';
-import { endpointError, eventTypes, readOnly } from './model';
+import { endpointError, eventTypes, publicEndpointReference, readOnly } from './model';
 
 function TextField({ form, path, label, endpoint = false, help, report }: { form: ResourceEditorFormProps; path: ResourceEditorPath; label: string; endpoint?: boolean; help?: string; report?: (this: void, field: string, error: string | null) => void }) {
   const value = form.draft.get(path);
-  return <ExactValueField label={label} value={typeof value === 'string' ? value : ''} identity={`${form.draft.sessionID}/${JSON.stringify(path)}`} type={endpoint ? 'password' : 'text'} help={help} disabled={form.disabled || readOnly(form.draft, form.context)} parse={next => {
+  const visible = endpoint ? publicEndpointReference(value) : typeof value === 'string' ? value : '';
+  const hidden = endpoint && value !== undefined && visible === '';
+  return <ExactValueField label={label} value={visible} placeholder={hidden ? 'Stored reference unchanged' : undefined} identity={`${form.draft.sessionID}/${JSON.stringify(path)}`} type="text" help={help} disabled={form.disabled || readOnly(form.draft, form.context)} parse={next => {
     const invalid = endpoint ? endpointError(next) : null;
     return invalid ? { valid: false, error: invalid } : { valid: true, value: next };
   }} onCommit={next => {
+    if (!next && hidden) return null;
     const result = form.patch({ sessionID: form.draft.sessionID, expectedRevision: form.draft.revision, operations: [next ? { op: 'set', path, value: next } : { op: 'remove', path }] });
     return result.status === 'accepted' ? null : 'Change could not be applied. Refresh this field.';
   }} onValidityChange={error => report?.(label, error)} />;

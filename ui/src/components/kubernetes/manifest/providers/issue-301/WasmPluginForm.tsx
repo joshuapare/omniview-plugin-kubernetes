@@ -2,20 +2,24 @@ import { Button } from '@omniviewdev/base-ui';
 import { useState } from 'react';
 import type { ResourceEditorFormProps, ResourceEditorPath, ResourceEditorPatch } from '@omniviewdev/runtime';
 import { EditorChoice, EditorField, EditorHelp, EditorSection, ExactValueField, KeyValueFields, ReferencePicker, patchError, setDraftField, removeDraftField, scalarText, useFieldValidity } from '../../editor-controls';
+import { moduleError, publicModuleReference } from './model';
 
 export default function WasmPluginForm(form: ResourceEditorFormProps) {
   const report = useFieldValidity(form);
   const text = (path: ResourceEditorPath) => scalarText(form.draft.get(path));
   const commit = (path: ResourceEditorPath, value: Parameters<typeof setDraftField>[2]) => patchError(value === '' ? removeDraftField(form, path) : setDraftField(form, path, value));
   const apply = (operations: ResourceEditorPatch[]) => report('patch', patchError(form.patch({ sessionID: form.draft.sessionID, expectedRevision: form.draft.revision, operations })));
-  const field = (key: string, label: string, help?: string) => <ExactValueField key={key} label={label} help={help} type={key === 'url' ? 'password' : 'text'} value={text(['spec', key])} identity={`${form.draft.sessionID}:${key}`} disabled={form.disabled} parse={value => ({ valid: true, value })} onCommit={value => commit(['spec', key], value)} onValidityChange={error => report(key, error)} />;
+  const field = (key: string, label: string, help?: string) => <ExactValueField key={key} label={label} help={help} value={text(['spec', key])} identity={`${form.draft.sessionID}:${key}`} disabled={form.disabled} parse={value => ({ valid: true, value })} onCommit={value => commit(['spec', key], value)} onValidityChange={error => report(key, error)} />;
   const choice = (path: ResourceEditorPath, label: string, values: string[]) => <EditorChoice label={label} value={text(path)} disabled={form.disabled} options={['', ...values].map(value => ({ value, label: value || 'Not specified' }))} onChange={value => report(label, commit(path, value))} />;
   const list = (path: ResourceEditorPath): readonly unknown[] => { const value = form.draft.get(path); return Array.isArray(value) ? value : []; };
   const add = (path: ResourceEditorPath, value: unknown) => apply(form.draft.has(path) ? [{ op: 'insert', path, index: list(path).length, value }] : [{ op: 'set', path, value: [value] }]);
   const remove = (path: ResourceEditorPath) => apply([{ op: 'remove', path }]);
   const rowField = (path: ResourceEditorPath, label: string, sensitive = false) => <ExactValueField label={label} value={sensitive ? '' : text(path)} type={sensitive ? 'password' : 'text'} placeholder={sensitive && form.draft.has(path) ? 'Stored value unchanged' : undefined} identity={`${form.draft.sessionID}:${JSON.stringify(path)}`} disabled={form.disabled} parse={value => ({ valid: true, value })} onCommit={value => commit(path, value)} onValidityChange={error => report(JSON.stringify(path), error)} />;
   if (form.section === 'module') return <EditorSection title="Trusted proxy module">
-    {field('url', 'Module reference', 'OCI image (default scheme), HTTP(S), or file:// inside the proxy. No module is downloaded by this editor. Do not embed credentials.')}
+    <ExactValueField label="Module reference" help="OCI image (default scheme), HTTP(S), or file:// inside the proxy. No module is downloaded. Use Registry Secret for credentials." value={publicModuleReference(form.draft.get(['spec', 'url']))} placeholder={form.draft.has(['spec', 'url']) ? 'Stored reference unchanged' : 'oci://registry/module:v1'} identity={`${form.draft.sessionID}:url`} disabled={form.disabled} parse={value => {
+      const error = moduleError(value, text(['spec', 'sha256']));
+      return error ? { valid: false, error } : { valid: true, value };
+    }} onCommit={value => commit(['spec', 'url'], value)} onValidityChange={error => report('url', error)} />
     {field('sha256', 'SHA-256', '64 lowercase hex characters; must match an @sha256 digest in the module reference.')}
     {choice(['spec', 'imagePullPolicy'], 'Pull policy', ['IfNotPresent', 'Always'])}
     <ReferencePicker form={form} query={{ group: '', version: 'v1', resource: 'secrets', namespace: form.context.namespace, projection: 'secretType' }} label="Registry Secret" value={text(['spec', 'imagePullSecret'])} onChange={value => report('secret', commit(['spec', 'imagePullSecret'], value))} help="Same-namespace Docker pull Secret. Only names and Secret type are queried." />

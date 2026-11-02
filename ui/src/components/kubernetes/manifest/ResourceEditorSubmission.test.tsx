@@ -5,8 +5,10 @@ import { jsonToValue, type ResourceEditorContext, type ResourceEditorContributio
 import { parse } from 'yaml';
 import ResourceManifestEditor from './ResourceManifestEditor';
 import type { ResourceEditorSubmissionHandle } from './resourceEditorSubmission';
-import { setManifestMode } from './useManifestMode';
+import { MANIFEST_MODE_KEY, setManifestMode } from './useManifestMode';
 import { resourceEditors as coreResourceEditors } from './providers/issue-265';
+import { resourceEditors as runtimeClassEditors } from './providers/issue-282';
+import { resourceEditors as certificateEditors } from './providers/issue-277';
 
 vi.mock('../../shared/CodeEditor', () => ({ default: ({ value, onChange, readOnly }: { value: string; onChange?: (value: string) => void; readOnly?: boolean }) => <textarea aria-label="Canonical YAML" value={value} readOnly={readOnly} onChange={(event) => onChange?.(event.target.value)} /> }));
 const source = 'apiVersion: demo.example/v1\nkind: Demo\nmetadata: {name: demo, namespace: team}\nspec: {message: old, token: private-fixture-value}\n';
@@ -22,6 +24,85 @@ beforeEach(() => { localStorage.clear(); vi.clearAllMocks(); act(() => setManife
 afterEach(cleanup);
 
 describe('canonical submission preparation', () => {
+  it.each([
+    { intent: 'action' as const, capability: 'available' as const, disabled: false, enabled: true },
+    { intent: 'action' as const, capability: 'denied' as const, disabled: false, enabled: false },
+    { intent: 'action' as const, capability: 'available' as const, disabled: true, enabled: false },
+    { intent: 'inspect' as const, capability: 'available' as const, disabled: false, enabled: false },
+  ])('separates readonly CSR source from approval admission: $intent/$capability/disabled=$disabled', async ({ intent, capability, disabled, enabled }) => {
+    act(() => setManifestMode('form'));
+    const provider = certificateEditors[0];
+    const csrContext: ResourceEditorContext = { ...context, ...provider.targets[0], name: 'fixture-request', resourceVersion: '7', intent, capabilities: { ...context.capabilities, actions: { 'kubernetes.csr-approval.v1': capability } } };
+    const csrSource = 'apiVersion: certificates.k8s.io/v1\nkind: CertificateSigningRequest\nmetadata: {name: fixture-request, resourceVersion: "7"}\nspec: {signerName: example.invalid/client, request: private-fixture-value, usages: [client auth]}\n';
+    const pending = Promise.withResolvers<{ status: 'ready'; output: Record<string, never> }>();
+    const execute = vi.fn(() => pending.promise);
+    const onChange = vi.fn();
+    await act(async () => { render(<ResourceManifestEditor value={csrSource} onChange={onChange} resourceKey="k8s:certificates.k8s.io/certificatesigningrequests" editorContext={csrContext} contribution={provider} references={references} actions={{ execute }} disabled={disabled} />); });
+    expect(await screen.findByLabelText('Signer')).toBeDisabled();
+    if (disabled) {
+      expect(screen.getByRole('button', { name: 'Approval & signing' })).toBeDisabled();
+      expect(execute).not.toHaveBeenCalled();
+      return;
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Approval & signing' }));
+    const review = screen.getByRole('button', { name: 'Review approval' });
+    expect(review).toHaveProperty('disabled', !enabled);
+    fireEvent.click(review);
+    expect(execute).not.toHaveBeenCalled();
+    if (enabled) {
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm approval' }));
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole('button', { name: 'Review approval' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Confirm approval' })).toBeDisabled();
+    }
+    fireEvent.click(screen.getByRole('radio', { name: 'YAML' }));
+    expect(screen.getByLabelText('Canonical YAML')).toHaveAttribute('readonly');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('switches an empty required draft without bypassing submission or losing pending RuntimeClass input', async () => {
+    act(() => setManifestMode('form'));
+    const provider = runtimeClassEditors[0];
+    const runtimeContext: ResourceEditorContext = { ...context, ...provider.targets[0], name: 'sandbox' };
+    const initial = 'apiVersion: node.k8s.io/v1\nkind: RuntimeClass\nmetadata: {name: sandbox}\nextension: {exact: 9007199254740993} # preserve unknown\n';
+    const submission = createRef<ResourceEditorSubmissionHandle>();
+    const observe = vi.fn();
+    function Harness() {
+      const [value, setValue] = useState(initial);
+      return <ResourceManifestEditor value={value} onChange={next => { setValue(next); observe(next); }} resourceKey="k8s:node.k8s.io/runtimeclasses" editorContext={runtimeContext} contribution={provider} references={references} actions={actions} submissionRef={submission} />;
+    }
+    await act(async () => { render(<Harness />); });
+    expect(await screen.findByLabelText('Handler')).toHaveValue('');
+    expect(screen.getByRole('radio', { name: 'YAML' })).toBeEnabled();
+    expect(screen.queryByText('Resolve pending form changes before continuing.')).not.toBeInTheDocument();
+    expect((await submission.current!.prepare(new AbortController().signal)).status).toBe('invalid');
+    fireEvent.click(screen.getByRole('radio', { name: 'YAML' }));
+    expect(screen.getByLabelText('Canonical YAML')).toHaveValue(initial);
+    expect(localStorage.getItem(MANIFEST_MODE_KEY)).toBe('yaml');
+    expect(observe).not.toHaveBeenCalled();
+    expect((await submission.current!.prepare(new AbortController().signal)).status).toBe('invalid');
+    fireEvent.click(screen.getByRole('radio', { name: 'Form' }));
+    fireEvent.change(await screen.findByLabelText('Handler'), { target: { value: 'sandboxed' } });
+    fireEvent.click(screen.getByRole('radio', { name: 'YAML' }));
+    const yaml = screen.getByLabelText<HTMLTextAreaElement>('Canonical YAML');
+    expect(parse(yaml.value, { intAsBigInt: true }).handler).toBe('sandboxed');
+    expect(parse(yaml.value, { intAsBigInt: true }).extension.exact).toBe(9007199254740993n);
+    expect(yaml.value).toContain('# preserve unknown');
+    fireEvent.change(yaml, { target: { value: yaml.value.replace('handler: sandboxed', 'handler: gvisor') } });
+    fireEvent.click(screen.getByRole('radio', { name: 'Form' }));
+    expect(await screen.findByLabelText('Handler')).toHaveValue('gvisor');
+    fireEvent.change(screen.getByLabelText('CPU overhead'), { target: { value: '12unfinished' } });
+    expect(screen.getByRole('radio', { name: 'YAML' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('radio', { name: 'YAML' }));
+    expect(screen.getByLabelText('CPU overhead')).toHaveValue('12unfinished');
+    expect((await submission.current!.prepare(new AbortController().signal)).status).toBe('invalid');
+    fireEvent.change(screen.getByLabelText('CPU overhead'), { target: { value: '12m' } });
+    expect(screen.getByRole('radio', { name: 'YAML' })).toBeEnabled();
+    expect((await submission.current!.prepare(new AbortController().signal)).status).toBe('ready');
+    fireEvent.click(screen.getByRole('radio', { name: 'YAML' }));
+    expect(parse(screen.getByLabelText<HTMLTextAreaElement>('Canonical YAML').value, { intAsBigInt: true }).overhead.podFixed.cpu).toBe('12m');
+  });
+
   it('keeps read-only inspection switchable to YAML when form prerequisites cannot admit writes', async () => {
     act(() => setManifestMode('form'));
     const provider = coreResourceEditors.find(editor => editor.targets[0].kind === 'Endpoints')!;

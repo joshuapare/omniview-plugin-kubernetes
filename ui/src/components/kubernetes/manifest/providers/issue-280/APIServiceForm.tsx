@@ -33,7 +33,7 @@ function APIServiceSession(props: ResourceEditorFormProps) {
   const namespace = scalarText(draft.get(['spec', 'service', 'namespace']));
   const failures = validateAPIService(draft, context);
   const activeLocalFailure = Object.entries(local).find(([path, value]) => value.source === scalarText(draft.get(JSON.parse(path) as ResourceEditorPath)) && value.error)?.[1].error;
-  const validity = disabled ? null : patchFailure ?? mapFailure ?? activeLocalFailure ?? (importing ? 'CA import is in progress.' : customPending && !hasCA ? 'Import a CA bundle or choose another trust mode.' : failures[0]?.message ?? null);
+  const validity = disabled ? null : patchFailure ?? mapFailure ?? activeLocalFailure ?? (importing ? 'CA import is in progress.' : customPending && !hasCA ? 'Import a CA bundle or choose another trust mode.' : null);
   useEffect(() => { props.onValidityChange(validity); }, [props.onValidityChange, validity]);
 
   function commit(operations: readonly ResourceEditorPatch[]): string | null {

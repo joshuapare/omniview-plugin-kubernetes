@@ -28,13 +28,27 @@ function FormHarness({ kind, controller, section = 'overview', context = storage
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('storage domain editing', () => {
+  it('keeps an empty canonical required driver separate from pending local edits', () => {
+    const source = 'apiVersion: storage.k8s.io/v1\nkind: StorageClass\nmetadata: {name: empty}\n';
+    const controller = new ResourceEditorController(source);
+    const context = storageFixtureContext('StorageClass');
+    const provider = resourceEditors.find(editor => editor.targets.some(target => target.kind === 'StorageClass'))!;
+    render(<FormHarness kind="StorageClass" controller={controller} context={context} />);
+    expect(screen.getByLabelText('Provisioner')).toHaveValue('');
+    expect(validity).toHaveBeenLastCalledWith(null);
+    expect(provider.validate!(controller.draft(), context).some(issue => issue.path[0] === 'provisioner')).toBe(true);
+    expect(controller.getSource()).toBe(source);
+    fireEvent.change(screen.getByLabelText('Provisioner'), { target: { value: 'invalid driver' } });
+    expect(screen.getByLabelText('Provisioner')).toHaveValue('invalid driver');
+    expect(controller.getSource()).toBe(source);
+  });
+
   it('retains a partial driver locally, including a section round trip, without erasing the manifest', () => {
     const controller = new ResourceEditorController(storageFixtures.StorageClass);
     const view = render(<FormHarness kind="StorageClass" controller={controller} />);
     fireEvent.change(screen.getByLabelText('Provisioner'), { target: { value: '' } });
     expect(screen.getByLabelText('Provisioner')).toHaveValue('');
     expect(controller.getSource()).toBe(storageFixtures.StorageClass);
-    expect(validity).toHaveBeenLastCalledWith('Enter an exact driver identifier.');
     view.rerender(<FormHarness kind="StorageClass" controller={controller} section="advanced" />);
     view.rerender(<FormHarness kind="StorageClass" controller={controller} />);
     expect(screen.getByLabelText('Provisioner')).toHaveValue('');

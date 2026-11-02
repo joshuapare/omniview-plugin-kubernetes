@@ -568,6 +568,9 @@ Scoped patches are atomic and session/revision-bound. Untouched YAML nodes,
 comments, unknown fields, and exact wide integers remain intact. Map omission is
 not deletion: forms remove fields explicitly.
 
+Canonical validation errors block submission, not format switching. Uncommitted
+input stays in the form until committed or cleared; switching never discards it.
+
 The host owns create identity, locks edit identity and optimistic revision, and
 hides Namespace for cluster-scoped APIs. Editor and mode preferences store only
 IDs, never manifests or credentials. Sensitive projections cannot be written
@@ -607,8 +610,14 @@ Generator Secret selector names and keys accept public reference metadata as
 text. Existing protected references remain write-only; credential subtrees and
 unknown sensitive siblings stay opaque and are preserved by leaf updates.
 
+Public webhook, module, monitoring, and event-sink references display only safe,
+credential-free values. Unsafe or opaque references remain write-only and are
+preserved until explicit leaf replacement.
+
 Image catalogs accept exact canonical major-version integers across Form/YAML
 switches while rejecting duplicates, fractions, and unsupported integer ranges.
+Read-only Calico numeric projections and Kyverno retry counters also preserve
+canonical integers without coercing them through JavaScript `Number`.
 
 **Requests & inspection** in the cluster sidebar opens request-only APIs and
 read-only inspectors without pretending they support named-resource creation.

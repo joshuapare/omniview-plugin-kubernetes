@@ -15,6 +15,13 @@ describe('Calico backing inspection privacy', () => {
     expect(observedValue({ protected: true }, { type: 'integer' })).toBe('Unsupported or protected value');
     expect(observedValue(false, { type: 'boolean' })).toBe(false);
   });
+  it('keeps canonical integers exact for numeric schema fields', () => {
+    expect(observedValue(10n, { type: 'number' })).toBe(10n);
+    expect(observedValue(9007199254740993n, { type: 'number' })).toBe(9007199254740993n);
+    expect(observedValue(0.5, { type: 'number' })).toBe(0.5);
+    expect(observedValue(Infinity, { type: 'number' })).toBe('Unsupported or protected value');
+    expect(observedValue({ protected: true }, { type: 'number' })).toBe('Unsupported or protected value');
+  });
   it('counts zero allocation indices as allocated, without treating null as allocated', () => {
     expect(allocationCounts([0, null, 1, null], [1, 3])).toEqual({ allocated: 2, free: 2 });
     expect(allocationCounts({}, [])).toBeNull();
