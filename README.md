@@ -600,6 +600,9 @@ Submission temporarily locks write callbacks without invalidating completed
 read-only reference evidence. A changed query, source revision, session, or
 reference service still cancels stale lookups.
 
+Inspectors keep resource values readable without enabling edits. Unavailable
+write prerequisites do not block switching an inspector to read-only YAML.
+
 **Requests & inspection** in the cluster sidebar opens request-only APIs and
 read-only inspectors without pretending they support named-resource creation.
 It supports exact discovered resource loading and validated local captures.

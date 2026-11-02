@@ -6,6 +6,7 @@ import { parse } from 'yaml';
 import ResourceManifestEditor from './ResourceManifestEditor';
 import type { ResourceEditorSubmissionHandle } from './resourceEditorSubmission';
 import { setManifestMode } from './useManifestMode';
+import { resourceEditors as coreResourceEditors } from './providers/issue-265';
 
 vi.mock('../../shared/CodeEditor', () => ({ default: ({ value, onChange, readOnly }: { value: string; onChange?: (value: string) => void; readOnly?: boolean }) => <textarea aria-label="Canonical YAML" value={value} readOnly={readOnly} onChange={(event) => onChange?.(event.target.value)} /> }));
 const source = 'apiVersion: demo.example/v1\nkind: Demo\nmetadata: {name: demo, namespace: team}\nspec: {message: old, token: private-fixture-value}\n';
@@ -21,6 +22,24 @@ beforeEach(() => { localStorage.clear(); vi.clearAllMocks(); act(() => setManife
 afterEach(cleanup);
 
 describe('canonical submission preparation', () => {
+  it('keeps read-only inspection switchable to YAML when form prerequisites cannot admit writes', async () => {
+    act(() => setManifestMode('form'));
+    const provider = coreResourceEditors.find(editor => editor.targets[0].kind === 'Endpoints')!;
+    const inspectContext: ResourceEditorContext = { ...context, ...provider.targets[0], intent: 'inspect', name: 'manual', namespace: 'team', ownership: { status: 'controller' } };
+    const inspectSource = 'apiVersion: v1\nkind: Endpoints\nmetadata: {name: manual, namespace: team}\nsubsets: [{addresses: [{ip: 10.0.0.8}], ports: [{port: 8080}]}]\n';
+    const submission = createRef<ResourceEditorSubmissionHandle>();
+    const onChange = vi.fn();
+    await act(async () => {
+      render(<ResourceManifestEditor value={inspectSource} onChange={onChange} resourceKey="k8s:core/endpoints" editorContext={inspectContext} contribution={provider} references={{ list: async () => ({ status: 'denied' }) }} actions={actions} submissionRef={submission} />);
+    });
+    expect(await screen.findByLabelText('Ready IP 1')).toBeDisabled();
+    expect(screen.getByRole('radio', { name: 'YAML' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('radio', { name: 'YAML' }));
+    expect(screen.getByLabelText('Canonical YAML')).toHaveAttribute('readonly');
+    expect((await submission.current!.prepare(new AbortController().signal)).status).toBe('invalid');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('runs redacted async admission in YAML mode without mounting a form or executing mutations', async () => {
     const admission = vi.fn<NonNullable<ResourceEditorContribution['validateSubmission']>>(async (draft, _context, services, signal) => {
       expect(draft.get(['spec', 'token'])).not.toBe('private-fixture-value');

@@ -205,7 +205,7 @@ function ResourceManifestSession(props: ResourceManifestEditorProps) {
     if (result.status === 'accepted') changeSource.current(controller.getSource());
     return result;
   }, [controller, provider, currentRevision, disabled, requestPending, quarantinedCurrent, readOnly, effectiveContext, patchIdentity, maskedPaths]);
-  const reportValidity = useCallback((error: string | null) => { setFormError(error ? 'Resolve pending form changes before continuing.' : null); }, [setFormError]);
+  const reportValidity = useCallback((error: string | null) => { setFormError(error && !readOnly ? 'Resolve pending form changes before continuing.' : null); }, [setFormError, readOnly]);
   const formProps = { context: publicContext, draft: publicDraft, baseline: publicBaseline, section: activeSection, disabled: disabled || readOnly || requestPending, patch, onValidityChange: reportValidity, references: scopedReferences, actions: scopedActions, requestResult: visibleRequestResult };
   const nativeProps = { value, onChange: (next: string) => {
     if (sourceAdmission.current.disabled || sourceAdmission.current.requestPending || sourceAdmission.current.readOnly || provider !== providerIdentity.current || controller.revision !== currentRevision || !controller.isActive()) return;
@@ -269,7 +269,7 @@ function ResourceManifestSession(props: ResourceManifestEditorProps) {
     finally { if (pendingRequest.current === abort) { pendingRequest.current = null; setRequestPending(false); } }
   };
   const compatible = contributions.filter((entry) => matchesResourceEditor(entry.value, effectiveContext));
-  return <div className={styles.editor}>
+  return <div className={styles.editor} data-read-only={readOnly || undefined}>
     <div className={styles.toolbar}>
       <span className={styles.context}>{connectionID || context || filename}{admittedContext.scope === 'Namespaced' && <> / {admittedContext.namespace || 'Choose namespace'}</>}</span>
       {compatible.length > 1 && <label>Editor <select aria-label="Resource editor provider" value={selected?.id ?? ''} disabled={disabled || !!formError || requestPending} onChange={(event) => {

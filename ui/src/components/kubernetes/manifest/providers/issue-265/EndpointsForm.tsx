@@ -1,6 +1,6 @@
 import type { ResourceEditorFormProps } from '@omniviewdev/runtime';
 import { useEditorReferences } from '../../editor-controls';
-import { endpointError, endpointServiceError, ownershipReason, text } from './domain';
+import { endpointError, endpointServiceError, text } from './domain';
 import { Advanced, Choice, CoreForm, Field, Repeat, SafetyGate } from './fields';
 export default function EndpointsForm(form:ResourceEditorFormProps) {
   const name = text(form.draft,['metadata','name']) || form.context.name || '';
@@ -10,7 +10,7 @@ export default function EndpointsForm(form:ResourceEditorFormProps) {
 }
 function ResolvedEndpointsForm({form,name,namespace}:{form:ResourceEditorFormProps;name:string;namespace:string}) {
   const services = useEditorReferences(form,{group:'',version:'v1',resource:'services',namespace,projection:'servicePorts'});
-  const message = endpointServiceError(services,name,namespace) || ownershipReason(form.draft,form.context);
+  const message = endpointServiceError(services,name,namespace);
   const guarded = {...form,disabled:form.disabled || !!message};
   return <CoreForm form={form} confirm="I am authoring manual endpoints for a selectorless Service."><SafetyGate error={message}/><div role="note">Endpoints is deprecated. Address changes redirect Service traffic.</div>
     <Repeat form={guarded} title="Subset" path={['subsets']} initial={{addresses:[],ports:[]}}>{index=><>

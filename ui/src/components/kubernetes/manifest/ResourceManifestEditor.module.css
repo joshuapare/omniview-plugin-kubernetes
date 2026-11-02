@@ -12,6 +12,11 @@
   container-type: inline-size;
 }
 
+.editor[data-read-only] [data-disabled]:has(> input),
+.editor[data-read-only] [role="combobox"][data-disabled] {
+  opacity: 1;
+}
+
 .toolbar {
   display: flex;
   flex-shrink: 0;
