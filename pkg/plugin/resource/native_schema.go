@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -16,7 +17,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// nativeSchemaDocument keeps the exact OpenAPI document and its native root.
+// nativeSchemaDocument keeps the adapter-corrected OpenAPI document and its native root.
 // It does not normalize dialects, rewrite references, or claim validation.
 // All types from one group/version share the same bounded document bytes.
 type nativeSchemaDocument struct {
@@ -190,6 +191,13 @@ func fetchNativeSchemas(ctx context.Context, client rest.Interface, bindings map
 			}
 			continue
 		}
+		data, err = correctNativeTimeSchemas(data, document.Components.Schemas)
+		if err != nil {
+			for _, token := range tokens {
+				failures[token] = err
+			}
+			continue
+		}
 		digest := sha256.Sum256(data)
 		revision := hex.EncodeToString(digest[:])
 		roots := make(map[schema.GroupVersionKind]string)
@@ -241,6 +249,134 @@ func fetchNativeSchemas(ctx context.Context, client rest.Interface, bindings map
 		}
 	}
 	return result, failures, lease
+}
+
+// correctNativeTimeSchemas changes only the two Kubernetes time components.
+// The input remains untouched, and unchanged documents retain their exact bytes.
+func correctNativeTimeSchemas(data []byte, schemas map[string]json.RawMessage) ([]byte, error) {
+	corrections := make(map[string][]byte, 2)
+	for _, name := range []string{
+		"io.k8s.apimachinery.pkg.apis.meta.v1.Time",
+		"io.k8s.apimachinery.pkg.apis.meta.v1.MicroTime",
+	} {
+		body, ok := schemas[name]
+		if !ok {
+			continue
+		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(body, &fields); err != nil || fields == nil {
+			return nil, fmt.Errorf("invalid native OpenAPI component %q: expected object", name)
+		}
+		if bytes.Equal(bytes.TrimSpace(fields["nullable"]), []byte("true")) {
+			continue
+		}
+		fields["nullable"] = json.RawMessage("true")
+		corrected, err := json.Marshal(fields)
+		if err != nil {
+			return nil, fmt.Errorf("invalid native OpenAPI component %q: %w", name, err)
+		}
+		corrections[name] = corrected
+	}
+	if len(corrections) == 0 {
+		return data, nil
+	}
+
+	type replacement struct {
+		start, end int
+		body       []byte
+	}
+	var replacements []replacement
+	// The document was validated before this scan. Locate values without
+	// decoding or copying unrelated, potentially large, document sections.
+	skipSpace := func(i int) int {
+		for i < len(data) && (data[i] == ' ' || data[i] == '\n' || data[i] == '\r' || data[i] == '\t') {
+			i++
+		}
+		return i
+	}
+	skipString := func(i int) int {
+		i++
+		for i < len(data) {
+			if data[i] == '\\' {
+				i += 2
+			} else if data[i] == '"' {
+				return i + 1
+			} else {
+				i++
+			}
+		}
+		return i
+	}
+	skipValue := func(i int) int {
+		depth := 0
+		for i < len(data) {
+			switch data[i] {
+			case '"':
+				i = skipString(i)
+				continue
+			case '{', '[':
+				depth++
+			case '}', ']':
+				if depth == 0 {
+					return i
+				}
+				depth--
+				if depth == 0 {
+					return i + 1
+				}
+			case ',', ' ', '\n', '\r', '\t':
+				if depth == 0 {
+					return i
+				}
+			}
+			i++
+		}
+		return i
+	}
+	var walk func(int, int)
+	walk = func(start, level int) {
+		if start >= len(data) || data[start] != '{' {
+			return
+		}
+		i := skipSpace(start + 1)
+		for data[i] != '}' {
+			end := skipString(i)
+			var name string
+			_ = json.Unmarshal(data[i:end], &name) // Already validated.
+			i = skipSpace(end)
+			i = skipSpace(i + 1) // Colon.
+			end = skipValue(i)
+			if (level == 0 && name == "components") || (level == 1 && name == "schemas") {
+				walk(i, level+1)
+			} else if corrected, ok := corrections[name]; level == 2 && ok {
+				replacements = append(replacements, replacement{start: i, end: end, body: corrected})
+			}
+			i = skipSpace(end)
+			if data[i] == ',' {
+				i = skipSpace(i + 1)
+			}
+		}
+	}
+	walk(skipSpace(0), 0)
+	if len(replacements) != len(corrections) {
+		return nil, fmt.Errorf("native OpenAPI time component location is invalid")
+	}
+	size := len(data)
+	for _, r := range replacements {
+		size += len(r.body) - (r.end - r.start)
+	}
+	if size > maxNativeSchemaBytes {
+		return nil, fmt.Errorf("native OpenAPI document exceeds %d bytes", maxNativeSchemaBytes)
+	}
+	result := make([]byte, 0, size)
+	last := 0
+	for _, r := range replacements {
+		result = append(result, data[last:r.start]...)
+		result = append(result, r.body...)
+		last = r.end
+	}
+	result = append(result, data[last:]...)
+	return result, nil
 }
 
 func readNativeSchema(ctx context.Context, client rest.Interface, path string) ([]byte, error) {
