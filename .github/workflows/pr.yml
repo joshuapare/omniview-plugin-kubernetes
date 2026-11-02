@@ -73,6 +73,8 @@ jobs:
 
       - uses: arduino/setup-task@v2
         if: env.CANDIDATE_MODE == 'true'
+        with:
+          repo-token: ${{ github.token }}
 
       - name: Select approved cohort
         if: env.CANDIDATE_MODE == 'true'

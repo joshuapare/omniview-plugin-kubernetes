@@ -135,6 +135,11 @@ needs the same GTK 4, WebKitGTK 6.0, Wayland, compiler and pkg-config developmen
 prerequisites as the host CI image; the labeled workflow installs them explicitly.
 The unlabeled published dependency lane does not run this native setup.
 
+Task bootstrap passes the existing job token through `arduino/setup-task`'s
+documented `repo-token` input. Release metadata requests use authenticated API
+quota instead of the shared runner's unauthenticated quota. Permissions remain
+`contents: read`; tokens are not persisted in source or artifacts.
+
 Shared producer preparation and the final production build use the canonical
 `build-plugin-ui` operation, which owns dependency order, staged outputs,
 publication, and generated shims. Consumer checks use the supplied supervised
