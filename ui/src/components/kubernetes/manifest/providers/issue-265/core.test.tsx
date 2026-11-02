@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ResourceEditorContext, ResourceEditorFormProps, ResourceEditorReferenceResult } from '@omniviewdev/runtime';
-import { createResourceEditorDraft, ResourceEditorController } from '../../ResourceEditorController';
+import { createResourceEditorDraft, ResourceEditorController } from '../../resourceEditorController';
 import { resourceEditors } from './index';
 import { coreUnavailable, endpointError, ownershipReason, validateCore, validateEndpointsSubmission } from './domain';
 import { PodTemplateForm } from './WorkloadFields';

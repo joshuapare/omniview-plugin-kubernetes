@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { useState } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { ResourceEditorContext, ResourceEditorFormProps } from '@omniviewdev/runtime';
-import { ResourceEditorController } from '../../ResourceEditorController';
+import { ResourceEditorController } from '../../resourceEditorController';
 import GeneratorForm from './GeneratorForm';
 import { resourceEditors } from './index';
 

@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useReducer, type ComponentType } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ResourceEditorController } from '../../ResourceEditorController';
+import { ResourceEditorController } from '../../resourceEditorController';
 
 import CSIDriverForm from './CSIDriverForm';
 import { storageFixtureContext, storageFixtures, type StorageFixtureKind } from './fixtures';

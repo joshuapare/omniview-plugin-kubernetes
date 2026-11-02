@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ResourceEditorContext } from '@omniviewdev/runtime';
-import { ResourceEditorController } from '../../ResourceEditorController';
+import { ResourceEditorController } from '../../resourceEditorController';
 import { validate } from './domain';
 
 const context = (kind: string): ResourceEditorContext => ({
