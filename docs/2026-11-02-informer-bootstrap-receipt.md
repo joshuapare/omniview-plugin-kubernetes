@@ -98,3 +98,109 @@ FAIL
 PASS
 ok  	github.com/omniview/kubernetes/pkg/plugin/resource/resourcers	15.059s
 ```
+
+## Follow-up handoff and partition proof
+
+The standalone `go run /tmp/ri-p10-handoff-probe.go` invoked the production resourcer and shared informer against a controlled fake dynamic transport. Its one-off output was:
+
+```text
+cold events=[ADD:initial ADD:added UPDATE:initial DELETE:initial] current=map[added:1]
+warm events=[ADD:added] current=map[added:1]
+native_sources=1 bestEffort=true controlled_transport=fake-dynamic
+final_watch_stopped=true
+```
+
+The retained `TestWarmInformerHandoffProbe` additionally blocks the warm subscriber during initial delivery while the native watch adds, updates, and deletes objects. It checks ordered delivery, final identity, shared ownership, cancellation, and final cleanup. `TestInformerPartitionOutcomes` covers empty, skipped, scoped forbidden and transient-error cases.
+
+A separate exploratory test added two cases to that fixture: team-a contains one Pod, team-b LIST returns 403 or a transient error. Both baseline and candidate returned state 2 (Synced), estimate 1, and no error after the 30-second sync deadline, concealing the failed namespace. Those exploratory assertions intentionally failed and are not retained as passing tests. The legacy first-namespace 404/405 preflight can also skip the whole request; that observation is from source inspection, not the experiment. Do not treat these states as truthful coverage. Ticket `omn-yjgt` depends on C04 freeze `omn-b5ju` and requires the session adapter to disclose partial and error coverage. Issue #57 remains open until aggregate acceptance.
+
+Commands (controlled transport, no live cluster):
+
+```sh
+go run /tmp/ri-p10-handoff-probe.go
+go test ./pkg/plugin/resource/resourcers -run '^(TestWarmInformerHandoffProbe|TestInformerPartitionEmptySelection|TestInformerPartitionOutcomes)$' -count=1 -v
+go test ./pkg/plugin/resource/resourcers -run '^TestInformerPartitionOutcomes/(partial_forbidden|partial_error)$' -count=1 -v
+go test -race ./pkg/plugin/resource/resourcers -run '^(TestWarmInformerHandoffProbe|TestInformerPartitionEmptySelection|TestInformerPartitionOutcomes)$' -count=1 -v
+```
+
+The exploratory partial cases were present only during the baseline and candidate comparisons. The last command used the retained passing cases.
+
+### Baseline partial-scope raw output
+
+```text
+=== RUN   TestInformerPartitionOutcomes
+=== RUN   TestInformerPartitionOutcomes/partial_forbidden
+E1102 02:50:27.091484  250627 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: pods is forbidden: denied" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+E1102 02:50:28.584959  250627 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: pods is forbidden: denied" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+E1102 02:50:31.167178  250627 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: pods is forbidden: denied" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+E1102 02:50:35.727828  250627 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: pods is forbidden: denied" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+E1102 02:50:45.992716  250627 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: pods is forbidden: denied" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+    informer_partition_outcomes_test.go:99: observed state=2 count_kind=estimate count=1 error_nil=true
+    informer_partition_outcomes_test.go:103: 
+        	Error Trace:	/home/mononen/omniview/workspaces/ri-p10/omniview-plugin-kubernetes/pkg/plugin/resource/resourcers/informer_partition_outcomes_test.go:103
+        	Error:      	Not equal: 
+        	            	expected: 6
+        	            	actual  : 2
+        	Test:       	TestInformerPartitionOutcomes/partial_forbidden
+        	Messages:   	aggregate state must disclose failed scoped partitions
+=== RUN   TestInformerPartitionOutcomes/partial_error
+E1102 02:50:57.104429  250627 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: list failed" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+E1102 02:50:58.335057  250627 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: list failed" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+E1102 02:51:00.464572  250627 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: list failed" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+E1102 02:51:05.085356  250627 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: list failed" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+E1102 02:51:13.804897  250627 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: list failed" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+    informer_partition_outcomes_test.go:99: observed state=2 count_kind=estimate count=1 error_nil=true
+    informer_partition_outcomes_test.go:103: 
+        	Error Trace:	/home/mononen/omniview/workspaces/ri-p10/omniview-plugin-kubernetes/pkg/plugin/resource/resourcers/informer_partition_outcomes_test.go:103
+        	Error:      	Not equal: 
+        	            	expected: 3
+        	            	actual  : 2
+        	Test:       	TestInformerPartitionOutcomes/partial_error
+        	Messages:   	aggregate state must disclose failed scoped partitions
+--- FAIL: TestInformerPartitionOutcomes (60.03s)
+    --- FAIL: TestInformerPartitionOutcomes/partial_forbidden (30.01s)
+    --- FAIL: TestInformerPartitionOutcomes/partial_error (30.01s)
+FAIL
+FAIL	github.com/omniview/kubernetes/pkg/plugin/resource/resourcers	60.076s
+FAIL
+```
+
+### Candidate partial-scope raw output
+
+```text
+=== RUN   TestInformerPartitionOutcomes
+=== RUN   TestInformerPartitionOutcomes/partial_forbidden
+E1102 02:51:43.711683  271738 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: pods is forbidden: denied" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+E1102 02:51:45.128938  271738 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: pods is forbidden: denied" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+E1102 02:51:46.851017  271738 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: pods is forbidden: denied" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+E1102 02:51:52.562734  271738 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: pods is forbidden: denied" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+E1102 02:52:02.056392  271738 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: pods is forbidden: denied" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+    informer_partition_outcomes_test.go:99: observed state=2 count_kind=estimate count=1 error_nil=true
+    informer_partition_outcomes_test.go:103: 
+        	Error Trace:	/home/mononen/omniview/workspaces/ri-p10/omniview-plugin-kubernetes/pkg/plugin/resource/resourcers/informer_partition_outcomes_test.go:103
+        	Error:      	Not equal: 
+        	            	expected: 6
+        	            	actual  : 2
+        	Test:       	TestInformerPartitionOutcomes/partial_forbidden
+        	Messages:   	aggregate state must disclose failed scoped partitions
+=== RUN   TestInformerPartitionOutcomes/partial_error
+E1102 02:52:13.725987  271738 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: list failed" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+E1102 02:52:15.113131  271738 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: list failed" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+E1102 02:52:17.435286  271738 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: list failed" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+E1102 02:52:21.575598  271738 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: list failed" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+E1102 02:52:34.350905  271738 reflector.go:204] "Failed to watch" err="failed to list /v1, Resource=pods: list failed" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="/v1, Resource=pods"
+    informer_partition_outcomes_test.go:99: observed state=2 count_kind=estimate count=1 error_nil=true
+    informer_partition_outcomes_test.go:103: 
+        	Error Trace:	/home/mononen/omniview/workspaces/ri-p10/omniview-plugin-kubernetes/pkg/plugin/resource/resourcers/informer_partition_outcomes_test.go:103
+        	Error:      	Not equal: 
+        	            	expected: 3
+        	            	actual  : 2
+        	Test:       	TestInformerPartitionOutcomes/partial_error
+        	Messages:   	aggregate state must disclose failed scoped partitions
+--- FAIL: TestInformerPartitionOutcomes (60.02s)
+    --- FAIL: TestInformerPartitionOutcomes/partial_forbidden (30.01s)
+    --- FAIL: TestInformerPartitionOutcomes/partial_error (30.01s)
+FAIL
+FAIL	github.com/omniview/kubernetes/pkg/plugin/resource/resourcers	60.074s
+FAIL
+```
