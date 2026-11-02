@@ -125,7 +125,7 @@ func nativeEnumerate(ctx context.Context, client dynamic.Interface, gvr schema.G
 		Records:     []resourcev2.Record{},
 		Count:       resourcev2.Count{Kind: "unknown"},
 		Coverage:    nativeRepresentationCoverage(representation),
-		Consistency: "bestEffort",
+		Consistency: resourcev2.ConsistencyBestEffort,
 	}
 	if len(namespaces) == 0 {
 		return page, nil

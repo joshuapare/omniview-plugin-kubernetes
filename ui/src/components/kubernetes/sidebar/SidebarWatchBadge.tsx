@@ -1,19 +1,14 @@
 import { Spinner } from '@omniviewdev/base-ui';
-import { WatchState } from '@omniviewdev/runtime';
+import type { SourceSessionState } from '@omniviewdev/runtime';
 import React from 'react';
 
-type States = Readonly<Record<string, WatchState>>;
+type States = Readonly<Record<string, SourceSessionState>>;
 type Status = 'none' | 'syncing' | 'error';
 type Listener = () => void;
 
-function statusOf(state: WatchState | undefined): Status {
-  if (
-    state === WatchState.WatchStateError ||
-    state === WatchState.WatchStateFailed ||
-    state === WatchState.WatchStateForbidden
-  )
-    return 'error';
-  if (state === WatchState.WatchStateSyncing || state === WatchState.WatchStateIdle)
+function statusOf(state: SourceSessionState | undefined): Status {
+  if (state === 'failed') return 'error';
+  if (state === 'opening' || state === 'snapshotting' || state === 'resetRequired')
     return 'syncing';
   return 'none';
 }
@@ -66,7 +61,7 @@ class WatchStore {
 const emptyStore = new WatchStore();
 const WatchContext = React.createContext(emptyStore);
 
-export function SidebarWatchStateProvider({
+export function SidebarSourceStateProvider({
   states,
   children,
 }: {

@@ -68,6 +68,49 @@ func TestNativeCatalogIndependentOperations(t *testing.T) {
 	}, report.Descriptor.Capabilities)
 }
 
+func TestNativeCatalogSourceContinuityAndAcquisition(t *testing.T) {
+	discovery := &fake.FakeDiscovery{Fake: &clienttesting.Fake{Resources: []*metav1.APIResourceList{
+		{GroupVersion: "v1", APIResources: []metav1.APIResource{
+			{Name: "pods", Kind: "Pod", Namespaced: true, Verbs: metav1.Verbs{"list", "watch"}},
+			{Name: "events", Kind: "Event", Namespaced: true, Verbs: metav1.Verbs{"list", "watch"}},
+			{Name: "configmaps", Kind: "ConfigMap", Namespaced: true, Verbs: metav1.Verbs{"list"}},
+		}},
+		{GroupVersion: "events.k8s.io/v1", APIResources: []metav1.APIResource{
+			{Name: "events", Kind: "Event", Namespaced: true, Verbs: metav1.Verbs{"list", "watch"}},
+		}},
+	}}}
+	bindings, coverage, err := discoverNativeTypes(context.Background(), discovery)
+	require.NoError(t, err)
+	p := &kubernetesProvider{logger: zap.NewNop().Sugar()}
+	scope := resourcev2.QueryScope{{Dimension: "namespace", Match: resourcev2.ScopeAny}}
+	snapshot, err := p.assembleNativeCatalog(context.Background(), "route", nil, bindings, coverage, nil, nil, nil, scope)
+	require.NoError(t, err)
+	for _, tc := range []struct {
+		token   string
+		source  bool
+		acquire bool
+	}{
+		{"k8s:/pods", true, true},
+		{"k8s:/events", true, false},
+		{"k8s:events.k8s.io/events", true, false},
+		{"k8s:/configmaps", false, false},
+	} {
+		t.Run(tc.token, func(t *testing.T) {
+			descriptor := snapshot.bindings[tc.token].Descriptor
+			require.Equal(t, tc.acquire, descriptor.AcquireOnConnect)
+			var found bool
+			for _, capability := range descriptor.Capabilities {
+				if capability.Operation == resourcev2.OperationSourceUpdates {
+					found = true
+					require.Equal(t, resourcev2.ContinuityBestEffort, capability.Guarantee)
+					require.Equal(t, scope, capability.Scope)
+				}
+			}
+			require.Equal(t, tc.source, found)
+		})
+	}
+}
+
 func TestNativeCatalogCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

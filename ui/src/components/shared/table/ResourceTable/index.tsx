@@ -156,14 +156,14 @@ const ResourceTableContainer = <T extends RowData,>({
     type: resourceKey,
   });
   const collectionContext = JSON.stringify([connectionID, resourceKey, target.data]);
-  const { resources, acquired, isSyncing, watchError } = useResources({
+  const { resources, acquired, isSyncing, sourceError } = useResources({
     pluginID: PLUGIN_ID,
     collection: true,
     request: target.data ? {
       targetId: target.data.targetId,
       request: { target: target.data.target, pageSize: 256 },
     } : undefined,
-    live: resourceType.data?.capabilities.some((capability) => capability.operation === 'update') ?? false,
+    live: resourceType.data?.capabilities.some((capability) => capability.operation === 'sourceUpdates') ?? false,
   });
   const rowSelection = collectionSelection.context === collectionContext ? collectionSelection.selection : {};
   const setRowSelection = React.useCallback<React.Dispatch<React.SetStateAction<RowSelectionState>>>((update) => {
@@ -329,7 +329,7 @@ const ResourceTableContainer = <T extends RowData,>({
       {/* Row menu actions run outside the drawer, so the table mounts their handlers too */}
       {drawer && <DrawerActionsBridge connectionID={connectionID} resourceKey={resourceKey} />}
       <div className={styles.outer}>
-        {watchError && <div role="status">Live updates unavailable. Showing the last acquired resources.</div>}
+        {sourceError && <div role="status">Live updates unavailable. Showing the last acquired resources.</div>}
         {resources.isError && <div role="alert">Could not update resources. <Button size="sm" variant="outline" onClick={() => { void resources.refetch(); }}>Retry</Button></div>}
         <DataTable.Root
           table={table}

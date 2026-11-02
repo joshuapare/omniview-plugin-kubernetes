@@ -45,7 +45,7 @@ func auditRegistration() resourcev2.Registration[clients.ClientSet] {
 					Reference: resourcev2.ResourceReference{Address: resourcev2.ResourceAddress{Provider: request.Target.Provider, Authority: request.Target.Authority, Type: auditType, Scope: []resourcev2.ScopeEntry{}, ID: "cluster"}},
 					Body:      body, Representation: descriptor.Representations[0], Coverage: nativeCompleteCoverage(),
 				}},
-				Count: resourcev2.Count{Kind: "exact", Value: &total}, Coverage: nativeCompleteCoverage(), Consistency: resourcev2.BestEffortGuarantee,
+				Count: resourcev2.Count{Kind: "exact", Value: &total}, Coverage: nativeCompleteCoverage(), Consistency: resourcev2.ConsistencyBestEffort,
 			}
 			return page, resourcev2.ValidateSourcePage(page)
 		},
