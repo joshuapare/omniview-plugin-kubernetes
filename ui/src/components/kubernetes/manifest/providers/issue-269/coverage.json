@@ -1,0 +1,46 @@
+{
+  "issue": 269,
+  "apiSnapshot": "Kubernetes v1.35.0 / k8s.io/api v0.35.0",
+  "target": { "group": "policy", "version": "v1", "kind": "PodDisruptionBudget", "resource": "poddisruptionbudgets", "scope": "Namespaced" },
+  "sources": [
+    "https://github.com/kubernetes/api/blob/v0.35.0/policy/v1/types.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/apis/policy/validation/validation.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/registry/policy/poddisruptionbudget/strategy.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/api/openapi-spec/swagger.json#L73742-L74821"
+  ],
+  "applicability": {
+    "provider": "Kubernetes native builtin",
+    "featureGate": "None for the displayed stable policy/v1 fields at the pinned snapshot",
+    "discovery": "Require exact available policy/v1 discovery and schema; permission remains independently authoritative",
+    "permission": "Available create/update capability required; denied, unknown and unavailable never grant writes",
+    "installation": "Native API; no operator installation implied",
+    "identity": "Host owns create identity and locks name/namespace on edit",
+    "specMutability": "Displayed specification fields are mutable; host schema admission constrains each patch",
+    "ownership": "Declarative desired-state policy under explicit create/edit intent; host restricts actual controller ownerReferences or trusted controller/system/installer evidence. Editor policy never grants RBAC permission.",
+    "status": "Read-only, controller-owned; generation comparison uses exact scalars"
+  },
+  "fields": [
+    { "control": "Host name and namespace", "paths": ["metadata.name", "metadata.namespace"], "owner": "host", "behavior": "Create only; immutable edit identity" },
+    { "control": "Exclusive budget rule", "paths": ["spec.minAvailable", "spec.maxUnavailable"], "behavior": "Atomic remove alternative plus set chosen rule; explicit omitted choice preserves API omission" },
+    { "control": "Amount and pods/percentage measure", "paths": ["spec.minAvailable", "spec.maxUnavailable"], "behavior": "Nonnegative int32 bigint or 0–100 percentage string; revision-scoped local input derives from its canonical budget baseline without effect resets, retaining partial text across sibling edits" },
+    { "control": "Selection scope", "paths": ["spec.selector"], "behavior": "Explicit omitted versus null matches no Pods; all-Pods selection explicitly removes owned requirement leaves before setting {}, and null/object transitions are atomic remove-and-set operations preserving unowned siblings" },
+    { "control": "Label equality rows and add/remove", "paths": ["spec.selector.matchLabels[key]"], "behavior": "Qualified Kubernetes label key/value validation; leaf operations preserve expression rows" },
+    { "control": "Expression key/operator/tag values and add/remove", "paths": ["spec.selector.matchExpressions[i].key", "spec.selector.matchExpressions[i].operator", "spec.selector.matchExpressions[i].values[j]"], "behavior": "In/NotIn require values; Exists/DoesNotExist atomically omit values; stable row identities keep pending token text attached during sibling deletion, and indexed edits retain comments and unedited leaves" },
+    { "control": "Matching Pod metadata preview", "paths": [], "behavior": "Real scoped core/v1 pods metadata lookup, AND matching, cancellation/session guards, denied/absent/unavailable/empty distinct; no readiness/controller compatibility/permission claim" },
+    { "control": "Unhealthy Pod eviction policy", "paths": ["spec.unhealthyPodEvictionPolicy"], "behavior": "Omitted default, IfHealthyBudget or AlwaysAllow; AlwaysAllow consequence remains visible" },
+    { "control": "Read-only status counters", "paths": ["status.observedGeneration", "status.disruptionsAllowed", "status.currentHealthy", "status.desiredHealthy", "status.expectedPods", "metadata.generation"], "owner": "controller", "behavior": "Missing or stale observed generation warns; no inferred eviction authority" },
+    { "control": "Advanced read-only conditions and pending disruptions", "paths": ["status.conditions", "status.disruptedPods"], "owner": "controller", "behavior": "Conditions show type/status/reason/time, pending disruptions show Pod/time; arbitrary condition message is not replayed into user errors" },
+    { "control": "Host canonical YAML", "paths": ["unknown siblings", "comments", "exact integers", "unsupported owned shapes"], "owner": "host", "behavior": "Unsupported selector shapes/policies retain exact source in YAML fallback; known leaves remain bidirectional; projected containers never submitted as mutation values" }
+  ],
+  "boundaries": {
+    "Eviction": "No persisted Eviction contribution. Existing Pod action owns POST /api/v1/namespaces/{namespace}/pods/{name}/eviction. Transport is exact Pod-context scoped; PDB editor cannot execute cross-target evictions or infer admission success.",
+    "PodSecurityPolicy": "Removed API excluded.",
+    "status": "No status path owned by contribution; controller rejects status patches.",
+    "controllerCompatibility": "maxUnavailable warns about compatible scalable-controller ownership; Pod metadata does not prove compatibility.",
+    "sourcePrivacy": "No source values, credentials, annotations or preferences persisted by this group. Host owns source, masking and explicit mode preference."
+  },
+  "regressions": ["policy.test.ts", "PodDisruptionBudgetForm.test.tsx"],
+  "fixtureHarness": ".local/resource-editor-implementation/issue-269/main.tsx",
+  "fixtureMapping": ".local/resource-editor-implementation/issue-269/capture.json",
+  "verification": "Not run by worker. Parent owns coherent checks and screenshot wave."
+}

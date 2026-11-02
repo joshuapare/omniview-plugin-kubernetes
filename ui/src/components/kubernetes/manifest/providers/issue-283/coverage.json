@@ -1,0 +1,117 @@
+{
+  "issue": 283,
+  "apiGroup": "resource.k8s.io",
+  "snapshot": { "kubernetes": "v1.35.0", "api": "v0.35.0" },
+  "sources": [
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/registry/resource/rest/storage_resource.go",
+    "https://github.com/kubernetes/api/blob/v0.35.0/resource/v1/types.go",
+    "https://github.com/kubernetes/api/blob/v0.35.0/resource/v1beta1/types.go",
+    "https://github.com/kubernetes/api/blob/v0.35.0/resource/v1beta2/types.go",
+    "https://github.com/kubernetes/api/blob/v0.35.0/resource/v1alpha3/types.go",
+    "https://github.com/kubernetes/api/blob/v0.35.0/resource/v1alpha3/register.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/features/kube_features.go#L1242-L1257"
+  ],
+  "sharedOwnership": {
+    "identity": "Host owns metadata.name and namespaced metadata.namespace; identities lock on edit.",
+    "source": "Host owns canonical AST, source preference, discovery, schema, authorization, atomic patches and local submission.",
+    "registration": "Parent aggregates index.ts resourceEditors. Group adds no second registry.",
+    "policy": "DeviceClass, ResourceClaimTemplate and DeviceTaintRule declare declarative policy; ResourceClaim declares conditional policy; ResourceSlice declares controller policy. Policies never grant permission and managed ownership overrides authoring.",
+    "safety": "No driver parameters, annotation values or status.devices[].data are read or serialized by forms. Annotation values and opaque parameters are sensitive paths. Source raw access remains host-owned.",
+    "availability": "Every exact target still requires installed discovery/schema and actual authorized verbs. Schema presence never proves driver support or enabled feature gates."
+  },
+  "components": [
+    {
+      "kind": "DeviceClass", "resource": "deviceclasses", "scope": "Cluster", "versions": ["v1", "v1beta1", "v1beta2"],
+      "component": "DeviceClassForm.tsx", "workflows": ["create", "edit", "inspect"],
+      "fields": [
+        { "path": "spec.selectors[i].cel.expression", "control": "Repeatable CEL fields with add/remove and 10 KiB validation; leaf patches preserve unknown siblings." },
+        { "path": "spec.extendedResourceName", "control": "Optional extended-resource name; disabled until DRAExtendedResource availability is confirmed." },
+        { "path": "spec.config[i].opaque.parameters", "control": "Protected driver-provider/source boundary. Never copied into a class-spec patch." }
+      ],
+      "fixtures": ["class-create", "class-edit", "class-empty", "class-discovery-absent"],
+      "regressions": ["dra.test.tsx: canonical behavior and immutable/sensitive patch boundaries", "Shared host/controller tests enforce scope, comments and sensitive markers."]
+    },
+    {
+      "kind": "ResourceClaimTemplate", "resource": "resourceclaimtemplates", "scope": "Namespaced", "versions": ["v1", "v1beta1", "v1beta2"],
+      "component": "ClaimsForm.tsx", "workflows": ["create", "immutable-spec inspection on edit"],
+      "fields": [
+        { "path": "spec.spec.devices.requests[i].name", "control": "Unique DNS request name, repeatable requests (1–32)." },
+        { "path": "spec.spec.devices.requests[i].exactly", "control": "Class reference, ExactCount/All union, optional exact bigint count, repeatable CEL selectors, gated admin access." },
+        { "path": "spec.spec.devices.requests[i].firstAvailable[j]", "control": "Ordered alternatives (1–8), distinct DNS name, class reference, allocation/count and CEL. Removal preserves untouched rows." },
+        { "path": "spec.spec.devices.requests[i].deviceClassName/allocationMode/count", "control": "v1beta1 only: flat exact request paths, no invented exactly wrapper." },
+        { "path": "spec.metadata.labels[key]", "control": "Copied label add/rename/edit/remove, qualified key and label value validation, scoped leaf patches." },
+        { "path": "spec.metadata.annotations", "control": "Masked, retained unchanged; protected source workflow." },
+        { "path": "spec.spec.devices.constraints/config", "control": "Explicit source/driver-provider boundary, retained unchanged." },
+        { "path": "spec.spec.devices.requests[].exactly.capacity/tolerations", "control": "Gated advanced source boundary, preserved unchanged. Unknown gate locks copied gated source." }
+      ],
+      "immutable": "Entire spec is immutable on existing templates, including copied labels/annotations.",
+      "fixtures": ["template-create", "template-edit-immutable"],
+      "regressions": ["dra.test.tsx: locks template edits and generated claims, including source patch attempts"]
+    },
+    {
+      "kind": "ResourceClaim", "variant": "standalone conditional", "resource": "resourceclaims", "scope": "Namespaced", "versions": ["v1", "v1beta1", "v1beta2"],
+      "component": "ClaimsForm.tsx", "workflows": ["standalone create", "immutable-spec inspection on edit"],
+      "fields": [
+        { "path": "spec.devices.requests[i]", "control": "Same request strategy/class/allocation/count/selector controls as template, without spec.spec prefix." },
+        { "path": "spec.devices.requests[i].exactly.adminAccess", "control": "Boolean choice only when DRAAdminAccess is available; concise gate status otherwise." },
+        { "path": "status.allocation.devices.results[i].request/driver/pool/device", "control": "Read-only allocation summaries, never allocation action." },
+        { "path": "status.reservedFor[i].apiGroup/resource/name", "control": "Read-only consumer summaries." },
+        { "path": "status.devices[i].data", "control": "Sensitive, not rendered or written." },
+        { "path": "spec.devices.constraints/config", "control": "Advanced source/driver-provider boundary, preserved unchanged." }
+      ],
+      "unions": "Strategy change refuses advanced/unknown branch fields; multiple alternatives must be explicitly reduced before choosing single request. All removes only count atomically. Unknown allocation modes and unsupported scalar/container shapes retain source fallback.",
+      "immutability": "All existing claim specs lock, including standalone claims. Controller/system ownership blocks create routing too.",
+      "fixtures": ["claim-standalone-create", "claim-standalone-edit-immutable", "claim-invalid-count", "claim-all", "claim-prioritized", "claim-beta1-flat", "claim-beta2", "claim-unsupported-mode", "claim-lookup-empty", "claim-lookup-denied", "claim-lookup-unavailable"],
+      "regressions": ["dra.test.tsx: partial count and sibling edits", "dra.test.tsx: exact int64 bounds", "dra.test.tsx: beta1 flat shape", "dra.test.tsx: All scoped patch", "dra.test.tsx: safe branch rejection", "dra.test.tsx: unsupported scalar and duplicate names"]
+    },
+    {
+      "kind": "ResourceClaim", "variant": "template-generated", "resource": "resourceclaims", "scope": "Namespaced", "versions": ["v1", "v1beta1", "v1beta2"],
+      "component": "ClaimsForm.tsx", "workflows": ["inspection only"],
+      "fields": [
+        { "path": "metadata.ownerReferences[].kind/name", "control": "Read-only owner summaries. Any owner reference conservatively locks claim creation." },
+        { "path": "metadata.annotations[resource.kubernetes.io/extended-resource-claim]", "control": "Presence-only generated boundary; value remains masked." },
+        { "path": "status.allocation/status.reservedFor", "control": "Read-only allocation and consumer inspector." }
+      ],
+      "boundary": "No generated-claim create/edit action, no hidden companion resource. Workload/template changes affect future claims.",
+      "fixtures": ["claim-generated"],
+      "regressions": ["dra.test.tsx: locks template edits and generated claims, including source patch attempts"]
+    },
+    {
+      "kind": "DeviceTaintRule", "resource": "devicetaintrules", "scope": "Cluster", "versions": ["v1alpha3"],
+      "component": "DeviceTaintRuleForm.tsx", "workflows": ["gated create", "gated edit", "inspect"],
+      "prerequisites": ["DRADeviceTaints available", "DRADeviceTaintRules available", "installed schema and authorized create/update verb"],
+      "fields": [
+        { "path": "spec.deviceSelector", "control": "Explicit None (omitted), Selected, All (empty object) choice. All-device consequence stays visible." },
+        { "path": "spec.deviceSelector.driver/pool/device", "control": "Optional exact target fields. All specified fields must match." },
+        { "path": "spec.taint.key/value/effect", "control": "Qualified label key, optional label value, None/NoSchedule/NoExecute choice. NoExecute eviction consequence stays visible." },
+        { "path": "spec.taint.timeAdded", "control": "Read-only server timestamp, never submitted by form." },
+        { "path": "status.conditions[].type/status/reason/observedGeneration", "control": "Read-only controller state; no status edit or invented controller success." }
+      ],
+      "boundary": "Tombstoned class and CEL selectors are not offered. Unknown selector/effect uses source fallback. Gates are independent alpha/default-off in v1.35, even though REST routes can exist while gates are off.",
+      "fixtures": ["taint-create", "taint-edit", "taint-all-noexecute", "taint-gate-unknown", "taint-denied"],
+      "regressions": ["dra.test.tsx: omitted versus empty selectors and NoExecute warning", "dra.test.tsx: independent rule gate unknown"]
+    },
+    {
+      "kind": "ResourceSlice", "resource": "resourceslices", "scope": "Cluster", "versions": ["v1", "v1beta1", "v1beta2"],
+      "component": "ResourceSliceForm.tsx", "workflows": ["inspection only, including attempted create/edit launch"],
+      "fields": [
+        { "path": "spec.driver/pool.name/pool.generation/pool.resourceSliceCount", "control": "Read-only driver/pool inventory, exact wide generation, expected slice count. Never infer pool completeness from one object." },
+        { "path": "spec.nodeName/allNodes/perDeviceNodeSelection", "control": "Read-only placement summaries; nodeSelector preserved in read-only source." },
+        { "path": "spec.devices[].name/capacity", "control": "Device cards with exact quantity strings. v1beta1 reads devices[].basic.capacity; v1/v1beta2 read direct capacity." },
+        { "path": "spec.devices[].attributes/taints", "control": "Counts only; no unbounded attribute or driver payload rendering." },
+        { "path": "spec.sharedCounters[].name/counters[key].value", "control": "Read-only named counter summaries." }
+      ],
+      "boundary": "No allocation, publish, create, edit or status mutation. Driver/pool-name/node-name immutability stays enforced by inspection.",
+      "fixtures": ["slice-inspect", "slice-create-boundary"],
+      "regressions": ["dra.test.tsx: wide generation inventory and mutation boundary"]
+    }
+  ],
+  "notResources": ["ResourcePoolStatusRequest is absent from pinned registrations/routes", "List/helper types are not extra editors"],
+  "visualProof": {
+    "harness": ".local/resource-editor-implementation/issue-283/harness.tsx",
+    "transport": "Fixture-only sanitized references and explicitly unavailable actions; no cluster requests.",
+    "capturePlan": ".local/resource-editor-implementation/issue-283/capture-plan.json",
+    "state": "Prepared for parent-owned coherent-check and screenshot wave; no production screenshot claimed.",
+    "checksRunByWorker": []
+  }
+}

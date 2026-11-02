@@ -1,0 +1,11 @@
+Istio Telemetry provider — issue 300
+
+Pinned applicability: Istio 1.27.0 crd-all.gen.yaml. telemetry.istio.io/v1 and v1alpha1, kind Telemetry, plural telemetries, Namespaced. The pinned chart stores v1alpha1; the editor never changes an existing version. Installed discovery/schema and host ownership/capability policy remain authoritative.
+
+Sections: placement, tracing, metrics, accessLogging. Repeated signal rules, provider names, metric overrides, dimensions, targets and extraction tags use scoped atomic host patches. Metadata identity, status, source mode, review, submission and preference belong to the canonical host. Unknown siblings are never serialized back through the projection.
+
+Tracing covers sampling, omission-aware booleans, traffic mode and literal/environment/header tags. Metrics covers all eleven standard enum values, custom metric names, direction, disablement, duration and UPSERT/REMOVE CEL dimensions. Access logging covers provider names, direction, disablement and CEL filters. Placement covers exact workload labels, sanitized Pod match inspection, namespace policy, and same-namespace Gateway/Service/ServiceEntry references.
+
+Provider names refer to external MeshConfig extensionProviders. No provider CRD or fabricated catalog exists. Controller health, overlap, namespace/root policy conflicts, admission CEL/duration validation and provider resolution are not claimed. Deprecated targetRef and unsupported attachment kinds remain source-owned. Identity is immutable on edit; no additional immutable spec fields appear in the pinned CRD. Unknown/controller ownership is inspect-only.
+
+Regression source: model.test.ts. Tests are intentionally not run by this worker. Canonical-host fixture harness and full field mapping live under .local/resource-editor-implementation/issue-300. Screenshots await the coordinated post-integration capture wave; no screenshot or live mutation success is claimed.

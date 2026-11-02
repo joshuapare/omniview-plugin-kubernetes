@@ -1,0 +1,14 @@
+.custom-metrics-form { font-size: 13px; min-width: 0; }
+.custom-metrics-form details { border-top: 1px solid var(--ov-color-border-default); padding-top: 10px; margin-top: 12px; }
+.custom-metrics-form summary { cursor: pointer; font-weight: 500; margin-bottom: 10px; }
+.custom-metrics-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.custom-metrics-toolbar > span { overflow-wrap: anywhere; color: var(--ov-color-fg-muted); }
+.custom-metrics-consequence { color: var(--ov-color-fg-muted); margin: 8px 0; }
+.custom-metrics-path { display: block; overflow-wrap: anywhere; white-space: pre-wrap; padding: 10px; border: 1px solid var(--ov-color-border-default); border-radius: 4px; }
+.custom-metrics-sample { border: 1px solid var(--ov-color-border-default); border-radius: 4px; padding: 12px; margin-top: 12px; }
+.custom-metrics-sample h4 { font-size: 13px; margin: 0 0 12px; overflow-wrap: anywhere; }
+.custom-metrics-sample dl { display: grid; grid-template-columns: minmax(110px, 160px) minmax(0, 1fr); gap: 8px 12px; margin: 0; }
+.custom-metrics-sample dt { color: var(--ov-color-fg-muted); }
+.custom-metrics-sample dd { margin: 0; overflow-wrap: anywhere; }
+.custom-metrics-quantity { font-family: var(--ov-font-mono, monospace); font-variant-numeric: tabular-nums; }
+@media (max-width: 620px) { .custom-metrics-sample dl { grid-template-columns: minmax(0, 1fr); gap: 4px; } .custom-metrics-sample dd { margin-bottom: 8px; } }

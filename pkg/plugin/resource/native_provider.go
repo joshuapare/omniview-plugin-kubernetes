@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -207,6 +208,11 @@ func (p *kubernetesProvider) registration(_ context.Context, route resourcev2.Ac
 			return registration, nil
 		}
 	}
+	if token == editorQueryType {
+		registration = editorQueryRegistration()
+		registration.Connection = route.Connection
+		return registration, nil
+	}
 	if token == auditType {
 		return registration, nil
 	}
@@ -255,10 +261,14 @@ func (p *kubernetesProvider) nativeRegistration(route resourcev2.AccessRoute, bi
 			return NativeMutate(ctx, client.DynamicClient, binding.GVR, binding.API.Namespaced, binding.API.Verbs, request, representation)
 		}
 	}
-	if helper, ok := p.helpers[token].(nativeActionHelper); ok {
-		registration.Action = func(ctx context.Context, client *clients.ClientSet, request resourcev2.ActionRequest) (resourcev2.Value, error) {
+	registration.Action = func(ctx context.Context, client *clients.ClientSet, request resourcev2.ActionRequest) (resourcev2.Value, error) {
+		if strings.HasPrefix(request.Action, "kubernetes.") {
+			return editorAction(ctx, client, binding, request)
+		}
+		if helper, ok := p.helpers[token].(nativeActionHelper); ok {
 			return helper.ExecuteAction(ctx, client, request)
 		}
+		return resourcev2.Value{}, resourcev2.NewError("UNSUPPORTED", "Unknown Kubernetes action")
 	}
 	if verbSliceContains(binding.API.Verbs, "list") && verbSliceContains(binding.API.Verbs, "watch") {
 		watcher := resourcers.NewKubernetesResourcerBase[resourcers.MetaAccessor](p.logger, binding.GVR)

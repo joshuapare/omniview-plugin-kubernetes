@@ -1,0 +1,15 @@
+.storage-form { display: grid; gap: 16px; min-width: 0; font-size: 13px; }
+.storage-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 12px 16px; }
+.storage-list { display: grid; gap: 10px; min-width: 0; }
+.storage-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; min-width: 0; }
+.storage-row > .resource-editor-field, .storage-row > div:not(.storage-heading) { flex: 1 1 180px; min-width: 0; }
+.storage-key { flex: 1 1 120px; overflow-wrap: anywhere; align-self: center; }
+.storage-heading, .storage-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.storage-card { display: grid; gap: 12px; border: 1px solid var(--ov-color-border-default, currentColor); border-radius: 6px; padding: 12px; min-width: 0; }
+.storage-facts { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr); gap: 8px 16px; margin: 0; }
+.storage-facts dt { color: var(--ov-color-fg-muted, inherit); }
+.storage-facts dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.storage-form p { margin: 0; }
+.storage-form [role=alert] { color: var(--ov-color-danger, #c24444); }
+.storage-actions [aria-pressed=true] { outline: 1px solid var(--ov-color-border-focus, currentColor); outline-offset: -1px; }
+@media (max-width: 600px) { .storage-row > * { max-width: 100%; } .storage-facts { grid-template-columns: minmax(85px, 1fr) minmax(0, 1.5fr); } }

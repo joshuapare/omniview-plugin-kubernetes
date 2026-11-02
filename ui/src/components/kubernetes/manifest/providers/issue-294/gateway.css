@@ -1,0 +1,6 @@
+.gateway-editor { display:grid; gap:16px; min-width:0; font-size:13px; }
+.gateway-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr)); gap:12px; min-width:0; }
+.gateway-row { display:grid; gap:12px; padding:12px 0; border-bottom:1px solid var(--ov-color-border-default); min-width:0; }
+.gateway-editor details > summary { cursor:pointer; padding:8px 0; }
+.gateway-editor [role=note], .gateway-editor [role=status] { color:var(--ov-color-fg-muted); font-size:12px; }
+.gateway-editor [role=alert] { color:var(--ov-color-danger); }

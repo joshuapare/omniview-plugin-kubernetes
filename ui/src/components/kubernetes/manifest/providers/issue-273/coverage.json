@@ -1,0 +1,45 @@
+{
+  "issue": 273,
+  "apiBaseline": "Kubernetes v1.35.0 / k8s.io v0.35.0",
+  "group": "rbac.authorization.k8s.io",
+  "version": "v1",
+  "providerOwnership": "native Kubernetes built-in",
+  "ownershipPolicy": "All four kinds declare declarative UI policy. Trusted controller/system evidence, controller ownerReferences, bootstrap label and reserved system names override authoring. Policy never grants RBAC permission; actual discovery, capabilities and server admission remain authoritative.",
+  "sources": [
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/staging/src/k8s.io/api/rbac/v1/types.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/apis/rbac/validation/validation.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/registry/rbac/rest/storage_rbac.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/api/openapi-spec/swagger.json#L74822-L77833"
+  ],
+  "applicability": "Only explicitly discovered native v1 targets. No CRD, feature gate, or additional installation. Schema/discovery does not grant create/update/bind/escalate permission. Host resolves capabilities and preserves denied/unknown/absent states.",
+  "resources": [
+    {"kind":"Role","resource":"roles","scope":"Namespaced","component":"RbacRoleForm.tsx","intents":["create","edit","inspect"],"ownedPaths":["rules"],"fixtures":["roles-create","roles-edit","roles-system","role-unsupported","role-discovery-unavailable"]},
+    {"kind":"RoleBinding","resource":"rolebindings","scope":"Namespaced","component":"RbacBindingForm.tsx","intents":["create","edit","inspect"],"ownedPaths":["roleRef","subjects"],"fixtures":["rolebindings-create","rolebindings-edit","rolebindings-system","rolebinding-lookup-empty","rolebinding-lookup-denied","rolebinding-lookup-unavailable","rolebinding-lookup-absent","rolebinding-lookup-loading","rolebinding-denied-write"]},
+    {"kind":"ClusterRole","resource":"clusterroles","scope":"Cluster","component":"RbacRoleForm.tsx","intents":["create","edit","inspect"],"ownedPaths":["rules","aggregationRule"],"fixtures":["clusterroles-create","clusterroles-edit","clusterroles-system","clusterrole-aggregate","clusterrole-urls","clusterrole-wildcard"]},
+    {"kind":"ClusterRoleBinding","resource":"clusterrolebindings","scope":"Cluster","component":"RbacBindingForm.tsx","intents":["create","edit","inspect"],"ownedPaths":["roleRef","subjects"],"fixtures":["clusterrolebindings-create","clusterrolebindings-edit","clusterrolebindings-system"]}
+  ],
+  "fieldControls": [
+    {"paths":["apiVersion","kind","metadata.name","metadata.namespace","metadata.labels","metadata.annotations"],"control":"Canonical host identity/metadata/source controls. Group never replaces metadata or annotations."},
+    {"paths":["rules[i]"],"control":"Unlimited explicit add/remove cards. Leaf writes and indexed inserts/removes preserve unknown fields and unedited rules."},
+    {"paths":["rules[i].verbs[j]"],"control":"Common verb toggle buttons plus advanced repeatable exact/custom verb rows; wildcard and privileged-verb consequences."},
+    {"paths":["rules[i].apiGroups[j]","rules[i].resources[j]","rules[i].resourceNames[j]"],"control":"Separate repeatable token rows, exact resource plurals, empty core API group, advanced resource-name restrictions."},
+    {"paths":["rules[i].nonResourceURLs[j]"],"control":"ClusterRole-only resource/URL union. Atomic branch change removes only mutually exclusive leaves. Local URL validation. ClusterRoleBinding-only consequence."},
+    {"paths":["aggregationRule"],"control":"Direct/aggregate choice. Aggregation disables all generated-rule mutators. Direct conversion explicitly retains currently observed rules."},
+    {"paths":["aggregationRule.clusterRoleSelectors[i].matchLabels[key]"],"control":"Repeatable OR-selector cards and shared KeyValueFields; atomic key rename and leaf edits; valid qualified keys and label values. Empty-selector wildcard warning."},
+    {"paths":["aggregationRule.clusterRoleSelectors[i].matchExpressions[j].key","aggregationRule.clusterRoleSelectors[i].matchExpressions[j].operator","aggregationRule.clusterRoleSelectors[i].matchExpressions[j].values[k]"],"control":"Advanced repeatable expressions; typed In/NotIn/Exists/DoesNotExist choice. Existence switch atomically removes values. In/NotIn require values."},
+    {"paths":["roleRef.kind","roleRef.apiGroup","roleRef.name"],"control":"Exact Role/ClusterRole union and real metadata-only reference picker. Fixed RBAC group. ClusterRoleBinding permits only ClusterRole. All roleRef fields locked in edit. Local invalid name retained without changing canonical source."},
+    {"paths":["subjects[i].kind","subjects[i].apiGroup","subjects[i].name","subjects[i].namespace"],"control":"Repeatable typed ServiceAccount/User/Group cards. Atomic kind normalization sets group and removes non-ServiceAccount namespace. External identity input never pretends users/groups are discoverable."}
+  ],
+  "safety": {
+    "systemOwnership": "Trusted system/controller ownership, controller ownerReference, bootstrap label, and reserved system: names lock every mutator. No autoupdate annotation edits or delete/recreate.",
+    "aggregation": "Selectors editable, controller-produced rules inspection only. No invented effective grants or reconciliation success.",
+    "roleRef": "Immutable in edit. Host owns source-mode immutability enforcement; no automatic replacement.",
+    "source": "Canonical host AST only. Scoped atomic patch requests include session/revision. Unsupported scalar/container/union shapes return source fallback. No projected containers are serialized back.",
+    "privacy": "No credential lookup, logging, storage, or raw sensitive preview. Role picker requests metadata projection only. Annotations remain host-owned and never appear in group render.",
+    "authorization": "No bind/escalate endpoints or fake permission checks. They are authorization verbs, not subresources. Real API admission remains authoritative."
+  },
+  "composition": ["base-ui Button", "EditorField", "EditorChoice", "EditorHelp", "EditorSection", "ReferencePicker", "KeyValueFields", "native details advanced sections"],
+  "regressionPath": "rbac.test.tsx",
+  "regressions": ["partial input retained while sibling revision changes", "unknown siblings/comments/wide integer retained", "immutable edit reference with mutable subjects", "blank reference local validity", "denied lookup distinct from empty with manual entry", "all system mutators disabled", "aggregated generated rules noneditable", "atomic rule union transition", "atomic typed-subject normalization", "aggregate selector cardinality and union validation", "unsupported scalar fallback"],
+  "verification": "Regression source written; no build/test/lint/formatter run by group worker. Actual production harness prepared in .local/resource-editor-implementation/issue-273. Screenshots deliberately await Main's coherent integration/capture wave. No screenshot or live mutation claimed."
+}

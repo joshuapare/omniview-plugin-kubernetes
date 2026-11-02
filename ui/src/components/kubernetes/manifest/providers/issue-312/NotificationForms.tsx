@@ -1,0 +1,45 @@
+import { Button } from '@omniviewdev/base-ui';
+import type { ResourceEditorFormProps, ResourceEditorPath, ResourceEditorPatch } from '@omniviewdev/runtime';
+import { EditorChoice, EditorField, EditorSection, ExactValueField, KeyValueFields, ReferencePicker, patchError, scalarText, useFieldValidity } from '../../editor-controls';
+import { commitTypes, durationPattern, identityTypes, notificationReadOnly, providerTypes, receiverTypes, targetKinds } from './model';
+
+function Fields({ form, fields }: { form: ResourceEditorFormProps; fields: { name: string; label: string; help?: string; duration?: boolean; sensitive?: boolean }[] }) {
+  const validity = useFieldValidity(form);
+  return <>{fields.map(field => <ExactValueField key={field.name} label={field.label} help={field.help} type={field.sensitive ? 'password' : 'text'} disabled={form.disabled} identity={`${form.draft.sessionID}:${field.name}`} value={typeof form.draft.get(['spec',field.name]) === 'string' ? String(form.draft.get(['spec',field.name])) : ''} parse={text => field.duration && text && !(field.name === 'timeout' ? /^([0-9]+(\.[0-9]+)?(ms|s|m))+$/ : durationPattern).test(text) ? { valid: false, error: 'Enter a duration with supported units.' } : { valid: true, value: text }} onCommit={value => patchError(form.patch({ sessionID: form.draft.sessionID, expectedRevision: form.draft.revision, operations: [value === '' ? { op: 'remove', path: ['spec',field.name] } : { op: 'set', path: ['spec',field.name], value }] }))} onValidityChange={error => validity(field.name,error)} />)}</>;
+}
+function Reference({ form, field, label, provider = false }: { form: ResourceEditorFormProps; field: string; label: string; provider?: boolean }) {
+  const validity = useFieldValidity(form);
+  const path = ['spec',field,'name'];
+  return <ReferencePicker form={form} query={{ group: provider ? 'notification.toolkit.fluxcd.io' : '', version: provider ? 'v1beta3' : 'v1', resource: provider ? 'providers' : 'secrets', namespace: form.context.namespace, projection: 'metadata' }} label={label} value={typeof form.draft.get(path) === 'string' ? String(form.draft.get(path)) : ''} onChange={value => validity(field,patchError(form.patch({ sessionID: form.draft.sessionID, expectedRevision: form.draft.revision, operations: [value ? { op: 'set',path,value } : { op: 'remove',path }] })))} help="Reference only. Credential values are never fetched; no companion object is created." />;
+}
+function Rows({ form, field, label, targets = false }: { form: ResourceEditorFormProps; field: string; label: string; targets?: boolean }) {
+  const validity = useFieldValidity(form);
+  const path = ['spec',field];
+  const rows = form.draft.get(path);
+  const values = Array.isArray(rows) ? rows : [];
+  const patch = (operations: ResourceEditorPatch[]) => validity(field,patchError(form.patch({ sessionID: form.draft.sessionID, expectedRevision: form.draft.revision, operations })));
+  const text = (p: ResourceEditorPath) => typeof form.draft.get(p) === 'string' ? String(form.draft.get(p)) : '';
+  return <EditorSection title={label}>{values.map((_,i) => <div key={i} style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+    {targets ? <><EditorChoice label={`Target ${i+1} kind`} value={text([...path,i,'kind'])} options={targetKinds.map(value => ({value,label:value}))} disabled={form.disabled} onChange={value => patch([{op:'set',path:[...path,i,'kind'],value}])} />{['name','namespace','apiVersion'].map(key => <EditorField key={key} label={`Target ${i+1} ${key}`} disabled={form.disabled} value={text([...path,i,key])} help={key === 'namespace' ? 'Omission uses this namespace. Cross-namespace access depends on controller policy.' : key === 'name' ? 'Use * for all matching resources. Label selection requires *.' : 'Optional exact served API version.'} onChange={value => patch([value ? {op:'set',path:[...path,i,key],value} : {op:'remove',path:[...path,i,key]}])} />)}<details><summary>Label selector</summary><KeyValueFields form={form} path={[...path,i,'matchLabels']} label={`Target ${i+1} label`} /></details></> : <EditorField label={`${label} ${i+1}`} value={text([...path,i])} disabled={form.disabled} onChange={value => patch([{op:'set',path:[...path,i],value}])} />}
+    <Button size="sm" variant="ghost" disabled={form.disabled} onClick={() => patch([{op:'remove',path:[...path,i]}])}>Remove {targets ? 'target' : 'entry'}</Button>
+  </div>)}<Button size="sm" disabled={form.disabled} onClick={() => patch(form.draft.has(path) ? [{op:'insert',path,index:values.length,value:targets ? {kind:'',name:''} : ''}] : [{op:'set',path,value:[targets ? {kind:'',name:''} : '']}])}>Add {targets ? 'target' : 'entry'}</Button></EditorSection>;
+}
+export default function NotificationForms(props: ResourceEditorFormProps) {
+  const form = { ...props, disabled: props.disabled || notificationReadOnly(props.draft,props.context) };
+  const validity = useFieldValidity(form);
+  const kind = form.context.kind;
+  const type = form.draft.get(['spec','type']);
+  const choice = (field: string, label: string, options: readonly string[], help?: string) => <EditorChoice label={label} help={help} value={typeof form.draft.get(['spec',field]) === 'string' ? String(form.draft.get(['spec',field])) : ''} options={options.map(value => ({value,label:value}))} disabled={form.disabled} onChange={value => validity(field,patchError(form.patch({ sessionID: form.draft.sessionID, expectedRevision: form.draft.revision, operations:[{op:'set',path:['spec',field],value}] })))} />;
+  if (form.section === 'observations') {
+    const conditions = form.draft.get(['status','conditions']);
+    return <EditorSection title="Receiver observations"><p>Webhook path masked. Token changes can change the endpoint.</p>{Array.isArray(conditions) ? conditions.map((_,i) => <div key={i}>{scalarText(form.draft.get(['status','conditions',i,'type'])) || 'Condition'}: {scalarText(form.draft.get(['status','conditions',i,'status'])) || 'Unknown'}</div>) : <p>No readiness observation available.</p>}</EditorSection>;
+  }
+  return <div style={{display:'grid',gap:12,minWidth:0}}>
+    {form.section === 'configuration' ? <>
+      {kind === 'Alert' ? <><Reference form={form} field="providerRef" label="Notification Provider" provider />{choice('eventSeverity','Severity',['info','error'],'Info includes all severities. Error filters to failures.')}<Rows form={form} field="eventSources" label="Event sources" targets /></> : <>{choice('type',kind === 'Provider' ? 'Notification destination type' : 'Webhook sender',kind === 'Provider' ? providerTypes : receiverTypes)}<Reference form={form} field="secretRef" label={kind === 'Provider' ? 'Authentication Secret' : 'Validation Secret'} />{kind === 'Provider' ? <Fields form={form} fields={[{name:'address',label:'Destination address',sensitive:true,help:'Endpoint, project ID or namespace depends on destination type. Credential-bearing addresses stay masked.'},{name:'channel',label:'Channel'}]} /> : <><Rows form={form} field="events" label="Accepted event types" /><Rows form={form} field="resources" label="Reconciliation targets" targets /></>}</>}
+      <EditorChoice label="Event handling" value={form.draft.get(['spec','suspend']) === true ? 'suspended' : 'active'} options={[{value:'active',label:'Active'},{value:'suspended',label:'Suspended'}]} disabled={form.disabled} help="Suspending stops subsequent event handling; it does not undo deliveries." onChange={value => validity('suspend',patchError(form.patch({sessionID:form.draft.sessionID,expectedRevision:form.draft.revision,operations:[{op:'set',path:['spec','suspend'],value:value === 'suspended'}]})))} />
+    </> : <>
+      {kind === 'Alert' ? <><Rows form={form} field="inclusionList" label="Include message patterns (Go regex)" /><Rows form={form} field="exclusionList" label="Exclude message patterns (Go regex)" /><KeyValueFields form={form} path={['spec','eventMetadata']} label="Event metadata" /><Fields form={form} fields={[{name:'summary',label:'Legacy summary',help:'Deprecated. Maximum 255 characters; prefer event metadata.'}]} /></> : kind === 'Provider' ? <><Reference form={form} field="proxySecretRef" label="Proxy Secret" /><Reference form={form} field="certSecretRef" label="TLS Secret" /><Fields form={form} fields={[{name:'timeout',label:'Delivery timeout',duration:true,help:'Units ms, s, m. Controller default is 15s.'}]} />{identityTypes.includes(String(type)) && <Fields form={form} fields={[{name:'serviceAccountName',label:'Workload identity ServiceAccount',help:'Requires ObjectLevelWorkloadIdentity. Do not combine with static credentials.'}]} />}{commitTypes.includes(String(type)) && <Fields form={form} fields={[{name:'commitStatusExpr',label:'Commit status CEL',help:'Evaluates to a string. Variables: event, provider, alert. Controller validates CEL.'}]} />}</> : <Fields form={form} fields={[{name:'interval',label:'Secret reconcile interval',duration:true,help:'Units ms, s, m, h. API default is 10m.'},{name:'resourceFilter',label:'Target filter CEL',help:'Must return boolean. Controller validates expression; no webhook is sent here.'}]} />}
+    </>}
+  </div>;
+}

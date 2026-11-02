@@ -1,0 +1,103 @@
+{
+  "issue": 270,
+  "group": "networking.k8s.io",
+  "baseline": "Kubernetes v1.35.0 / k8s.io/api v0.35.0",
+  "provider": "Native Kubernetes builtin; parent registers resourceEditors",
+  "sourceReferences": [
+    "https://github.com/omniviewdev/omniview/issues/270",
+    "https://github.com/omniviewdev/omniview/issues/262",
+    "https://github.com/kubernetes/apimachinery/blob/v0.35.0/pkg/util/validation/validation.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/staging/src/k8s.io/api/networking/v1/types.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/apis/networking/validation/validation.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/registry/networking/rest/storage_settings.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/registry/networking/ipaddress/strategy.go",
+    "https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/registry/networking/servicecidr/strategy.go"
+  ],
+  "hostOwned": ["metadata.name", "metadata.namespace", "metadata.labels", "identity and revision", "canonical source, AST and diff", "discovery/schema/verbs", "mode preference", "submission and review", "annotation privacy"],
+  "existingReferenceExcluded": "Ingress",
+  "resources": [
+    {
+      "kind": "IngressClass",
+      "versions": ["v1"],
+      "resource": "ingressclasses",
+      "scope": "Cluster",
+      "component": "IngressClassForm.tsx",
+      "ownershipPolicy": "declarative; controller/system evidence overrides; unknown existing ownership is read-only",
+      "intents": ["create", "edit", "inspect"],
+      "fields": [
+        {"control": "Controller identifier with on-demand help; immutable on edit", "path": ["spec", "controller"], "validation": "Domain-prefixed path, up to 250 characters"},
+        {"control": "Omitted / Default / Not default choice", "path": ["metadata", "annotations", "ingressclass.kubernetes.io/is-default-class"], "scalar": "string, not boolean", "consequence": "Multiple defaults can reject classless Ingress creation"},
+        {"control": "Real sanitized default-class lookup", "gvr": "networking.k8s.io/v1/ingressclasses", "projection": "ingressClass", "states": ["loading", "ready-empty", "ready-with-defaults", "denied", "unavailable", "absent"]},
+        {"control": "Optional parameter reference composer, explicit apply/remove", "path": ["spec", "parameters"]},
+        {"control": "API group, optional core omission", "path": ["spec", "parameters", "apiGroup"]},
+        {"control": "Kind", "path": ["spec", "parameters", "kind"]},
+        {"control": "Name, unresolved allowed", "path": ["spec", "parameters", "name"]},
+        {"control": "Cluster / Namespace conditional choice", "path": ["spec", "parameters", "scope"]},
+        {"control": "Namespace; required for Namespace scope; atomic removal for Cluster", "path": ["spec", "parameters", "namespace"]}
+      ],
+      "boundary": "No controller install/health assertion, guessed plural or fabricated parameter lookup. Controller-specific references remain explicit manual values.",
+      "fixtures": ["class-create", "class-edit-parameters", "class-other-default", "class-reference-denied", "class-reference-unavailable", "class-reference-loading"]
+    },
+    {
+      "kind": "NetworkPolicy",
+      "versions": ["v1"],
+      "resource": "networkpolicies",
+      "scope": "Namespaced",
+      "component": "NetworkPolicyForm.tsx",
+      "ownershipPolicy": "declarative; actual managed ownership overrides",
+      "intents": ["create", "edit", "inspect"],
+      "fields": [
+        {"control": "Target selector: arbitrary label rows, add/remove, editable values", "path": ["spec", "podSelector", "matchLabels", "<key>"]},
+        {"control": "Advanced target expression rows, In/NotIn/Exists/DoesNotExist, string values", "path": ["spec", "podSelector", "matchExpressions", "<index>", "key|operator|values"]},
+        {"control": "Explicit ingress/egress isolation toggles; preserve unselected-direction rules", "path": ["spec", "policyTypes"]},
+        {"control": "Add/remove incoming rule; OR across rules", "path": ["spec", "ingress", "<rule>"]},
+        {"control": "Add/remove outgoing rule; OR across rules", "path": ["spec", "egress", "<rule>"]},
+        {"control": "Add/remove peers; explicit all-peers action", "path": ["spec", "ingress|egress", "<rule>", "from|to", "<peer>"]},
+        {"control": "Same-namespace Pods / Namespaces / Namespaces AND Pods / IPBlock", "path": ["spec", "ingress|egress", "<rule>", "from|to", "<peer>", "podSelector|namespaceSelector|ipBlock"]},
+        {"control": "Full label and expression selectors within each peer; AND within peer", "path": ["spec", "ingress|egress", "<rule>", "from|to", "<peer>", "podSelector|namespaceSelector", "matchLabels|matchExpressions"]},
+        {"control": "IPv4/IPv6 CIDR; exact BigInt containment; arbitrary exception rows", "path": ["spec", "ingress|egress", "<rule>", "from|to", "<peer>", "ipBlock", "cidr|except"]},
+        {"control": "Arbitrary destination port rows", "path": ["spec", "ingress|egress", "<rule>", "ports", "<port>"]},
+        {"control": "TCP/UDP/SCTP", "path": ["spec", "ingress|egress", "<rule>", "ports", "<port>", "protocol"]},
+        {"control": "All / explicit integer / explicit named Pod port", "path": ["spec", "ingress|egress", "<rule>", "ports", "<port>", "port"], "scalar": "bigint for numbers, string for names"},
+        {"control": "Optional inclusive numeric end; forbidden for names/all ports", "path": ["spec", "ingress|egress", "<rule>", "ports", "<port>", "endPort"]}
+      ],
+      "boundary": "No CNI enforcement claim. Policies remain additive. Existing unselected direction rules remain in source. Empty peers mean all peers; empty direction adds no allowances. Unknown siblings remain untouched.",
+      "fixtures": ["policy-create", "policy-edit-advanced", "policy-controller-owned", "policy-unknown-ownership", "policy-denied", "policy-not-discovered", "policy-unsupported-source"]
+    },
+    {
+      "kind": "ServiceCIDR",
+      "versions": ["v1", "v1beta1"],
+      "resource": "servicecidrs",
+      "scope": "Cluster",
+      "component": "ServiceCIDRForm.tsx",
+      "ownershipPolicy": "conditional administrator authoring; system/unknown existing records inspect only",
+      "intents": ["create", "edit", "inspect"],
+      "fields": [
+        {"control": "Canonical primary network CIDR; locked after create", "path": ["spec", "cidrs", 0]},
+        {"control": "Optional opposite-family CIDR; one/two ranges; never replace/remove existing ranges", "path": ["spec", "cidrs", 1]},
+        {"control": "Read-only condition type/status/reason/observedGeneration/transition", "path": ["status", "conditions"], "owned": false}
+      ],
+      "boundary": "OpenAPI says immutable. v1.35 validation permits only single-stack to dual-stack append retaining the first CIDR. Append stays locked without real installed-version compatibility evidence. No overlap/capacity/readiness/allocation success assertion. Deprecated v1beta1 is an explicitly discovered alias, not a guessed version.",
+      "fixtures": ["range-create", "range-create-dual-stack", "range-edit-append", "range-edit-immutable", "range-system-status", "range-beta-alias"]
+    },
+    {
+      "kind": "IPAddress",
+      "versions": ["v1", "v1beta1"],
+      "resource": "ipaddresses",
+      "scope": "Cluster",
+      "component": "IPAddressForm.tsx",
+      "ownershipPolicy": "controller",
+      "intents": ["inspect", "read-only interception of edit entrypoint"],
+      "fields": [
+        {"control": "Read-only canonical allocated address", "path": ["metadata", "name"], "owned": false},
+        {"control": "Read-only group/resource/namespace/name reference facts", "path": ["spec", "parentRef"], "owned": false}
+      ],
+      "boundary": "No ordinary create, update, delete, allocator action, fake navigation or parent existence claim. No owned mutation paths. ParentRef is immutable.",
+      "fixtures": ["address-inspect", "address-beta-inspect"]
+    }
+  ],
+  "regressions": "networking.test.tsx",
+  "fixtureHarness": ".local/resource-editor-implementation/issue-270/harness.tsx",
+  "canonicalController": "manifest/resourceEditorController.ts",
+  "visualProof": "Prepared for Main's coherent production capture wave; no old mock capture is claimed as production evidence."
+}

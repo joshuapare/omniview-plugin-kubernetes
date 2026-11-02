@@ -1,0 +1,581 @@
+{
+  "Application": {
+    "group": "Argo CD",
+    "scope": "Namespaced",
+    "fields": [
+      [
+        "Project",
+        "spec.project",
+        "ref"
+      ],
+      [
+        "Git repository URL",
+        "spec.source.repoURL",
+        "text"
+      ],
+      [
+        "Revision",
+        "spec.source.targetRevision",
+        "text"
+      ],
+      [
+        "Directory",
+        "spec.source.path",
+        "text"
+      ],
+      [
+        "Destination server",
+        "spec.destination.server",
+        "text"
+      ],
+      [
+        "Destination namespace",
+        "spec.destination.namespace",
+        "text"
+      ]
+    ],
+    "rows": [
+      "Sync options",
+      "spec.syncPolicy.syncOptions",
+      "string"
+    ],
+    "run": false,
+    "system": false,
+    "warning": "Sync can change or delete destination workloads. Automated sync is not enabled implicitly."
+  },
+  "ApplicationSet": {
+    "group": "Argo CD",
+    "scope": "Namespaced",
+    "fields": [
+      [
+        "Generator",
+        "spec.generators.0.list.elements.0.cluster",
+        "text"
+      ],
+      [
+        "Generated application name",
+        "spec.template.metadata.name",
+        "text"
+      ],
+      [
+        "Project",
+        "spec.template.spec.project",
+        "ref"
+      ],
+      [
+        "Git repository",
+        "spec.template.spec.source.repoURL",
+        "text"
+      ],
+      [
+        "Revision",
+        "spec.template.spec.source.targetRevision",
+        "text"
+      ],
+      [
+        "Directory",
+        "spec.template.spec.source.path",
+        "text"
+      ],
+      [
+        "Destination server",
+        "spec.template.spec.destination.server",
+        "text"
+      ],
+      [
+        "Destination namespace",
+        "spec.template.spec.destination.namespace",
+        "text"
+      ]
+    ],
+    "rows": [
+      "List generator elements",
+      "spec.generators.0.list.elements",
+      "cluster"
+    ],
+    "run": false,
+    "system": false,
+    "warning": "Generates Applications. Generator or template changes can affect many applications; deletion policy needs review."
+  },
+  "AppProject": {
+    "group": "Argo CD",
+    "scope": "Namespaced",
+    "fields": [
+      [
+        "Allowed repository",
+        "spec.sourceRepos.0",
+        "text"
+      ],
+      [
+        "Destination server",
+        "spec.destinations.0.server",
+        "text"
+      ],
+      [
+        "Destination namespace",
+        "spec.destinations.0.namespace",
+        "text"
+      ]
+    ],
+    "rows": [
+      "Cluster resource allowlist",
+      "spec.clusterResourceWhitelist",
+      "groupkind"
+    ],
+    "run": false,
+    "system": false,
+    "warning": "Project permissions affect every associated Application. Wildcards broaden deployment privileges."
+  },
+  "WorkflowTemplate": {
+    "group": "Workflows",
+    "scope": "Namespaced",
+    "fields": [
+      [
+        "Entrypoint",
+        "spec.entrypoint",
+        "text"
+      ],
+      [
+        "Template name",
+        "spec.templates.0.name",
+        "text"
+      ],
+      [
+        "Container image",
+        "spec.templates.0.container.image",
+        "text"
+      ],
+      [
+        "Service account",
+        "spec.serviceAccountName",
+        "ref"
+      ]
+    ],
+    "rows": [
+      "Parameters",
+      "spec.arguments.parameters",
+      "parameter"
+    ],
+    "run": false,
+    "system": false,
+    "warning": "Template execution creates workloads under the selected service account. No image or permissions are inferred."
+  },
+  "ClusterWorkflowTemplate": {
+    "group": "Workflows",
+    "scope": "Cluster",
+    "fields": [
+      [
+        "Entrypoint",
+        "spec.entrypoint",
+        "text"
+      ],
+      [
+        "Template name",
+        "spec.templates.0.name",
+        "text"
+      ],
+      [
+        "Container image",
+        "spec.templates.0.container.image",
+        "text"
+      ],
+      [
+        "Service account",
+        "spec.serviceAccountName",
+        "ref"
+      ]
+    ],
+    "rows": [
+      "Parameters",
+      "spec.arguments.parameters",
+      "parameter"
+    ],
+    "run": false,
+    "system": false,
+    "warning": "Template execution creates workloads under the selected service account. No image or permissions are inferred."
+  },
+  "CronWorkflow": {
+    "group": "Workflows",
+    "scope": "Namespaced",
+    "fields": [
+      [
+        "Cron schedule",
+        "spec.schedules.0",
+        "text"
+      ],
+      [
+        "Timezone",
+        "spec.timezone",
+        "text"
+      ],
+      [
+        "Concurrency policy",
+        "spec.concurrencyPolicy",
+        "choice:Forbid,Allow,Replace"
+      ],
+      [
+        "Workflow template",
+        "spec.workflowSpec.workflowTemplateRef.name",
+        "ref"
+      ],
+      [
+        "Suspend schedule",
+        "spec.suspend",
+        "bool"
+      ]
+    ],
+    "rows": [
+      "Additional schedules",
+      "spec.schedules",
+      "string"
+    ],
+    "run": false,
+    "system": false,
+    "warning": "Unsuspending schedules creates executions. Replace can terminate an existing scheduled execution."
+  },
+  "WorkflowEventBinding": {
+    "group": "Workflows",
+    "scope": "Namespaced",
+    "fields": [
+      [
+        "Event selector expression",
+        "spec.event.selector",
+        "text"
+      ],
+      [
+        "Workflow template",
+        "spec.submit.workflowTemplateRef.name",
+        "ref"
+      ],
+      [
+        "Cluster template",
+        "spec.submit.workflowTemplateRef.clusterScope",
+        "bool"
+      ]
+    ],
+    "rows": [
+      "Parameter expressions",
+      "spec.submit.arguments.parameters",
+      "eventparameter"
+    ],
+    "run": false,
+    "system": false,
+    "warning": "Matching events may submit workflows. This is a Workflows event binding, not Argo Events."
+  },
+  "Rollout": {
+    "group": "Rollouts",
+    "scope": "Namespaced",
+    "fields": [
+      [
+        "Replicas",
+        "spec.replicas",
+        "number"
+      ],
+      [
+        "Selector label",
+        "spec.selector.matchLabels.app",
+        "text"
+      ],
+      [
+        "Pod label",
+        "spec.template.metadata.labels.app",
+        "text"
+      ],
+      [
+        "Container name",
+        "spec.template.spec.containers.0.name",
+        "text"
+      ],
+      [
+        "Container image",
+        "spec.template.spec.containers.0.image",
+        "text"
+      ],
+      [
+        "Canary weight %",
+        "spec.strategy.canary.steps.0.setWeight",
+        "number"
+      ]
+    ],
+    "rows": [
+      "Canary steps",
+      "spec.strategy.canary.steps",
+      "step"
+    ],
+    "run": false,
+    "system": false,
+    "warning": "Pod and traffic changes can disrupt service. No Service, traffic router, or analysis is created implicitly."
+  },
+  "AnalysisTemplate": {
+    "group": "Rollouts",
+    "scope": "Namespaced",
+    "fields": [
+      [
+        "Metric name",
+        "spec.metrics.0.name",
+        "text"
+      ],
+      [
+        "Prometheus address",
+        "spec.metrics.0.provider.prometheus.address",
+        "text"
+      ],
+      [
+        "Query",
+        "spec.metrics.0.provider.prometheus.query",
+        "text"
+      ],
+      [
+        "Success expression",
+        "spec.metrics.0.successCondition",
+        "text"
+      ],
+      [
+        "Interval",
+        "spec.metrics.0.interval",
+        "text"
+      ],
+      [
+        "Failure limit",
+        "spec.metrics.0.failureLimit",
+        "number"
+      ]
+    ],
+    "rows": [
+      "Analysis arguments",
+      "spec.args",
+      "parameter"
+    ],
+    "run": false,
+    "system": false,
+    "warning": "Metrics may gate rollout progress. Expressions and provider availability are not validated by this mock."
+  },
+  "ClusterAnalysisTemplate": {
+    "group": "Rollouts",
+    "scope": "Cluster",
+    "fields": [
+      [
+        "Metric name",
+        "spec.metrics.0.name",
+        "text"
+      ],
+      [
+        "Prometheus address",
+        "spec.metrics.0.provider.prometheus.address",
+        "text"
+      ],
+      [
+        "Query",
+        "spec.metrics.0.provider.prometheus.query",
+        "text"
+      ],
+      [
+        "Success expression",
+        "spec.metrics.0.successCondition",
+        "text"
+      ],
+      [
+        "Interval",
+        "spec.metrics.0.interval",
+        "text"
+      ],
+      [
+        "Failure limit",
+        "spec.metrics.0.failureLimit",
+        "number"
+      ]
+    ],
+    "rows": [
+      "Analysis arguments",
+      "spec.args",
+      "parameter"
+    ],
+    "run": false,
+    "system": false,
+    "warning": "Metrics may gate rollout progress. Expressions and provider availability are not validated by this mock."
+  },
+  "Workflow": {
+    "group": "Workflows",
+    "scope": "Namespaced",
+    "fields": [
+      [
+        "Workflow template",
+        "spec.workflowTemplateRef.name",
+        "ref"
+      ],
+      [
+        "Cluster template",
+        "spec.workflowTemplateRef.clusterScope",
+        "bool"
+      ]
+    ],
+    "rows": [
+      "Submission parameters",
+      "spec.arguments.parameters",
+      "parameter"
+    ],
+    "run": true,
+    "system": false,
+    "warning": "Submission starts a new execution. Existing execution specs are inspect-only; retry, resume and stop require separate action review."
+  },
+  "AnalysisRun": {
+    "group": "Rollouts",
+    "scope": "Namespaced",
+    "fields": [
+      [
+        "Metric name",
+        "spec.metrics.0.name",
+        "text"
+      ],
+      [
+        "Prometheus address",
+        "spec.metrics.0.provider.prometheus.address",
+        "text"
+      ],
+      [
+        "Query",
+        "spec.metrics.0.provider.prometheus.query",
+        "text"
+      ],
+      [
+        "Success expression",
+        "spec.metrics.0.successCondition",
+        "text"
+      ],
+      [
+        "Interval",
+        "spec.metrics.0.interval",
+        "text"
+      ],
+      [
+        "Failure limit",
+        "spec.metrics.0.failureLimit",
+        "number"
+      ]
+    ],
+    "rows": [
+      "Analysis arguments",
+      "spec.args",
+      "parameter"
+    ],
+    "run": true,
+    "system": false,
+    "warning": "Standalone analysis submission runs metric queries. Controller-owned analysis is inspect-only; status is never authored."
+  },
+  "Experiment": {
+    "group": "Rollouts",
+    "scope": "Namespaced",
+    "fields": [
+      [
+        "Duration",
+        "spec.duration",
+        "text"
+      ],
+      [
+        "Template name",
+        "spec.templates.0.name",
+        "text"
+      ],
+      [
+        "Replicas",
+        "spec.templates.0.replicas",
+        "number"
+      ],
+      [
+        "Selector label",
+        "spec.templates.0.selector.matchLabels.app",
+        "text"
+      ],
+      [
+        "Pod label",
+        "spec.templates.0.template.metadata.labels.app",
+        "text"
+      ],
+      [
+        "Container name",
+        "spec.templates.0.template.spec.containers.0.name",
+        "text"
+      ],
+      [
+        "Container image",
+        "spec.templates.0.template.spec.containers.0.image",
+        "text"
+      ]
+    ],
+    "rows": [
+      "Analysis references",
+      "spec.analyses",
+      "analysisref"
+    ],
+    "run": true,
+    "system": false,
+    "warning": "Standalone submission creates temporary ReplicaSets and may run analysis. Existing or owned experiments are inspect-only."
+  },
+  "WorkflowArtifactGCTask": {
+    "group": "Workflows",
+    "scope": "Namespaced",
+    "inspect": [
+      [
+        "Owner",
+        "metadata.ownerReferences"
+      ],
+      [
+        "Artifact tasks",
+        "spec.artifactsByNode"
+      ],
+      [
+        "Results",
+        "status.artifactResultsByNode"
+      ]
+    ],
+    "run": false,
+    "system": true,
+    "warning": "Controller-generated artifact deletion task. No Create, edit, retry deletion or finalizer bypass."
+  },
+  "WorkflowTaskResult": {
+    "group": "Workflows",
+    "scope": "Namespaced",
+    "inspect": [
+      [
+        "Owner",
+        "metadata.ownerReferences"
+      ],
+      [
+        "Progress",
+        "progress"
+      ],
+      [
+        "Outputs",
+        "outputs"
+      ],
+      [
+        "Phase",
+        "phase"
+      ]
+    ],
+    "run": false,
+    "system": true,
+    "warning": "Executor-written results. No Create or record editing; output values stay withheld."
+  },
+  "WorkflowTaskSet": {
+    "group": "Workflows",
+    "scope": "Namespaced",
+    "inspect": [
+      [
+        "Owner",
+        "metadata.ownerReferences"
+      ],
+      [
+        "Tasks",
+        "spec.tasks"
+      ],
+      [
+        "Nodes",
+        "status.nodes"
+      ]
+    ],
+    "run": false,
+    "system": true,
+    "warning": "Workflow controller/agent protocol record. No ordinary Create or task mutation."
+  }
+}

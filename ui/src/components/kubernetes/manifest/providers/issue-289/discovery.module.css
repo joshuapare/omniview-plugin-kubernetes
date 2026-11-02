@@ -1,0 +1,22 @@
+.heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.muted { color: var(--ov-color-fg-muted); font-size: 12px; }
+.choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: 16px; }
+.group { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.group h4 { font-size: 13px; margin: 0; overflow-wrap: anywhere; }
+.version { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.badge { border: 1px solid var(--ov-color-border-default); border-radius: 4px; padding: 2px 6px; color: var(--ov-color-fg-muted); font-size: 11px; }
+.resource { border: 1px solid var(--ov-color-border-default); border-radius: 5px; min-width: 0; }
+.resource > summary { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 10px; cursor: pointer; min-height: 32px; overflow-wrap: anywhere; }
+.resource > summary::before { content: '›'; }
+.resource[open] > summary::before { content: '⌄'; }
+.resource > summary span { color: var(--ov-color-fg-muted); font-size: 12px; }
+.resource > p { margin: 8px 10px; color: var(--ov-color-fg-muted); line-height: 1.5; }
+.resource > .facts { padding: 0 10px 10px; }
+.facts { display: grid; grid-template-columns: minmax(95px, 130px) minmax(0, 1fr); gap: 8px 12px; margin: 0; font-size: 12px; }
+.facts dt { color: var(--ov-color-fg-muted); }
+.facts dd { margin: 0; overflow-wrap: anywhere; min-width: 0; }
+.facts code { white-space: normal; }
+.subresources { padding: 0 10px 10px; display: flex; flex-direction: column; gap: 8px; }
+.subresource { border-top: 1px solid var(--ov-color-border-default); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.notice { padding: 8px 10px; border-left: 2px solid var(--ov-color-border-default); color: var(--ov-color-fg-muted); background: var(--ov-color-bg-surface); font-size: 12px; overflow-wrap: anywhere; }
+@media (max-width: 650px) { .facts { grid-template-columns: minmax(75px, 100px) minmax(0, 1fr); gap: 6px; } }

@@ -1,19 +1,21 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DrawerContext } from '@omniviewdev/runtime';
+import type { DrawerContext, ResourceEditorContext } from '@omniviewdev/runtime';
 import type { KubernetesResourceObject } from '../../../../../types/resource';
 import { setManifestMode } from '../../../../kubernetes/manifest/useManifestMode';
 import BaseEditorPage from './BaseEditorPage';
 
 const mocks = vi.hoisted(() => ({ mutate: vi.fn() }));
-vi.mock('@omniviewdev/runtime', () => ({
+vi.mock('@omniviewdev/runtime', async (importOriginal) => ({
+  ...await importOriginal<Record<string, unknown>>(),
   useResourceMutations: () => ({ mutate: mocks.mutate }),
-  useResourceTypes: () => ({ resourceTypes: { data: [{ type: 'k8s:/configmaps', capabilities: [{ operation: 'mutationUpdate', scope: [] }] }] } }),
+  useResourceTypes: () => ({ resourceTypes: { data: [{ type: 'k8s:/configmaps', identityDimensions: [{ name: 'namespace' }], representations: [{ id: 'kubernetes.object.v1/v1', schema: { state: 'absent' } }], capabilities: [{ operation: 'mutationUpdate', scope: [] }] }] } }),
   jsonToValue: (value: unknown) => value,
   valueToJSON: (value: unknown) => value,
   parseAppError: () => ({ detail: 'Update failed.' }),
 }));
 vi.mock('../../../CodeEditor', () => ({ default: () => <div aria-label="YAML preview" /> }));
+vi.mock('../../../../kubernetes/manifest/useEditorEvidence', () => ({ useEditorEvidence: (context: ResourceEditorContext) => context }));
 
 const original = { apiVersion: 'v1', kind: 'ConfigMap', metadata: { name: 'config', namespace: 'team', uid: 'native-uid' }, data: { existing: 'original' } };
 function context(data = original, revision = 'revision-1'): DrawerContext<KubernetesResourceObject> {
@@ -47,7 +49,7 @@ describe('real editor passive snapshot safety', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add text entry' }));
     mocks.mutate.mockResolvedValue({ body: { ...original, data: { ...original.data, pending: '' } }, sourceRevision: 'revision-3' });
     fireEvent.click(screen.getByRole('button', { name: 'Submit', exact: true }));
-    expect(mocks.mutate).toHaveBeenCalledWith(expect.objectContaining({ reference: ctx.resource!.reference, expectedRevision: 'revision-1', input: { ...original, data: { ...original.data, pending: '' } } }));
+    await waitFor(() => expect(mocks.mutate).toHaveBeenCalledWith(expect.objectContaining({ reference: ctx.resource!.reference, expectedRevision: 'revision-1', input: { ...original, data: { ...original.data, pending: '' } } })));
     await waitFor(() => expect(screen.queryByLabelText('New entry key')).toBeNull());
     view.rerender(<BaseEditorPage ctx={context(refreshed, 'revision-4')} />);
     entries();

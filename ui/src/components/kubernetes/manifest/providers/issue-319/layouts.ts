@@ -1,0 +1,16 @@
+export const layouts: Readonly<Record<string, readonly { title: string; fields: readonly string[]; advanced?: boolean }[]>> = {
+  Password: [{ title: 'Password constraints', fields: ['length', 'digits', 'symbols'] }, { title: 'Character policy', fields: ['symbolCharacters', 'noUpper', 'allowRepeat'] }],
+  SSHKey: [{ title: 'Key algorithm', fields: ['keyType', 'keySize'] }, { title: 'Key annotation', fields: ['comment'], advanced: true }],
+  ACRAccessToken: [{ title: 'Azure registry', fields: ['registry', 'environmentType', 'tenantId', 'scope'] }, { title: 'Azure identity', fields: ['auth'] }],
+  CloudsmithAccessToken: [{ title: 'Cloudsmith destination', fields: ['orgSlug', 'serviceSlug'] }, { title: 'Federated service account', fields: ['serviceAccountRef'] }, { title: 'API endpoint', fields: ['apiUrl'], advanced: true }],
+  ECRAuthorizationToken: [{ title: 'AWS registry', fields: ['region', 'role', 'scope'] }, { title: 'AWS identity', fields: ['auth'] }],
+  GCRAccessToken: [{ title: 'Google project', fields: ['projectID'] }, { title: 'Google identity', fields: ['auth'] }],
+  GithubAccessToken: [{ title: 'GitHub application', fields: ['appID', 'installID', 'auth'] }, { title: 'Token access', fields: ['repositories', 'permissions'] }, { title: 'GitHub Enterprise', fields: ['url'], advanced: true }],
+  Grafana: [{ title: 'Grafana destination', fields: ['url', 'serviceAccount'] }, { title: 'Grafana authentication', fields: ['auth'] }],
+  MFA: [{ title: 'One-time password seed', fields: ['secret'] }, { title: 'One-time password constraints', fields: ['algorithm', 'length', 'timePeriod'] }, { title: 'Fixed generation time', fields: ['when'], advanced: true }],
+  QuayAccessToken: [{ title: 'Quay robot account', fields: ['robotAccount', 'serviceAccountRef'] }, { title: 'Quay endpoint', fields: ['url'], advanced: true }],
+  STSSessionToken: [{ title: 'AWS session destination', fields: ['region', 'role'] }, { title: 'AWS identity', fields: ['auth'] }, { title: 'Session request', fields: ['requestParameters'], advanced: true }],
+  Fake: [{ title: 'Test data entries', fields: ['data'] }, { title: 'Controller selector', fields: ['controller'], advanced: true }],
+  VaultDynamicSecret: [{ title: 'Vault request', fields: ['path', 'method', 'resultType', 'allowEmptyResponse'] }, { title: 'Vault provider and authentication', fields: ['provider'] }, { title: 'Request parameters', fields: ['parameters'], advanced: true }, { title: 'Controller and retry policy', fields: ['controller', 'retrySettings'], advanced: true }],
+  Webhook: [{ title: 'Webhook request', fields: ['url', 'method', 'result', 'timeout'] }, { title: 'Referenced authentication', fields: ['auth', 'secrets'] }, { title: 'Protected request content', fields: ['body', 'headers'], advanced: true }, { title: 'TLS trust', fields: ['caBundle', 'caProvider'], advanced: true }],
+};

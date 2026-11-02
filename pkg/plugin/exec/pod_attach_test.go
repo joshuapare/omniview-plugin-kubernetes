@@ -75,7 +75,8 @@ func attachPodFixture() *corev1.Pod {
 
 func runAttachFixture(t *testing.T, ctx context.Context, host, uid string) error {
 	t.Helper()
-	config := &rest.Config{Host: host}
+	// Exercise attachment readiness and cancellation without unrelated client throttling.
+	config := &rest.Config{Host: host, QPS: -1}
 	client, err := kubernetes.NewForConfig(config)
 	require.NoError(t, err)
 	provider := func(_ *types.PluginContext) (*kubeauth.KubeClientBundle, error) {

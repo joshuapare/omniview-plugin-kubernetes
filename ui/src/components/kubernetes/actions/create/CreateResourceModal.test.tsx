@@ -18,7 +18,7 @@ describe('canonical create modal lifetime', () => {
     const onClose = vi.fn();
     render(<CreateResourceModal {...props} onCreate={onCreate} onClose={onClose} />);
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
-    await waitFor(() => expect(onCreate).toHaveBeenCalledWith(template));
+    await waitFor(() => expect(onCreate).toHaveBeenCalledWith(template, expect.any(Function)));
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 

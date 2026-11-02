@@ -49,12 +49,21 @@ are not exported through this grant. Flux-specific actions remain in the Flux pl
 
 ## Creating and editing resources
 
-Pod, Deployment, StatefulSet, Service, Ingress, ConfigMap, Secret, and
-PersistentVolumeClaim creation share the compact resource editor with the drawer's
-edit view. Other resource kinds keep the same creation frame with YAML only and
-no mode switch. Forms cover stable core `v1`, `apps/v1` workloads, and
-`networking.k8s.io/v1` Ingresses. Schema discovery supplies the actual API identity;
-other API versions remain YAML-only and defer version-specific admission to the API.
+Create and edit use the same compact resource editor. The original Pod,
+Deployment, StatefulSet, Service, Ingress, ConfigMap, Secret, and
+PersistentVolumeClaim forms remain available alongside API-group editor providers
+for the native baseline and selected ecosystem APIs. Providers match exact
+discovered group, version, kind, resource, and scope; installing a form does not
+install its CRDs or grant authorization. Request-only and controller-owned APIs
+use their appropriate action or inspection flow.
+
+The Form/YAML switch appears only when a compatible form is available. Other
+resources retain the same frame and an honest source fallback, without an empty
+form switch. Unsupported versions and fields remain intact for API admission.
+
+The expanded editor-provider catalog requires Omniview 0.24.0 or newer and the
+matching runtime/Vite-plugin package cohort. Update the desktop application before
+installing Kubernetes plugin 0.14.0.
 
 Nonsecret Form and YAML views edit one document. Controls patch individual AST
 nodes, preserving unsupported fields, comments, omitted defaults, sibling fields,
@@ -555,6 +564,72 @@ Click any resource row to open a rich sidebar panel with contextual information:
 
 All sidebars include a **YAML editor** tab with diff view and schema-validated editing.
 
+Resource forms and YAML share a host-owned canonical document. The original eight
+native forms use the same editor resolver as contributed forms through
+`kubernetes/resource/editor/v1`; contributions do not receive a raw source setter.
+Scoped patches are atomic and session/revision-bound. Untouched YAML nodes,
+comments, unknown fields, and exact wide integers remain intact. Map omission is
+not deletion: forms remove fields explicitly.
+
+Canonical validation errors block submission, not format switching. Uncommitted
+input stays in the form until committed or cleared; switching never discards it.
+
+The host owns create identity, locks edit identity and optimistic revision, and
+hides Namespace for cluster-scoped APIs. Editor and mode preferences store only
+IDs, never manifests or credentials. Sensitive projections cannot be written
+back. Raw source and sensitive action results require separate explicit
+disclosure and remask on editor, session, mode, or pending-operation changes.
+Unknown-resource fallback starts with a protected preview.
+
+Ordinary registered resources show the editable canonical YAML, including unknown
+fields and comments. Sensitive registered resources show a useful, read-only full
+projection with protected values replaced, never a mutation document. Such
+projections omit comments; unknown, unloaded, or crashed editors retain the
+protected fallback. Protected paths survive provider replacement within a session.
+
+Both standalone builds and the host's shared Monaco 0.52.2 cohort declare the
+word-highlighter promise-ownership backport from [upstream VS Code](https://github.com/microsoft/vscode/blob/e57fbd7a49486f12be089ec5800293f3453eefbd/src/vs/editor/contrib/wordHighlighter/browser/wordHighlighter.ts#L294-L315).
+Closing YAML immediately after cursor or Find activity disposes the editor
+normally; pending highlight cancellation belongs to its callers, and unexpected
+errors still use Monaco's error handler. No feature is disabled or global error
+filter installed.
+
+Both Create and Submit prepare the canonical snapshot before mutation, regardless
+of Form/YAML mode. This includes pure validation and optional read-only
+`validateSubmission` prerequisite checks. A changed session, revision, provider,
+or cancelled check cannot commit an earlier snapshot. Domain admission services
+cannot execute mutation protocols. Provider unload/crash retains the draft;
+pending local input and unavailable required admission must be resolved before
+submission. Controller/system inspection never unlocks generic YAML Save.
+
+Submission temporarily locks write callbacks without invalidating completed
+read-only reference evidence. A changed query, source revision, session, or
+reference service still cancels stale lookups.
+
+Inspectors keep resource values readable without enabling edits. Unavailable
+write prerequisites do not block switching an inspector to read-only YAML.
+
+Generator Secret selector names and keys accept public reference metadata as
+text. Existing protected references remain write-only; credential subtrees and
+unknown sensitive siblings stay opaque and are preserved by leaf updates.
+
+Public webhook, module, monitoring, and event-sink references display only safe,
+credential-free values. Unsafe or opaque references remain write-only and are
+preserved until explicit leaf replacement.
+
+Image catalogs accept exact canonical major-version integers across Form/YAML
+switches while rejecting duplicates, fractions, and unsupported integer ranges.
+Read-only Calico numeric projections and Kyverno retry counters also preserve
+canonical integers without coercing them through JavaScript `Number`.
+
+**Requests & inspection** in the cluster sidebar opens request-only APIs and
+read-only inspectors without pretending they support named-resource creation.
+It supports exact discovered resource loading and validated local captures.
+Nonpersistent reviews, service-account token requests, discovery, and metric
+queries use host-whitelisted transports. Run-now fetches a saved CronJob afresh,
+checks Job-create authorization, and opens a separate ordinary Job-create review
+without an owner reference.
+
 ### Integrated Terminal
 
 Exec into any running container directly from the resource table. The plugin handles:
@@ -936,6 +1011,78 @@ The publisher action submits the version for review; a successful workflow does
 not establish marketplace approval. Confirm approval and installability in the
 target registry before announcing availability. GitHub release notes are only
 created after the build/submission job succeeds.
+
+### Resource editor request transport
+
+Resource editor requests use explicit SDK actions, not named-object CRUD for
+nameless review APIs. Supported protocols cover authentication/authorization
+reviews, service-account tokens, CSR approval, pod eviction, generic scale,
+resource/custom/external metrics, aggregated API discovery, and reference lookups.
+Action DTOs such as approval, scale reads, and metric queries are object inputs
+whose exact target comes from the admitted action; only review envelopes require
+an explicit matching `apiVersion` and `kind`. Custom-metric wildcard names are
+sent as wildcard path segments, not literal percent-encoded object names.
+The Kubernetes API server remains the authorization and admission authority.
+Approval and eviction preserve observed object identity and optimistic-write
+preconditions. A CronJob run-now handoff reads the saved template into a separate
+Job create review; it does not create a hidden companion resource.
+Service-account TokenRequests bind `metadata.uid` to the freshly observed
+service-account UID and reject conflicting input identities without retrying.
+[Kubernetes v1.35 TokenREST](https://github.com/kubernetes/kubernetes/blob/v1.35.0/pkg/registry/core/serviceaccount/storage/token.go)
+rejects a replaced account before minting when
+`TokenRequestServiceAccountUIDValidation` is enabled (Beta, default-on since
+v1.34). Earlier servers or an explicitly disabled gate do not provide that
+server-side UID guarantee; a version tag alone does not prove gate configuration.
+Before delivering any returned token, the transport privately checks standard JWT
+service-account UID/name/namespace claims from the trusted API response against
+the requested identity. This is response consistency checking, not signature
+verification or an authentication claim. Mismatched or unprovable credentials are
+discarded without retries or token/claim diagnostics. On a gate-disabled server,
+the server may already have minted a replacement-account token before the transport
+discards it; no such credential is delivered to the caller.
+
+Reference lookups negotiate `PartialObjectMetadataList` by default. Secret type
+lookups require a negotiated Kubernetes `Table` and never retry with full Secret
+JSON. Other projections expose only whitelisted Service ports/selector presence,
+StorageClass facts, or IngressClass facts. Denied, missing, unavailable, cancelled,
+and successful empty responses remain distinct. Lookup responses are bounded;
+an incomplete paginated response is not represented as a complete result.
+
+Custom and external metric queries validate the requested API version and exact
+resource/metric against live API discovery. Transport accepts no arbitrary URL.
+The server-info protocol reads only authenticated `/version` and returns the
+actual version strings. Version evidence does not prove optional runtime gates.
+Automatic submission preflight admits only pure read-only metrics, discovery,
+server-info, and Tigera evidence protocols. Mixed preview/execute and
+credential-bearing review protocols require an explicit request workflow.
+Requests use caller cancellation, and errors never include API diagnostic bodies
+that could echo credentials. Review responses omit the submitted review spec.
+The cert-manager workflow uses fresh object identity/revision observations,
+preserves unrelated status, and checks signer approval authorization before
+CertificateRequest approval or denial. Certificate renewal uses the same
+`Issuing=True`, `ManuallyTriggered` status transition as the cert-manager CLI.
+Canonical integer values remain exact through SDK `Value` encoding; unsafe
+JavaScript integer numbers are rejected instead of rounded.
+
+Crossplane revision activation uses a separate preview/execute protocol. Preview
+verifies the real controller owner UID, explicit `Manual` package activation,
+all competing Active revisions, and patch authorization for every touched name.
+Execute requires explicit confirmation of every reviewed UID/resourceVersion,
+re-reads the owner and active set before each write, and uses UID/resourceVersion
+JSON Patch tests. Reviewed siblings become Inactive before the target becomes
+Active. This follows the [pinned Crossplane v2.0.0 package API](https://github.com/crossplane/crossplane/blob/b639502e2f93680ff83417a0f517ec459ce079cc/apis/pkg/v1/interfaces.go).
+Kubernetes provides no cross-object transaction: partial failures list applied
+and pending revisions; uncertain request outcomes require refresh before retry.
+An accepted activation request does not claim controller readiness or health.
+
+Tigera evidence reads only the operator Deployment and fixed
+`operator.tigera.io/v1` Installation/APIServer/Goldmane `default` objects.
+The projection excludes environment values, Secret bodies, computed configuration,
+and condition diagnostic messages. Each prerequisite independently reports denied,
+absent, unavailable, unknown, or observed facts. Controller image tags are observed
+configuration only, not signed release proof; absent generation evidence is not
+invented. The group-specific validator checks the pinned operator/Calico cohort
+and complete ImageSet inventory before authoring is admitted.
 
 ## License
 

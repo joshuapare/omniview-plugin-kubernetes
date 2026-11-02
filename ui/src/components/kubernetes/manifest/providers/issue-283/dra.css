@@ -1,0 +1,13 @@
+.dra-editor { display: grid; gap: 14px; min-width: 0; font-size: 13px; }
+.dra-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px; align-items: start; }
+.dra-row { display: flex; gap: 8px; align-items: end; min-width: 0; }
+.dra-row > :first-child { flex: 1; min-width: 0; }
+.dra-card { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--ov-color-border-default); border-radius: 6px; min-width: 0; }
+.dra-notice { padding: 8px 10px; border: 1px solid var(--ov-color-border-default); border-radius: 5px; color: var(--ov-color-fg-muted); overflow-wrap: anywhere; }
+.dra-error { color: var(--ov-color-danger); border-color: var(--ov-color-danger); }
+.dra-summary { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(0, 2fr); gap: 10px; }
+.dra-summary > span { color: var(--ov-color-fg-muted); }
+.dra-summary > strong { font-weight: 500; overflow-wrap: anywhere; }
+.dra-advanced { padding-block: 8px; }
+.dra-advanced > summary { cursor: pointer; margin-bottom: 10px; }
+@media (max-width: 600px) { .dra-summary { grid-template-columns: 1fr; gap: 2px; } .dra-row { flex-wrap: wrap; } }

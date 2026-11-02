@@ -1,0 +1,15 @@
+.authorization-review { display: flex; flex-direction: column; gap: 16px; min-width: 0; font-size: 13px; }
+.authorization-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+.authorization-advanced { margin-top: 14px; border-top: 1px solid var(--ov-color-border-default); padding-top: 12px; }
+.authorization-advanced > summary { cursor: pointer; font-weight: 500; margin-bottom: 12px; }
+.authorization-consequence { margin: 0; color: var(--ov-color-fg-muted); font-size: 12px; }
+.authorization-rows, .authorization-extra { display: flex; flex-direction: column; gap: 8px; }
+.authorization-extra { margin: 12px 0; padding: 12px; border: 1px solid var(--ov-color-border-default); border-radius: 4px; }
+.authorization-row { display: flex; align-items: end; gap: 8px; margin: 8px 0; }
+.authorization-row > .resource-editor-field { flex: 1; min-width: 0; }
+.authorization-table { overflow-x: auto; max-width: 100%; }
+.authorization-table table { width: 100%; border-collapse: collapse; text-align: left; }
+.authorization-table caption { text-align: left; font-weight: 600; padding: 8px 0; }
+.authorization-table th, .authorization-table td { padding: 8px; vertical-align: top; overflow-wrap: anywhere; border-bottom: 1px solid var(--ov-color-border-default); }
+.authorization-details dd { margin: 4px 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 720px) { .authorization-grid { grid-template-columns: 1fr; } .authorization-row { flex-wrap: wrap; } }

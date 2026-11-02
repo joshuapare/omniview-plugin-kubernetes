@@ -1,0 +1,19 @@
+.networking-form { display: grid; gap: 16px; min-width: 0; font-size: 13px; }
+.networking-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.networking-row { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; min-width: 0; }
+.networking-row > .resource-editor-field { flex: 1 1 160px; }
+.networking-card, .networking-selector, .networking-rule { display: grid; min-width: 0; gap: 10px; border: 1px solid var(--ov-color-border-default, #454545); border-radius: 5px; padding: 12px; margin: 0; }
+.networking-card { background: var(--ov-color-bg-surface, transparent); }
+.networking-selector legend, .networking-rule legend { font-weight: 600; padding: 0 4px; }
+.networking-selector legend > .resource-editor-help { display: inline-block; vertical-align: middle; }
+.networking-consequence { display: flex; align-items: center; gap: 8px; border-left: 2px solid var(--ov-color-warning, #cfad69); padding-left: 8px; font-size: 12px; }
+.networking-muted { color: var(--ov-color-fg-muted, #999); font-size: 12px; }
+.networking-advanced { display: grid; min-width: 0; }
+.networking-advanced > summary { cursor: pointer; padding: 8px 0; font-weight: 500; }
+.networking-advanced[open] > :not(summary) { margin-top: 8px; }
+.networking-facts { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(0, 2fr); gap: 8px 16px; margin: 0; }
+.networking-facts dt { color: var(--ov-color-fg-muted, #999); }
+.networking-facts dd { margin: 0; overflow-wrap: anywhere; }
+.networking-form [role="alert"] { color: var(--ov-color-danger, #dc6060); font-size: 12px; }
+@media (max-width: 700px) { .networking-grid { grid-template-columns: minmax(0, 1fr); } .networking-card, .networking-selector, .networking-rule { padding: 9px; } }
+@media (max-width: 440px) { .networking-row > .resource-editor-field { flex-basis: 100%; } .networking-facts { grid-template-columns: minmax(0, 1fr); gap: 4px; } .networking-facts dd { margin-bottom: 8px; } }

@@ -1,0 +1,15 @@
+OpenTelemetry Operator editor provider — issue 317
+
+Pinned baseline: v0.135.0 / a7855fa87c3364aa34952d709ab2973601eb4609.
+Primary sources: https://github.com/open-telemetry/opentelemetry-operator/tree/v0.135.0/config/crd/bases and apis/v1alpha1/{instrumentation,opampbridge,targetallocator}_types.go; apis/v1beta1/opentelemetrycollector_types.go.
+Refreshed CRD documents return HTTP 200. All four kinds are Namespaced. Collector serves v1alpha1 and v1beta1; this provider supports only structured v1beta1. Instrumentation, OpAMPBridge and TargetAllocator serve only v1alpha1. Unknown versions retain host fallback. No spec immutable marker is claimed; admission remains authoritative.
+
+Collector, Instrumentation and Bridge declare desired-state ownership policy, not permission. TargetAllocator is conditional: host-established independent ownership permits authoring; owner references or unresolved ownership force inspection. Generated allocator changes belong to Collector.spec.targetAllocator. No detach or pretend allocation inspection action exists.
+
+Host owns identity, source, masking, capability discovery, schema admission and submission. Field edits use revision-scoped atomic patches. Batch removal changes only one pipeline array node and retains processor definitions shared by other pipelines. Propagator edits preserve unknown siblings. Exact ratios remain strings; integers use bigint. Invalid partial inputs stay local through ExactValueField.
+
+Collector endpoint controls edit only existing OTLP-family endpoints; named exporter and pipeline additions require explicit names. Arbitrary component configuration and receiver/exporter wiring remain advanced source. Sidecar admission disallows nonempty tolerations, affinity, priorityClassName and additionalContainers; the form never removes these silently. Language images do not establish installed injection gates. Go injection also requires target executable configuration. Bridge remote configuration and allocator per-node choices expose concise consequences. Existing service-account suggestions use sanitized references, retaining manual names on denial or unavailability.
+
+Advanced scheduling/resources, monitor selectors, arbitrary scrape configuration and language TLS remain host source controls. Empty and null monitor selectors are never normalized. Sensitive headers/environment/scrape configuration are declared sensitive and never replaced from projected objects. No credentials are included in fixtures.
+
+Coverage and fixture harness: .local/resource-editor-implementation/issue-317/coverage.json and harness.tsx. Harness mounts actual ResourceEditorHarness, canonical controller and lazy production components. Fixtures never mutate a cluster. Parent owns final server/browser capture wave, integration checks and publication. No screenshot or executed check is claimed here.
