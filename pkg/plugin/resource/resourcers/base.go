@@ -212,6 +212,8 @@ func watchNamespaces(scope resource.QueryScope) ([]string, error) {
 	}
 }
 
+var sourceLivenessInterval = 10 * time.Second
+
 // Source leases informer handlers for one source session.
 func (s *KubernetesResourcerBase[T]) Source(ctx context.Context, client *clients.ClientSet, request resource.SourceRequest, emit resource.SourceEmitter) error {
 	if client == nil || client.DynamicClient == nil || emit == nil {
@@ -245,13 +247,17 @@ func (s *KubernetesResourcerBase[T]) Source(ctx context.Context, client *clients
 			}
 		}
 	}()
-	for _, namespace := range namespaces {
+	probe := func(ctx context.Context, namespace string) error {
 		native := client.DynamicClient.Resource(s.resourceType)
 		if namespace == "" {
-			_, err = native.List(ctx, metav1.ListOptions{Limit: 1})
-		} else {
-			_, err = native.Namespace(namespace).List(ctx, metav1.ListOptions{Limit: 1})
+			_, err := native.List(ctx, metav1.ListOptions{Limit: 1})
+			return err
 		}
+		_, err := native.Namespace(namespace).List(ctx, metav1.ListOptions{Limit: 1})
+		return err
+	}
+	for _, namespace := range namespaces {
+		err = probe(ctx, namespace)
 		if err != nil {
 			classified := classifyWatchError(err)
 			if classified.isForbidden || classified.isNotFound || classified.isMethodNotAllowed {
@@ -339,6 +345,8 @@ func (s *KubernetesResourcerBase[T]) Source(ctx context.Context, client *clients
 	if err := emit.EndSnapshot(ctx, coverage, resource.ContinuityBestEffort); err != nil {
 		return err
 	}
+	ticker := time.NewTicker(sourceLivenessInterval)
+	defer ticker.Stop()
 	for {
 		if overflow.Load() {
 			return reset()
@@ -346,6 +354,16 @@ func (s *KubernetesResourcerBase[T]) Source(ctx context.Context, client *clients
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case <-ticker.C:
+			probeCtx, cancelProbe := context.WithTimeout(ctx, 5*time.Second)
+			err := probe(probeCtx, namespaces[0])
+			cancelProbe()
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if err != nil {
+				return emit.Reset(ctx, resource.SourceResetContinuityLost, "Kubernetes API is unreachable; informer events are not being delivered")
+			}
 		case first := <-events:
 			changes := make([]resource.SourceChange, 0, request.Limits.MaxBatchItems)
 			event := first

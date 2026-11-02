@@ -3,6 +3,7 @@ package resourcers
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -169,4 +170,53 @@ func TestSourceForbidden(t *testing.T) {
 	err := newBaseResourcer().Source(context.Background(), cs, resource.SourceRequest{Target: testWatchTarget(), Representation: testWatchRepresentation(), Limits: resource.SourceLimits{MaxBatchItems: resource.MaxSourceBatchItems}}, emitter)
 	require.Equal(t, "FORBIDDEN", resource.ErrorCode(err))
 	require.Empty(t, emitter.events)
+}
+
+func TestSourceLivenessProbe(t *testing.T) {
+	oldInterval := sourceLivenessInterval
+	sourceLivenessInterval = 20 * time.Millisecond
+	defer func() { sourceLivenessInterval = oldInterval }()
+
+	cs := newFakeClientSet(defaultGVRListKinds())
+	var following, fail atomic.Bool
+	probes := make(chan struct{}, 16)
+	cs.DynamicClient.(*fakedynamic.FakeDynamicClient).PrependReactor("list", "pods", func(k8stesting.Action) (bool, runtime.Object, error) {
+		if following.Load() {
+			select {
+			case probes <- struct{}{}:
+			default:
+			}
+			if fail.Load() {
+				return true, nil, fmt.Errorf("API unavailable")
+			}
+		}
+		return false, nil, nil
+	})
+	emitter := &sourceTestEmitter{events: make(chan sourceTestEvent, 16)}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- newBaseResourcer().Source(ctx, cs, resource.SourceRequest{Target: testWatchTarget(), Representation: testWatchRepresentation(), Limits: resource.SourceLimits{MaxBatchItems: resource.MaxSourceBatchItems}}, emitter)
+	}()
+	defer func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			t.Error("source did not stop")
+		}
+	}()
+	require.True(t, nextSourceTestEvent(t, emitter).boundary)
+	following.Store(true)
+	select {
+	case <-probes:
+	case <-time.After(5 * time.Second):
+		t.Fatal("successful liveness probe did not run")
+	}
+	require.Empty(t, emitter.events, "successful probe must not reset")
+	fail.Store(true)
+	event := nextSourceTestEvent(t, emitter)
+	require.NotNil(t, event.reset)
+	require.Equal(t, resource.SourceResetContinuityLost, event.reset.Reason)
+	require.Equal(t, "Kubernetes API is unreachable; informer events are not being delivered", event.reset.Message)
 }

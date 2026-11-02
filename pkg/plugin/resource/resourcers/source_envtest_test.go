@@ -227,3 +227,40 @@ func TestSourceForbiddenFailsOpen(t *testing.T) {
 		require.Nil(t, frame.Reset)
 	}
 }
+
+func TestSourceLivenessResetWhenAPIServerStops(t *testing.T) {
+	oldInterval := sourceLivenessInterval
+	sourceLivenessInterval = 50 * time.Millisecond
+	t.Cleanup(func() { sourceLivenessInterval = oldInterval })
+	env, config, _ := startSourceEnvtest(t)
+	stream := openEnvtestSource(t, config, nil, nil)
+	state := map[string]string{}
+	for {
+		frame := receiveEnvtestFrame(t, stream, state)
+		if frame.SnapshotEnd != nil {
+			break
+		}
+	}
+	require.NoError(t, env.ControlPlane.APIServer.Stop())
+	env.ControlPlane.APIServer = nil
+	result := make(chan resource.SourceFrame, 1)
+	errors := make(chan error, 1)
+	go func() {
+		frame, err := stream.Recv()
+		if err != nil {
+			errors <- err
+			return
+		}
+		result <- frame
+	}()
+	select {
+	case frame := <-result:
+		require.NotNil(t, frame.Reset)
+		require.Equal(t, resource.SourceResetContinuityLost, frame.Reset.Reason)
+		require.Equal(t, "Kubernetes API is unreachable; informer events are not being delivered", frame.Reset.Message)
+	case err := <-errors:
+		t.Fatalf("receiving reset: %v", err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for liveness reset")
+	}
+}
