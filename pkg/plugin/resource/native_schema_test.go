@@ -2,6 +2,9 @@ package resource
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -56,6 +59,110 @@ func TestNativeSchemaKeepsExactDocumentAndRoot(t *testing.T) {
 	require.Equal(t, len(document), budget.used, "shared document is charged only once")
 	require.True(t, &result["core::v1::Pod"].Document[0] == &result["core::v1::Node"].Document[0], "type entries share one allocation")
 	require.Equal(t, len(document), cap(result["core::v1::Pod"].Document))
+}
+
+func TestNativeSchemaPublishesCorrectedTimeAndSharesLeases(t *testing.T) {
+	const raw = `{"components":{"schemas":{"native.Pod":{"x-kubernetes-group-version-kind":[{"group":"","version":"v1","kind":"Pod"}],"properties":{"name":{"type":"string","nullable":false}}},"io.k8s.apimachinery.pkg.apis.meta.v1.Time":{"type":"string","format":"date-time","nullable":false},"io.k8s.apimachinery.pkg.apis.meta.v1.MicroTime":{"type":"string","format":"date-time","maximum":9007199254740993},"other.Time":{"type":"string","nullable":false}}},"wide":9007199254740993}`
+	source := []byte(raw)
+	var parsed struct {
+		Components struct {
+			Schemas map[string]json.RawMessage `json:"schemas"`
+		} `json:"components"`
+	}
+	require.NoError(t, json.Unmarshal(source, &parsed))
+	corrected, err := correctNativeTimeSchemas(source)
+	require.NoError(t, err)
+	require.Equal(t, raw, string(source))
+	require.NotEqual(t, raw, string(corrected))
+	require.Contains(t, string(corrected), `"maximum":9007199254740993`)
+	require.Contains(t, string(corrected), `"wide":9007199254740993`)
+	require.NoError(t, json.Unmarshal(corrected, &parsed))
+	for _, name := range []string{"io.k8s.apimachinery.pkg.apis.meta.v1.Time", "io.k8s.apimachinery.pkg.apis.meta.v1.MicroTime"} {
+		var fields map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(parsed.Components.Schemas[name], &fields))
+		require.Equal(t, "true", string(fields["nullable"]))
+	}
+	require.Contains(t, string(parsed.Components.Schemas["other.Time"]), `"nullable":false`)
+	require.Contains(t, string(parsed.Components.Schemas["native.Pod"]), `"nullable":false`)
+	again, err := correctNativeTimeSchemas(corrected)
+	require.NoError(t, err)
+	require.Equal(t, corrected, again)
+	require.True(t, &corrected[0] == &again[0])
+
+	client := nativeSchemaRESTClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(source)
+	}))
+	bindings := map[string]nativeType{"pod": schemaBudgetBinding("")}
+	budget := &nativeSchemaBudget{limit: len(corrected)}
+	first, failures, lease := fetchNativeSchemas(context.Background(), client, bindings, budget)
+	require.Empty(t, failures)
+	require.Equal(t, corrected, []byte(first["pod"].Document))
+	digest := sha256.Sum256(corrected)
+	rawDigest := sha256.Sum256(source)
+	require.Equal(t, hex.EncodeToString(digest[:]), first["pod"].Revision)
+	require.NotEqual(t, rawDigest, digest)
+	second, failures, secondLease := fetchNativeSchemas(context.Background(), client, bindings, budget)
+	require.Empty(t, failures)
+	require.Equal(t, first["pod"].Revision, second["pod"].Revision)
+	require.True(t, &first["pod"].Document[0] == &second["pod"].Document[0])
+	require.Equal(t, len(corrected), budget.used)
+	lease.Release()
+	require.Equal(t, len(corrected), budget.used)
+	secondLease.Release()
+	require.Zero(t, budget.used)
+	require.Equal(t, raw, string(source))
+
+	tooSmall := &nativeSchemaBudget{limit: len(corrected) - 1}
+	result, failures, failedLease := fetchNativeSchemas(context.Background(), client, bindings, tooSmall)
+	require.Empty(t, result)
+	require.ErrorContains(t, failures["pod"], "budget exhausted")
+	require.Zero(t, tooSmall.used)
+	failedLease.Release()
+}
+
+func TestNativeSchemaCorrectionUsesExactSchemasCase(t *testing.T) {
+	const raw = `{"components":{"schemas":{"native.Pod":{"x-kubernetes-group-version-kind":[{"group":"","version":"v1","kind":"Pod"}]},"io.k8s.apimachinery.pkg.apis.meta.v1.Time":{"type":"string","marker":"A","maximum":9007199254740993}},"Schemas":{"native.Pod":{"x-kubernetes-group-version-kind":[{"group":"","version":"v1","kind":"Pod"}]},"io.k8s.apimachinery.pkg.apis.meta.v1.Time":{"type":"string","marker":"B","maximum":9007199254740995}}},"wide":9007199254740997}`
+	const original = `{"type":"string","marker":"A","maximum":9007199254740993}`
+	const corrected = `{"marker":"A","maximum":9007199254740993,"nullable":true,"type":"string"}`
+	client := nativeSchemaRESTClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(raw))
+	}))
+	result, failures, lease := fetchNativeSchemas(context.Background(), client, map[string]nativeType{"pod": schemaBudgetBinding("")}, &nativeSchemaBudget{})
+	defer lease.Release()
+	require.Empty(t, failures)
+	require.Equal(t, strings.Replace(raw, original, corrected, 1), string(result["pod"].Document))
+}
+
+func TestNativeSchemaCorrectionRejectsNonobjectContainers(t *testing.T) {
+	for _, document := range []string{
+		`{"Components":{"schemas":{"native.Pod":{"x-kubernetes-group-version-kind":[{"group":"","version":"v1","kind":"Pod"}]},"io.k8s.apimachinery.pkg.apis.meta.v1.Time":{}}},"components":null}`,
+		`{"components":{"schemas":null,"Schemas":{"native.Pod":{"x-kubernetes-group-version-kind":[{"group":"","version":"v1","kind":"Pod"}]},"io.k8s.apimachinery.pkg.apis.meta.v1.Time":{}}}}`,
+	} {
+		client := nativeSchemaRESTClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(document))
+		}))
+		budget := &nativeSchemaBudget{}
+		result, failures, lease := fetchNativeSchemas(context.Background(), client, map[string]nativeType{"pod": schemaBudgetBinding("")}, budget)
+		require.Empty(t, result)
+		require.ErrorContains(t, failures["pod"], "time component location is invalid")
+		require.Zero(t, budget.used)
+		lease.Release()
+	}
+}
+
+func TestNativeSchemaCorrectionRespectsDocumentLimit(t *testing.T) {
+	prefix := `{"components":{"schemas":{"native.Pod":{"x-kubernetes-group-version-kind":[{"group":"","version":"v1","kind":"Pod"}]},"io.k8s.apimachinery.pkg.apis.meta.v1.Time":{"type":"string"}}},"padding":"`
+	suffix := `"}`
+	document := prefix + strings.Repeat("x", maxNativeSchemaBytes-len(prefix)-len(suffix)) + suffix
+	client := nativeSchemaRESTClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(document))
+	}))
+	budget := &nativeSchemaBudget{}
+	result, failures, lease := fetchNativeSchemas(context.Background(), client, map[string]nativeType{"pod": schemaBudgetBinding("")}, budget)
+	defer lease.Release()
+	require.Empty(t, result)
+	require.ErrorContains(t, failures["pod"], "document exceeds")
+	require.Zero(t, budget.used)
 }
 
 func TestNativeSchemaFailureIsNotAbsence(t *testing.T) {

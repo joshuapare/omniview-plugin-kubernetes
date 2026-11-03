@@ -187,6 +187,16 @@ Watch failures use SDK error codes: unsupported native methods report `UNSUPPORT
 
 OpenAPI documents are bounded to 16 MiB and shared by document reference plus exact local root. Demand-driven catalog refresh runs at most once every 30 seconds per connected cluster, with a 10-second acquisition deadline. Each eligible refresh reacquires OpenAPI before comparing snapshots, so schema-only changes and recovery from an initial missing document can update the catalog. This is not a CRD watcher or immediate change notification.
 
+Before publication, the provider sets `nullable: true` on exactly
+`io.k8s.apimachinery.pkg.apis.meta.v1.Time` and
+`io.k8s.apimachinery.pkg.apis.meta.v1.MicroTime`.
+It preserves the fetched source bytes and resource bodies.
+It changes only those component spans in the published document.
+The document revision hashes the published bytes; the host digest also reflects the correction.
+The correction uses exact `components.schemas` spans, not case-different aliases.
+`GetSchemaDocument` serves bytes whose SHA-256 equals the binding revision.
+Generic host null checks remain strict.
+
 One provider-wide 32 MiB retained-schema budget covers every connection, with a separate 16 MiB staging bound. Identical document bytes share retained storage. Exhausted entries are unavailable, not incorrectly absent, and resource Get remains independent. Replacement, failed acquisition, and teardown release the cache budget; queued acquisition is cancellable. Available, absent, and unavailable schemas remain distinct; raw OpenAPI transport does not claim P07 normalization or full validation. Editor metadata also forwards installed Helm chart `values.schema.json` roles with native acquisition errors intact. Creation can use a schema-derived template or a complete pasted native manifest.
 
 Helm schema acquisition never grants or requires Helm Secret access for native Pod schemas. A source-specific Helm failure retains native bindings and returns a document-free, generic Helm values role marked unavailable with an optional safe machine-code `unavailableReason`, never backend diagnostics or invented release identities. Request cancellation, deadlines, and retired connection generations remain errors rather than partial success. All Helm metadata, storage, and schema HTTP requests reuse the existing authenticated bounded client.

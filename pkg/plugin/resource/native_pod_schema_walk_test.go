@@ -3,6 +3,8 @@ package resource
 import (
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"os"
@@ -79,8 +81,8 @@ func TestNativePodSchemaTraversalFromClusterOpenAPI(t *testing.T) {
 
 	controller, err := resourcev2.NewController(resourcev2.Config[clients.ClientSet]{Catalog: p.catalog, Lifecycle: &resourcev2.Lifecycle[clients.ClientSet]{
 		LoadConnections: func(context.Context) ([]types.Connection, error) { return []types.Connection{connection}, nil },
-		CreateClient: func(context.Context, types.Connection) (*clients.ClientSet, error) { return client, nil },
-		DestroyClient: (&kubeConnectionProvider{logger: zap.NewNop().Sugar()}).DestroyClient,
+		CreateClient:    func(context.Context, types.Connection) (*clients.ClientSet, error) { return client, nil },
+		DestroyClient:   (&kubeConnectionProvider{logger: zap.NewNop().Sugar()}).DestroyClient,
 	}})
 	require.NoError(t, err)
 	p.Controller = controller
@@ -104,7 +106,20 @@ func TestNativePodSchemaTraversalFromClusterOpenAPI(t *testing.T) {
 	require.Equal(t, *binding.Revision, binding.DocumentRef.Revision)
 	served, err := p.GetSchemaDocument(ctx, route, *binding.DocumentRef)
 	require.NoError(t, err)
-	require.Equal(t, fixture, []byte(served.Document))
+	digest := sha256.Sum256(served.Document)
+	require.Equal(t, hex.EncodeToString(digest[:]), *binding.Revision)
+	require.Equal(t, hex.EncodeToString(digest[:]), served.Reference.Revision)
+	var source map[string]any
+	require.NoError(t, json.Unmarshal(fixture, &source))
+	sourceSchemas := podSchemaObject(t, podSchemaObject(t, source, "components"), "schemas")
+	for _, name := range []string{"io.k8s.apimachinery.pkg.apis.meta.v1.Time", "io.k8s.apimachinery.pkg.apis.meta.v1.MicroTime"} {
+		component := podSchemaObject(t, sourceSchemas, name)
+		require.NotEqual(t, true, component["nullable"])
+		component["nullable"] = true
+	}
+	var actual map[string]any
+	require.NoError(t, json.Unmarshal(served.Document, &actual))
+	require.Equal(t, source, actual, "served schema must differ only in time nullability")
 	var document map[string]any
 	require.NoError(t, json.Unmarshal(served.Document, &document))
 	root := podSchemaResolve(t, document, map[string]any{"$ref": binding.Root})
