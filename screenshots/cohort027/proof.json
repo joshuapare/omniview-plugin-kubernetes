@@ -1,0 +1,50 @@
+{
+  "status": "passed",
+  "mode": "Actual IDE browser backend, managed source-linked development runtime; not a packaged desktop release",
+  "hostRevision": "548842be58a84928d10b329da7cb5eb43d474b2c",
+  "pluginRevision": "bf867517995295d5b75935f100f6a84013772b86",
+  "sdkRevision": "1712cd3b66e14b1807cf17fbb59f48512875c822",
+  "sdkSourceLinked": true,
+  "readiness": {
+    "liveness": "alive",
+    "build": "ready",
+    "dependencies": "current",
+    "servedSource": "current",
+    "readiness": "authenticated",
+    "hmr": "connected",
+    "sourceReload": "unverified",
+    "details": [
+      "launch-readiness.json",
+      "restart-readiness.json"
+    ]
+  },
+  "observedActions": [
+    "Pods table rendered 16 real running cluster Pods, including seven demo Pods.",
+    "Picker rendered Fields 20, Labels 12, Annotations 10, Selected 12.",
+    "Fields search 'host ip' narrowed to unchecked Host IP. Selecting it checked row, added Remove Host IP to Selected area, and increased Selected to 13.",
+    "Labels search 'component' returned app.kubernetes.io/component and component. Selecting app.kubernetes.io/component increased Selected to 14.",
+    "Annotations search 'owner' returned example.com/owner. Selecting it increased Selected to 15.",
+    "Selected tab showed checked Host IP, app.kubernetes.io/component, and example.com/owner entries with removal controls.",
+    "Remove Host IP removed selected field and table header, decreasing Selected to 14.",
+    "Closed picker with Close column picker; reopened Columns 14. Selected remained 14; label and annotation remained checked, Host IP remained absent from Selected.",
+    "Node representative picker rendered Fields 12, Labels 6, Annotations 2, Selected 5. Search 'kernel' found Kernel Version; selecting increased Selected to 6 and added removal control and table header.",
+    "Navigated Other API Groups > proof.omniview.dev > PickerDemo. Real columns-proof resource appeared. CRD fallback rendered Fields 3, Labels 1, Annotations 2, Selected 3.",
+    "CRD Labels search 'team' found example.com/team. Selecting increased Selected to 4 and added removal control and table header."
+  ],
+  "screenshots": [
+    "01-pods-fields-selected.png",
+    "02-pods-label-search.png",
+    "03-pods-annotation-search.png"
+  ],
+  "cleanup": {
+    "browserTabClosed": true,
+    "workspaceStopped": true,
+    "clusterDeleted": true,
+    "kubeconfigDeleted": true,
+    "unrelatedClustersOrWorkspacesChanged": false
+  },
+  "limitations": [
+    "Browser backend smoke only; native desktop window not exercised.",
+    "Console emitted DiagnosticsClient.Log failures during interaction; picker interactions succeeded."
+  ]
+}
