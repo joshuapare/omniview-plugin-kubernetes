@@ -87,6 +87,14 @@ const ColumnPicker = <T extends RowData>({
   const [tab, setTab] = useState<Tab>('Fields');
   const searchRef = useRef<HTMLInputElement>(null);
 
+  const columnName = (column: Column<DataTableFeatures, T>) => {
+    if (typeof column.columnDef.header === 'string') return column.columnDef.header;
+    const meta = column.columnDef.meta;
+    return meta && 'sortAriaLabel' in meta && typeof meta.sortAriaLabel === 'string'
+      ? meta.sortAriaLabel
+      : column.id;
+  };
+
   const fields: Entry<T>[] = columns
     .filter(
       (column) =>
@@ -97,11 +105,7 @@ const ColumnPicker = <T extends RowData>({
     )
     .map((column) => ({
       id: `field:${column.id}`,
-      name:
-        typeof column.columnDef.header === 'string'
-          ? column.columnDef.header
-          : ((column.columnDef.meta as { sortAriaLabel?: string } | undefined)?.sortAriaLabel ??
-            column.id),
+      name: columnName(column),
       kind: 'Fields',
       selected: column.getIsVisible(),
       locked: !column.getCanHide(),
@@ -142,8 +146,8 @@ const ColumnPicker = <T extends RowData>({
 
   // Metadata setters merge partial maps, so each batch must reach the parent in one call.
   const setSelected = (targets: Entry<T>[], next: boolean) => {
-    const labelChanges: Record<string, boolean> = Object.create(null);
-    const annotationChanges: Record<string, boolean> = Object.create(null);
+    const labelChanges = Object.create(null) as Record<string, boolean>;
+    const annotationChanges = Object.create(null) as Record<string, boolean>;
     for (const entry of targets) {
       if (entry.locked || entry.selected === next) continue;
       if (entry.kind === 'Fields') entry.column.toggleVisibility(next);
