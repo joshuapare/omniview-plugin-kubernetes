@@ -1,0 +1,758 @@
+{
+  "foundation": "b2d45de9db3da7761e90d8581849cbd6e6e0774e",
+  "latestAggregate": "9a13537f571259ae5f0b78467bb137f48223cd34",
+  "host": "bba77aef9dece94ad42386498f280e977d4914b7",
+  "sdk": "458597dc74be0a203d7b1e602c1c35f02e5d3f54",
+  "verification": {
+    "node": "26.13.0",
+    "pnpm": "12.14.0",
+    "frozenInstall": "passed",
+    "lint": "passed",
+    "nativeTypecheck": "passed",
+    "tests": {
+      "passed": 1631,
+      "preexistingSkipped": 3
+    },
+    "newYorkAgeTests": 18,
+    "productionBuild": "passed",
+    "goPackagesPassed": 11
+  },
+  "resources": [
+    {
+      "issue": 89,
+      "kind": "MutatingWebhookConfiguration",
+      "resourceKey": "k8s:admissionregistration.k8s.io/mutatingwebhookconfigurations",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/89-MutatingWebhookConfiguration.png"
+    },
+    {
+      "issue": 90,
+      "kind": "ValidatingAdmissionPolicy",
+      "resourceKey": "k8s:admissionregistration.k8s.io/validatingadmissionpolicies",
+      "aggregateHead": "8267f19b9853d1fd5e5c9364822578b725da069b",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/90-ValidatingAdmissionPolicy.png"
+    },
+    {
+      "issue": 91,
+      "kind": "ValidatingAdmissionPolicyBinding",
+      "resourceKey": "k8s:admissionregistration.k8s.io/validatingadmissionpolicybindings",
+      "aggregateHead": "8267f19b9853d1fd5e5c9364822578b725da069b",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/91-ValidatingAdmissionPolicyBinding.png"
+    },
+    {
+      "issue": 92,
+      "kind": "ValidatingWebhookConfiguration",
+      "resourceKey": "k8s:admissionregistration.k8s.io/validatingwebhookconfigurations",
+      "aggregateHead": "8267f19b9853d1fd5e5c9364822578b725da069b",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/92-ValidatingWebhookConfiguration.png"
+    },
+    {
+      "issue": 93,
+      "kind": "DaemonSet",
+      "resourceKey": "k8s:apps/daemonsets",
+      "aggregateHead": "8267f19b9853d1fd5e5c9364822578b725da069b",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/93-DaemonSet.png"
+    },
+    {
+      "issue": 94,
+      "kind": "Deployment",
+      "resourceKey": "k8s:apps/deployments",
+      "aggregateHead": "8267f19b9853d1fd5e5c9364822578b725da069b",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/94-Deployment.png"
+    },
+    {
+      "issue": 95,
+      "kind": "ReplicaSet",
+      "resourceKey": "k8s:apps/replicasets",
+      "aggregateHead": "8267f19b9853d1fd5e5c9364822578b725da069b",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/95-ReplicaSet.png"
+    },
+    {
+      "issue": 96,
+      "kind": "StatefulSet",
+      "resourceKey": "k8s:apps/statefulsets",
+      "aggregateHead": "8267f19b9853d1fd5e5c9364822578b725da069b",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/96-StatefulSet.png"
+    },
+    {
+      "issue": 97,
+      "kind": "HorizontalPodAutoscaler",
+      "resourceKey": "k8s:autoscaling/horizontalpodautoscalers",
+      "aggregateHead": "8267f19b9853d1fd5e5c9364822578b725da069b",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/97-HorizontalPodAutoscaler.png"
+    },
+    {
+      "issue": 98,
+      "kind": "CronJob",
+      "resourceKey": "k8s:batch/cronjobs",
+      "aggregateHead": "8267f19b9853d1fd5e5c9364822578b725da069b",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/98-CronJob.png"
+    },
+    {
+      "issue": 99,
+      "kind": "Job",
+      "resourceKey": "k8s:batch/jobs",
+      "aggregateHead": "8267f19b9853d1fd5e5c9364822578b725da069b",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/99-Job.png"
+    },
+    {
+      "issue": 100,
+      "kind": "ComponentStatus",
+      "resourceKey": "k8s:/componentstatuses",
+      "aggregateHead": "8267f19b9853d1fd5e5c9364822578b725da069b",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "computed ComponentStatus exposes no editable metadata; empty metadata groups verified",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/100-ComponentStatus.png"
+    },
+    {
+      "issue": 101,
+      "kind": "ConfigMap",
+      "resourceKey": "k8s:/configmaps",
+      "aggregateHead": "8267f19b9853d1fd5e5c9364822578b725da069b",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/101-ConfigMap.png"
+    },
+    {
+      "issue": 102,
+      "kind": "Endpoints",
+      "resourceKey": "k8s:/endpoints",
+      "aggregateHead": "8267f19b9853d1fd5e5c9364822578b725da069b",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/102-Endpoints.png"
+    },
+    {
+      "issue": 103,
+      "kind": "Event",
+      "resourceKey": "k8s:/events",
+      "aggregateHead": "8267f19b9853d1fd5e5c9364822578b725da069b",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/103-Event.png"
+    },
+    {
+      "issue": 104,
+      "kind": "LimitRange",
+      "resourceKey": "k8s:/limitranges",
+      "aggregateHead": "8267f19b9853d1fd5e5c9364822578b725da069b",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/104-LimitRange.png"
+    },
+    {
+      "issue": 105,
+      "kind": "Namespace",
+      "resourceKey": "k8s:/namespaces",
+      "aggregateHead": "8267f19b9853d1fd5e5c9364822578b725da069b",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/105-Namespace.png"
+    },
+    {
+      "issue": 106,
+      "kind": "Node",
+      "resourceKey": "k8s:/nodes",
+      "aggregateHead": "729e377926ade4eb59732d90686f4978fc83e78d",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/106-Node.png"
+    },
+    {
+      "issue": 107,
+      "kind": "PersistentVolume",
+      "resourceKey": "k8s:/persistentvolumes",
+      "aggregateHead": "729e377926ade4eb59732d90686f4978fc83e78d",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/107-PersistentVolume.png"
+    },
+    {
+      "issue": 108,
+      "kind": "PersistentVolumeClaim",
+      "resourceKey": "k8s:/persistentvolumeclaims",
+      "aggregateHead": "44738ffa731e8877dc5479a08581365e20c8c1a2",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/108-PersistentVolumeClaim.png"
+    },
+    {
+      "issue": 109,
+      "kind": "ResourceQuota",
+      "resourceKey": "k8s:/resourcequotas",
+      "aggregateHead": "44738ffa731e8877dc5479a08581365e20c8c1a2",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/109-ResourceQuota.png"
+    },
+    {
+      "issue": 110,
+      "kind": "Secret",
+      "resourceKey": "k8s:/secrets",
+      "aggregateHead": "44738ffa731e8877dc5479a08581365e20c8c1a2",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/110-Secret.png"
+    },
+    {
+      "issue": 111,
+      "kind": "Service",
+      "resourceKey": "k8s:/services",
+      "aggregateHead": "44738ffa731e8877dc5479a08581365e20c8c1a2",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/111-Service.png"
+    },
+    {
+      "issue": 112,
+      "kind": "ServiceAccount",
+      "resourceKey": "k8s:/serviceaccounts",
+      "aggregateHead": "44738ffa731e8877dc5479a08581365e20c8c1a2",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/112-ServiceAccount.png"
+    },
+    {
+      "issue": 113,
+      "kind": "ReplicationController",
+      "resourceKey": "k8s:/replicationcontrollers",
+      "aggregateHead": "44738ffa731e8877dc5479a08581365e20c8c1a2",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/113-ReplicationController.png"
+    },
+    {
+      "issue": 114,
+      "kind": "Lease",
+      "resourceKey": "k8s:coordination.k8s.io/leases",
+      "aggregateHead": "44738ffa731e8877dc5479a08581365e20c8c1a2",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/114-Lease.png"
+    },
+    {
+      "issue": 115,
+      "kind": "EndpointSlice",
+      "resourceKey": "k8s:discovery.k8s.io/endpointslices",
+      "aggregateHead": "44738ffa731e8877dc5479a08581365e20c8c1a2",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/115-EndpointSlice.png"
+    },
+    {
+      "issue": 116,
+      "kind": "PriorityLevelConfiguration",
+      "resourceKey": "k8s:flowcontrol.apiserver.k8s.io/prioritylevelconfigurations",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/116-PriorityLevelConfiguration.png"
+    },
+    {
+      "issue": 117,
+      "kind": "FlowSchema",
+      "resourceKey": "k8s:flowcontrol.apiserver.k8s.io/flowschemas",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/117-FlowSchema.png"
+    },
+    {
+      "issue": 118,
+      "kind": "Ingress",
+      "resourceKey": "k8s:networking.k8s.io/ingresses",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/118-Ingress.png"
+    },
+    {
+      "issue": 119,
+      "kind": "IngressClass",
+      "resourceKey": "k8s:networking.k8s.io/ingressclasses",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/119-IngressClass.png"
+    },
+    {
+      "issue": 120,
+      "kind": "NetworkPolicy",
+      "resourceKey": "k8s:networking.k8s.io/networkpolicies",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/120-NetworkPolicy.png"
+    },
+    {
+      "issue": 121,
+      "kind": "RuntimeClass",
+      "resourceKey": "k8s:node.k8s.io/runtimeclasses",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/121-RuntimeClass.png"
+    },
+    {
+      "issue": 122,
+      "kind": "PodDisruptionBudget",
+      "resourceKey": "k8s:policy/poddisruptionbudgets",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/122-PodDisruptionBudget.png"
+    },
+    {
+      "issue": 123,
+      "kind": "ClusterRole",
+      "resourceKey": "k8s:rbac.authorization.k8s.io/clusterroles",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/123-ClusterRole.png"
+    },
+    {
+      "issue": 124,
+      "kind": "ClusterRoleBinding",
+      "resourceKey": "k8s:rbac.authorization.k8s.io/clusterrolebindings",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/124-ClusterRoleBinding.png"
+    },
+    {
+      "issue": 125,
+      "kind": "Role",
+      "resourceKey": "k8s:rbac.authorization.k8s.io/roles",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/125-Role.png"
+    },
+    {
+      "issue": 126,
+      "kind": "RoleBinding",
+      "resourceKey": "k8s:rbac.authorization.k8s.io/rolebindings",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/126-RoleBinding.png"
+    },
+    {
+      "issue": 127,
+      "kind": "PriorityClass",
+      "resourceKey": "k8s:scheduling.k8s.io/priorityclasses",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/127-PriorityClass.png"
+    },
+    {
+      "issue": 128,
+      "kind": "CSIDriver",
+      "resourceKey": "k8s:storage.k8s.io/csidrivers",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/128-CSIDriver.png"
+    },
+    {
+      "issue": 129,
+      "kind": "CSINode",
+      "resourceKey": "k8s:storage.k8s.io/csinodes",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/129-CSINode.png"
+    },
+    {
+      "issue": 130,
+      "kind": "CSIStorageCapacity",
+      "resourceKey": "k8s:storage.k8s.io/csistoragecapacities",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/130-CSIStorageCapacity.png"
+    },
+    {
+      "issue": 131,
+      "kind": "StorageClass",
+      "resourceKey": "k8s:storage.k8s.io/storageclasses",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/131-StorageClass.png"
+    },
+    {
+      "issue": 132,
+      "kind": "VolumeAttachment",
+      "resourceKey": "k8s:storage.k8s.io/volumeattachments",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/132-VolumeAttachment.png"
+    },
+    {
+      "issue": 133,
+      "kind": "CustomResource (DefaultTable)",
+      "resourceKey": "k8s:columns.omniview.dev/columnpickersamples",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/133-CustomResourceDefaultTable.png"
+    },
+    {
+      "issue": 135,
+      "kind": "Pod",
+      "resourceKey": "k8s:/pods",
+      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "checks": [
+        "actual routed rows; required columns locked",
+        "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
+        "122+ labels and 81+ annotations; full-key search; scoped bulk selection; actual metadata table columns",
+        "row selection state and row actions menu remain usable",
+        "preferences survive close/reopen and full IDE reload; no duplicate generated Fields",
+        "final reset removes metadata columns and restores actual defaults"
+      ],
+      "status": "passed",
+      "screenshot": "screenshots/135-Pod.png"
+    }
+  ]
+}
