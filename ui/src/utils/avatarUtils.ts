@@ -1,16 +1,16 @@
 /**
  * Extract initials from a name string.
- * Handles space-separated, dash-separated, and single-word names.
+ * Handles whitespace-separated, dash-separated, and single-word names.
  */
 export function getInitials(name: string): string {
-  if (!name) return 'NA';
-  if (name.length === 1) return name.toUpperCase();
+  const normalized = name.trim();
+  if (!normalized) return 'NA';
 
-  let parts = name.split(' ');
-  if (parts.length === 1) parts = name.split('-');
+  let parts = normalized.split(/\s+/);
+  if (parts.length === 1) parts = normalized.split('-').filter(Boolean);
 
-  if (parts.length === 1) {
-    return `${name[0].toUpperCase()}${name[1].toUpperCase()}`;
+  if (parts.length < 2) {
+    return (parts[0] ?? normalized).slice(0, 2).toUpperCase();
   }
 
   return `${parts[0][0].toUpperCase()}${parts[1][0].toUpperCase()}`;
