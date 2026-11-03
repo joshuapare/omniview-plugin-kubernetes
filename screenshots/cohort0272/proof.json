@@ -1,0 +1,39 @@
+{
+  "status": "passed",
+  "mode": "Actual browser IDE, canonical source-linked runtime; not packaged native desktop",
+  "hostRevision": "c32f3f88f701e4a8982d6b048c80ac79528fb538",
+  "pluginRevision": "20d54aa76f1f1be1d93ad1b1d7f5738cc42d7ce6",
+  "sdkRevision": "24144bf7c64e74a3b59d701b9fe7fb57914c78cd",
+  "sdkVersion": "v0.14.6",
+  "pluginReportedVersion": "0.15.0",
+  "review": "https://github.com/omniviewdev/plugin-sdk/pull/60",
+  "sourceEdits": false,
+  "actions": [
+    "Live emitting source delivered real log lines before EOF; tail advanced3411 to later3472 while Pod remained running. Actual ListSessions reported source columns-logs/logs Active(status0); no Connecting placeholder remained.",
+    "Silent source displayed 0 lines, No log entries yet, 1 source connected waiting for data; actual ListSessions reported Active(status0).",
+    "Completed source opened through default UI creation path (useLogSession default follow=true); exactly2 output lines and Log stream ended. Remained exactly2 and terminal after43.319sec, exceeding SDK30sec maximum reconnect delay; no repeated replay/reconnect appeared. Actual ListSessions statusClosed(2).",
+    "Pods Fields host ip search toggled Host IP on; checked and actual table header appeared.",
+    "Labels component search selected app.kubernetes.io/component; Annotations owner search selected example.com/owner.",
+    "Selected15 pane showed additions; removed Host IP, actual header disappeared, Selected14; close/reopen retained label+annotation selections.",
+    "Fresh real UI hero: closed log drawer; dismissed development toast using actual Close button; captured Fields tab with persistent Selected pane. Fresh contextual live-log capture shows actual Pods table plus normal log drawer, not fullscreen."
+  ],
+  "screenshots": [
+    "08-pods-fields-selected-hero.png",
+    "02-pods-label-search.png",
+    "03-pods-annotation-search.png",
+    "09-live-logs-context.png",
+    "05-silent-connected.png",
+    "07-finite-terminal-after-backoff.png"
+  ],
+  "actualPixelDimensions": {
+    "width": 2250,
+    "height": 1563
+  },
+  "limitations": [
+    "Source-linked browser runtime only; native desktop and published package not exercised.",
+    "Selected plugin source still reports version0.15.0; patch release metadata0.15.1 remains parent responsibility.",
+    "Actual ListSessions option echoes contain default/empty fields; request Follow assertion is grounded in actual unmodified UI default path plus ongoing real streaming, not echoed option metadata.",
+    "Node/CRD representative checks were performed in prior0271 proof, not repeated in this corrective0272 smoke."
+  ],
+  "provenance": "Unmodified real Chromium captures of actual IDE, not mocks or release-binary screenshots."
+}
