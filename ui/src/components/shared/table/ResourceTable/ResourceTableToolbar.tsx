@@ -6,6 +6,7 @@ import { LuColumns3 } from 'react-icons/lu';
 
 import { CreateResourceButton } from '../../../kubernetes/actions/create';
 import ColumnFilter from '../../../tables/ColumnFilter';
+import ColumnPicker from '../../../tables/ColumnFilter/ColumnPicker';
 import { DebouncedInput } from '../../../tables/DebouncedInput';
 import NamespaceSelect from '../../../tables/NamespaceSelect';
 import ResourceFilterSelect from '../../../tables/ResourceFilterSelect';
@@ -40,6 +41,7 @@ type ResourceTableToolbarProps<T extends RowData> = {
   filterOpen: boolean;
   setFilterOpen: (open: boolean) => void;
   allFlatColumns: Column<DataTableFeatures, T, unknown>[];
+  resetColumnVisibility: () => void;
 };
 
 const ResourceTableToolbar = <T extends RowData,>({
@@ -67,6 +69,7 @@ const ResourceTableToolbar = <T extends RowData,>({
   filterOpen,
   setFilterOpen,
   allFlatColumns,
+  resetColumnVisibility,
 }: ResourceTableToolbarProps<T>) => (
   <div className={styles.toolbar}>
     <DebouncedInput
@@ -134,15 +137,28 @@ const ResourceTableToolbar = <T extends RowData,>({
           </Tooltip.Portal>
         </Tooltip.Root>
       )}
-      <ColumnFilter
-        labels={labels}
-        setLabels={handleLabels}
-        annotations={annotations}
-        setAnnotations={handleAnnotations}
-        open={filterOpen}
-        onOpenChange={setFilterOpen}
-        columns={allFlatColumns}
-      />
+      {resourceKey === 'k8s:/pods' ? (
+        <ColumnPicker
+          labels={labels}
+          setLabels={handleLabels}
+          annotations={annotations}
+          setAnnotations={handleAnnotations}
+          open={filterOpen}
+          onOpenChange={setFilterOpen}
+          columns={allFlatColumns}
+          onReset={resetColumnVisibility}
+        />
+      ) : (
+        <ColumnFilter
+          labels={labels}
+          setLabels={handleLabels}
+          annotations={annotations}
+          setAnnotations={handleAnnotations}
+          open={filterOpen}
+          onOpenChange={setFilterOpen}
+          columns={allFlatColumns}
+        />
+      )}
     </Stack>
   </div>
 );

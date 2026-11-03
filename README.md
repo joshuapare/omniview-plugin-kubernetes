@@ -47,6 +47,17 @@ matching connection requirements. The host enforces the grant and existing conne
 credentials and native clients remain in the Kubernetes plugin. Core resources, including Secrets,
 are not exported through this grant. Flux-specific actions remain in the Flux plugin.
 
+## Pod table columns
+
+The Pod table's **Columns** control opens a searchable column workspace. Browse
+Fields, Labels, Annotations, or Selected; the Selected pane stays visible while
+you browse. Search matches full column names and metadata keys across groups.
+Checkboxes and remove buttons apply changes immediately, while required columns
+remain locked. Select results and Clear affect only the current results.
+Reset restores the Pod table's default fields and removes metadata columns.
+Field and metadata selections retain their existing persisted settings.
+Other resource tables keep their existing column controls.
+
 ## Creating and editing resources
 
 Create and edit use the same compact resource editor. The original Pod,

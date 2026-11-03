@@ -195,6 +195,12 @@ const ResourceTableContainer = <T extends RowData,>({
     setAnnotations((prev: Record<string, boolean>) => ({ ...prev, ...vals }));
   };
 
+  const resetColumnVisibility = () => {
+    setColumnVisibility(visibilityFromColumnDefs(columns));
+    setLabels((prev) => Object.fromEntries(Object.keys(prev).map((key) => [key, false])));
+    setAnnotations((prev) => Object.fromEntries(Object.keys(prev).map((key) => [key, false])));
+  };
+
   const allColumns = useMemo(() => [...columns, ...columnDefs], [columns, columnDefs]);
 
   // Auto-detect whether this resource has a namespace column
@@ -367,6 +373,7 @@ const ResourceTableContainer = <T extends RowData,>({
             filterOpen={filterOpen}
             setFilterOpen={setFilterOpen}
             allFlatColumns={table.getAllFlatColumns()}
+            resetColumnVisibility={resetColumnVisibility}
           />
           <DataTable.Container
             className={styles.container}
