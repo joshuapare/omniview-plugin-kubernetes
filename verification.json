@@ -1,6 +1,6 @@
 {
-  "foundation": "b2d45de9db3da7761e90d8581849cbd6e6e0774e",
-  "latestAggregate": "9a13537f571259ae5f0b78467bb137f48223cd34",
+  "foundation": "8f6cda4e296957ef3d909ee44abe03f64f1be9da",
+  "latestAggregate": "18ba18a172e2bbc8e1d1210e6d1c988bffe04469",
   "host": "bba77aef9dece94ad42386498f280e977d4914b7",
   "sdk": "458597dc74be0a203d7b1e602c1c35f02e5d3f54",
   "verification": {
@@ -10,7 +10,7 @@
     "lint": "passed",
     "nativeTypecheck": "passed",
     "tests": {
-      "passed": 1631,
+      "passed": 1632,
       "preexistingSkipped": 3
     },
     "newYorkAgeTests": 18,
@@ -294,7 +294,7 @@
       "issue": 106,
       "kind": "Node",
       "resourceKey": "k8s:/nodes",
-      "aggregateHead": "729e377926ade4eb59732d90686f4978fc83e78d",
+      "aggregateHead": "18ba18a172e2bbc8e1d1210e6d1c988bffe04469",
       "checks": [
         "actual routed rows; required columns locked",
         "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
@@ -326,7 +326,7 @@
       "issue": 108,
       "kind": "PersistentVolumeClaim",
       "resourceKey": "k8s:/persistentvolumeclaims",
-      "aggregateHead": "44738ffa731e8877dc5479a08581365e20c8c1a2",
+      "aggregateHead": "18ba18a172e2bbc8e1d1210e6d1c988bffe04469",
       "checks": [
         "actual routed rows; required columns locked",
         "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
@@ -742,7 +742,7 @@
       "issue": 135,
       "kind": "Pod",
       "resourceKey": "k8s:/pods",
-      "aggregateHead": "9a13537f571259ae5f0b78467bb137f48223cd34",
+      "aggregateHead": "18ba18a172e2bbc8e1d1210e6d1c988bffe04469",
       "checks": [
         "actual routed rows; required columns locked",
         "field toggle changes actual table; bulk clear preserves locked fields; reset restores observed defaults; empty search state",
